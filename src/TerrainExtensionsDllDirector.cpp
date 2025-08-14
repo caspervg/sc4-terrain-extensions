@@ -101,6 +101,7 @@ private:
 	cIGZWinMgr* pWinMgr;
 	TerrainToolRegistry mToolRegistry;
 	cRZAutoRefCount<GenericDragViewInputControl> mActiveDragControl;
+	cIGZMessageServer2* pMS2;
 
 	bool DoMessage(cIGZMessage2* pMsg)
 	{
@@ -201,7 +202,7 @@ private:
 	}
 
 	void ActivateBridgeDragMode(float height = 50.0f, float grade = 6.0f, float width = 2.0f) {
-		auto bridgeControl = new BridgeDragViewInputControl(pCity->GetTerrain(), pView3D);
+		auto bridgeControl = new BridgeDragViewInputControl(pCity->GetTerrain(), pWinMgr->GetMainWindow(), pView3D);
 		bridgeControl->SetParameterValue(GenericDragViewInputControl::ParameterType::Primary, height);
 		bridgeControl->SetParameterValue(GenericDragViewInputControl::ParameterType::Secondary, grade);
 		bridgeControl->SetParameterValue(GenericDragViewInputControl::ParameterType::Tertiary, width);
@@ -214,8 +215,14 @@ private:
 		if (!pView3D || !control) return false;
 
 		mActiveDragControl = control;
-		if (mActiveDragControl->Init() &&
-			pView3D->SetCurrentViewInputControl(mActiveDragControl, 0)) {
+		//if (mActiveDragControl->Init() &&
+		//	pView3D->SetCurrentViewInputControl(mActiveDragControl, 0)) {
+		//	return true;
+		//}
+		if (mActiveDragControl->Init()) {
+			Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "Activating drag control: %s", mActiveDragControl);
+			pView3D->SetCurrentViewInputControl(mActiveDragControl, 0);
+			Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "Activated drag control: %s", mActiveDragControl);
 			return true;
 		}
 
@@ -341,6 +348,7 @@ private:
 		{
 			pMS2->AddNotification(this, kSC4MessagePostCityInit);
 			pMS2->AddNotification(this, kSC4MessagePreCityShutdown);
+			this->pMS2 = pMS2;
 		}
 
 		return true;

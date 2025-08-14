@@ -85,13 +85,13 @@ private:
 	uint32_t mSecondaryTextID;
 
 public:
-	GenericDragViewInputControl(uint32_t controlID, cISTETerrain* pTerrain, cISC4View3DWin* pView3DWin,
+	GenericDragViewInputControl(uint32_t controlID, cISTETerrain* pTerrain, cIGZWin* pWindow, cISC4View3DWin* pView3DWin,
 		const std::string& toolName, const std::string& toolDescription)
 		: mRefCount(0)
 		, mID(controlID)
 		, mCursorIID(0)
 		, mpCursor(nullptr)
-		, mpWindow(nullptr)
+		, mpWindow(pWindow)
 		, mpView3DWin(pView3DWin)
 		, mpTerrain(pTerrain)
 		, mIsDragging(false)
@@ -143,8 +143,9 @@ public:
 		return false;
 	}
 
-	// cIGZUnknown implementation
-	bool QueryInterface(uint32_t riid, void** ppvObj) override {
+	// cIGZUnknown implementation with __thiscall calling convention
+	bool __thiscall QueryInterface(uint32_t riid, void** ppvObj) override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "QueryInterface called for %s drag mode control, requested IID: 0x%X", mToolName.c_str(), riid);
 		if (riid == GZIID_cIGZUnknown || riid == GZIID_GenericDragViewInputControl) {
 			*ppvObj = static_cast<cISC4ViewInputControl*>(this);
 			AddRef();
@@ -153,9 +154,14 @@ public:
 		return false;
 	}
 
-	uint32_t AddRef() override { return ++mRefCount; }
+	uint32_t __thiscall AddRef() override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "Adding reference to %s drag mode control, ref count: %u", mToolName.c_str(), mRefCount);
 
-	uint32_t Release() override {
+		return ++mRefCount; }
+
+	uint32_t __thiscall Release() override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "Releasing %s drag mode control, ref count: %u", mToolName.c_str(), mRefCount);
+
 		if (--mRefCount == 0) {
 			delete this;
 			return 0;
@@ -163,14 +169,16 @@ public:
 		return mRefCount;
 	}
 
-	// cISC4ViewInputControl implementation
-	bool Init() override {
+	// cISC4ViewInputControl implementation with __thiscall calling convention
+	bool __thiscall Init() override {
 		mIsInitialized = true;
 		mpLogger->WriteLineFormatted(LogLevel::Info, "%s drag mode initialized", mToolName.c_str());
 		return true;
 	}
 
-	bool Shutdown() override {
+	bool __thiscall Shutdown() override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "%s drag mode shutdown requested", mToolName.c_str());
+
 		mIsInitialized = false;
 		if (mIsDragging) {
 			CancelDrag();
@@ -180,19 +188,29 @@ public:
 		return true;
 	}
 
-	uint32_t GetID() override { return mID; }
-	bool SetID(uint32_t id) override { mID = id; return true; }
-	cIGZCursor* GetCursor() override { return mpCursor; }
-	bool SetCursor(cIGZCursor* cursor) override { mpCursor = cursor; return true; }
-	bool SetCursor(uint32_t cursor) override { mCursorIID = cursor; return true; }
-	bool SetWindow(cIGZWin* window) override { mpWindow = window; return true; }
-	bool IsSelfScrollingView() override { return false; }
-	bool ShouldStack() override { return true; }
+	uint32_t __thiscall GetID() override { return mID; }
+	bool __thiscall SetID(uint32_t id) override { mID = id; return true; }
+	cIGZCursor* __thiscall GetCursor() override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "Getting cursor for %s drag mode control: %p", mToolName.c_str(), mpCursor);
+		return mpCursor;
+	}
+	bool __thiscall SetCursor(cIGZCursor* cursor) override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "Setting cursor for %s drag mode control to %p", mToolName.c_str(), cursor);
+		mpCursor = cursor; return true;
+	}
+	bool __thiscall SetCursor(uint32_t cursor) override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "Setting cursor IID for %s drag mode control to 0x%X", mToolName.c_str(), cursor);
+		mCursorIID = cursor; return true;
+	}
+	bool __thiscall SetWindow(cIGZWin* window) override { mpWindow = window; return true; }
+	bool __thiscall IsSelfScrollingView() override { return false; }
+	bool __thiscall ShouldStack() override { return true; }
 
-	// Input handlers
-	bool OnCharacter(char value) override { return false; }
+	bool __thiscall OnCharacter(char value) override { return false; }
 
-	bool OnKeyDown(uint32_t keyCode) override {
+	bool __thiscall OnKeyDown(uint32_t keyCode) override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "OnKeyDown: keyCode=0x%X", keyCode);
+
 		switch (keyCode) {
 		case 0x10: mShiftPressed = true; UpdateParameterHints(); break;
 		case 0x11: mCtrlPressed = true; UpdateParameterHints(); break;
@@ -202,7 +220,9 @@ public:
 		return false;
 	}
 
-	bool OnKeyUp(uint32_t keyCode) override {
+	bool __thiscall OnKeyUp(uint32_t keyCode) override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "OnKeyUp: keyCode=0x%X", keyCode);
+
 		switch (keyCode) {
 		case 0x10: mShiftPressed = false; UpdateParameterHints(); break;
 		case 0x11: mCtrlPressed = false; UpdateParameterHints(); break;
@@ -211,7 +231,7 @@ public:
 		return false;
 	}
 
-	bool OnMouseDownL(int32_t screenX, uint32_t screenY) override {
+	bool __thiscall OnMouseDownL(int32_t screenX, uint32_t screenY) override {
 		int32_t tileX, tileZ;
 		if (ScreenToTileCoordinates(screenX, static_cast<int32_t>(screenY), tileX, tileZ)) {
 			StartDrag(tileX, tileZ, screenX, static_cast<int32_t>(screenY));
@@ -220,7 +240,7 @@ public:
 		return false;
 	}
 
-	bool OnMouseDownR(int32_t screenX, uint32_t screenY) override {
+	bool __thiscall OnMouseDownR(int32_t screenX, uint32_t screenY) override {
 		if (mIsDragging) {
 			CancelDrag();
 			return true;
@@ -228,7 +248,7 @@ public:
 		return false;
 	}
 
-	bool OnMouseUpL(int32_t screenX, uint32_t screenY) override {
+	bool __thiscall OnMouseUpL(int32_t screenX, uint32_t screenY) override {
 		if (mIsDragging) {
 			int32_t tileX, tileZ;
 			if (ScreenToTileCoordinates(screenX, static_cast<int32_t>(screenY), tileX, tileZ)) {
@@ -239,9 +259,13 @@ public:
 		return false;
 	}
 
-	bool OnMouseUpR(int32_t screenX, uint32_t screenY) override { return false; }
+	bool __thiscall OnMouseUpR(int32_t screenX, uint32_t screenY) override {
+		return false; 
+	}
 
-	bool OnMouseMove(int32_t screenX, uint32_t screenY) override {
+	bool __thiscall OnMouseMove(int32_t screenX, uint32_t screenY) override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "OnMouseMove: screenX=%d, screenY=%d", screenX, screenY);
+
 		mLastFeedbackX = screenX;
 		mLastFeedbackY = static_cast<int32_t>(screenY);
 
@@ -258,7 +282,9 @@ public:
 		return false;
 	}
 
-	bool OnMouseWheel(int32_t delta, int32_t screenX, uint32_t screenY, int32_t unknown) override {
+	bool __thiscall OnMouseWheel(int32_t delta, int32_t screenX, uint32_t screenY, int32_t unknown) override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "OnMouseWheel: delta=%d, screenX=%d, screenY=%d", delta, screenX, screenY);
+
 		if (!mIsInitialized) return false;
 
 		ParameterType targetParam = GetScrollTargetParameter();
@@ -281,20 +307,26 @@ public:
 		return false;
 	}
 
-	bool OnMouseExit() override {
+	bool __thiscall OnMouseExit() override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "OnMouseExit");
+
 		if (mIsDragging) {
 			CancelDrag();
 		}
 		return true;
 	}
 
-	bool Activate() override {
+	bool __thiscall Activate() override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "Activate");
+
 		mpLogger->WriteLineFormatted(LogLevel::Info, "%s: %s", mToolName.c_str(), mToolDescription.c_str());
 		ShowInitialFeedback();
-		return true;
+ 		return true;
 	}
 
-	bool Deactivate() override {
+	bool __thiscall Deactivate() override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "Deactivate");
+
 		if (mIsDragging) {
 			CancelDrag();
 		}
@@ -303,7 +335,7 @@ public:
 		return true;
 	}
 
-	bool AmCapturing() override { return mIsDragging; }
+	bool __thiscall AmCapturing() override { return mIsDragging; }
 
 private:
 	ParameterType GetScrollTargetParameter() {
@@ -405,10 +437,10 @@ private:
 		cRZBaseString dragText = BuildDragString();
 		cRZBaseString detailText = BuildDragDetailString();
 
-		//mpView3DWin->SetCursorText(mPrimaryTextID, 0, dragText, detailText, 0);
-		//mpView3DWin->SetCursorText(mSecondaryTextID, 0,
-		//	cRZBaseString("Release to execute | Right-click to cancel"),
-		//	BuildHintString(), 0);
+		/*mpView3DWin->SetCursorText(mPrimaryTextID, 0, dragText, detailText, 0);
+		mpView3DWin->SetCursorText(mSecondaryTextID, 0,
+			cRZBaseString("Release to execute | Right-click to cancel"),
+			BuildHintString(), 0);*/
 		mShowingFeedback = true;
 	}
 
