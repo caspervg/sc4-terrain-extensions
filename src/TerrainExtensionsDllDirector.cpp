@@ -58,6 +58,45 @@ static constexpr uint32_t kTerrainExtensionsDirectorID = 0xA20FD558;	// Randomly
 static constexpr uint32_t kTerrainExtensionsCheatID = 0x903d4018;	// Randomly generated ID for the cheat code to avoid conflicts with other mods
 static constexpr std::string_view kTerrainExtensionsCheatString = "earthbender";
 
+using tLayInJogStreets = void(__thiscall*)(void* _this, int* rect, int netType);
+// Globals
+static tLayInJogStreets g_OrigLayInJogStreets = nullptr;
+static bool g_EnableLayInJogStreets = false; // set true to run original
+
+using tPlaceNet = char(__thiscall*)(void* mgr, int x1, int y1, int x2, int y2, int netId, void* mgr2, int dir, int mask);
+static tPlaceNet oPlaceNet;
+static bool hooked = false;
+
+char __fastcall hkPlaceNet(void* mgr, void*, int x1, int y1, int x2, int y2, int netId, void* mgr2, int dir, int mask) {
+	Logger& logger = Logger::GetInstance();
+	logger.WriteLineFormatted(LogLevel::Info, "PlaceNet (%d,%d)->(%d,%d), netId=0x%X (%d), dir=0x%X, mask=0x%X", x1, y1, x2, y2, netId, netId, dir, mask);
+	return oPlaceNet(mgr, x1, y1, x2, y2, netId, mgr2, dir, mask);
+}
+
+void HookPlaceNetFromZoneDev(void* zoneDevThis) {
+	void* mgr = *(void**)((uint8_t*)zoneDevThis + 0x48);
+	auto** vtbl = *(uintptr_t***)mgr;
+	oPlaceNet = (tPlaceNet)vtbl[0x1C / 4];
+	Patcher::InstallJumpTableHook((uintptr_t)&vtbl[0x1C / 4], (uintptr_t)&hkPlaceNet);
+}
+
+// Free (or static) hook function
+void __fastcall hkLayInJogStreets(void* _this, void* /*edx*/, int* rect, int netType)
+{
+	Logger& logger = Logger::GetInstance();
+	logger.WriteLineFormatted(LogLevel::Info,
+		"[LayInJogStreets] this=%p rect=%p [%d,%d,%d,%d] net=%d",
+		_this, rect, rect[0], rect[1], rect[2], rect[3], netType);
+
+	if (!hooked) {
+			HookPlaceNetFromZoneDev(_this);
+			hooked = true;
+	}
+
+	if (g_EnableLayInJogStreets && g_OrigLayInJogStreets)
+		g_OrigLayInJogStreets(_this, rect, netType); // call original
+	// else: disabled (no jog streets)
+}
 
 class TerrainExtensionsDllDirector final : public cRZMessage2COMDirector
 {
@@ -89,7 +128,6 @@ public:
 
 private:
 	cIGZCheatCodeManager* pCheatCodeManager;
-	cISC4View3DWin* pView3D;
 	cISC4City* pCity;
 	cISC4View3DWin* pView3D;
 	cIGZWinMgr* pWinMgr;
@@ -144,6 +182,27 @@ private:
 						reinterpret_cast<void**>(&pView3D)))
 					{
 						cISC4City* pCity = pSC4App->GetCity();
+
+						uintptr_t addr = 0x00492F65;
+						for (int i = 0; i < 5; i++)
+						{
+							Patcher::OverwriteMemory(addr + i, 0x90);
+							logger.WriteLineFormatted(LogLevel::Info, "Overwriting byte at 0x%08X with NOP", addr + i);
+						}
+						uintptr_t addr2 = 0x00492f8f;
+						for (int i = 0; i < 5; i++)
+						{
+							Patcher::OverwriteMemory(addr + i, 0x90);
+							logger.WriteLineFormatted(LogLevel::Info, "Overwriting byte at 0x%08X with NOP", addr + i);
+						}
+
+						constexpr uintptr_t kAddr_LayInJogStreets = 0x00730D30; // from your dump
+						// Prologue starts with `83 EC 20`; 5 bytes stolen is fine.
+						g_OrigLayInJogStreets = reinterpret_cast<tLayInJogStreets>(
+							Patcher::InstallJumpHook(kAddr_LayInJogStreets,
+								reinterpret_cast<uintptr_t>(&hkLayInJogStreets),
+								11));
+
 
 						if (pCity)
 						{
@@ -216,11 +275,15 @@ private:
 
 		if (cheatID == kTerrainExtensionsCheatID)
 		{
+			g_EnableLayInJogStreets = !g_EnableLayInJogStreets;
+
+
 			const cIGZString* pCheatString = static_cast<const cIGZString*>(pStandardMsg->GetVoid2());
 			const std::string_view cheatStringView(pCheatString->Data(), pCheatString->Strlen());
 			const size_t cheatStrignLength = cheatStringView.size();
 
 			Logger& logger = Logger::GetInstance();
+			logger.WriteLineFormatted(LogLevel::Info, "g_EnableLayInJogStreets: %d", g_EnableLayInJogStreets);
 			logger.WriteLineFormatted(LogLevel::Info, "Cheat code issued: %s (ID: 0x%x)", cheatStringView.data(), cheatID);
 
 			std::vector<std::string> tokens = SplitString(std::string(cheatStringView));
@@ -238,9 +301,9 @@ private:
 			}
 
 			args::ArgumentParser parser("Terrain extension tools");
-				args::Group commands(parser, "commands");
+			args::Group commands(parser, "commands");
 
-				mToolRegistry.RegisterAllArguments(commands);
+			mToolRegistry.RegisterAllArguments(commands);
 			args::HelpFlag help(parser, "help", "Show this help menu", { "help" });
 			try {
 				parser.ParseCLI(argv.size(), argv.data());
