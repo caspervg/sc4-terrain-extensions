@@ -46,8 +46,12 @@
 #include "TerrainToolRegistry.hpp"
 #include "ConstantGradeTool.cpp"
 #include "FlattenTool.cpp"
+#include "BridgeApproachTool.cpp"
+#include "TunnelApproachTool.cpp"
 #include <sstream>
 #include "Patcher.h"
+//#include "GenericDragViewInputControl.cpp"
+#include "BridgeDragViewInputControl.cpp"
 
 static constexpr uint32_t kMessageCheatIssued = 0x230E27AC;
 static constexpr uint32_t kSC4MessagePostCityInit = 0x26D31EC1;
@@ -57,6 +61,9 @@ static constexpr uint32_t kTerrainExtensionsDirectorID = 0xA20FD558;	// Randomly
 
 static constexpr uint32_t kTerrainExtensionsCheatID = 0x903d4018;	// Randomly generated ID for the cheat code to avoid conflicts with other mods
 static constexpr std::string_view kTerrainExtensionsCheatString = "earthbender";
+
+static constexpr uint32_t kTerrainExtensionsBridgeCheatID = 0x9773F4CD;
+static constexpr std::string_view kTerrainExtensionsBridgeCheatString = "bridgebuilder";
 
 
 class TerrainExtensionsDllDirector final : public cRZMessage2COMDirector
@@ -93,6 +100,7 @@ private:
 	cISC4City* pCity;
 	cIGZWinMgr* pWinMgr;
 	TerrainToolRegistry mToolRegistry;
+	cRZAutoRefCount<GenericDragViewInputControl> mActiveDragControl;
 
 	bool DoMessage(cIGZMessage2* pMsg)
 	{
@@ -165,6 +173,13 @@ private:
 					kTerrainExtensionsCheatString.size()
 				)
 			);
+			pCheatCodeManager->RegisterCheatCode(
+				kTerrainExtensionsBridgeCheatID,
+				cRZBaseString(
+					kTerrainExtensionsBridgeCheatString.data(),
+					kTerrainExtensionsBridgeCheatString.size()
+				)
+			);
 		}
 		else {
 			logger.WriteLine(LogLevel::Error, "PostCityInit: Cheat code manager is not initialized.");
@@ -178,10 +193,36 @@ private:
 
 		mToolRegistry.RegisterTool(std::make_unique<ConstantGradeTool>(pTerrain));
 		mToolRegistry.RegisterTool(std::make_unique<FlattenTool>(pTerrain));
+		mToolRegistry.RegisterTool(std::make_unique<BridgeApproachTool>(pTerrain));
+		mToolRegistry.RegisterTool(std::make_unique<TunnelApproachTool>(pTerrain));
 
 		logger.WriteLine(LogLevel::Info, "Terrain tools setup complete.");
 		mToolRegistry.ListTools();
 	}
+
+	void ActivateBridgeDragMode(float height = 50.0f, float grade = 6.0f, float width = 2.0f) {
+		auto bridgeControl = new BridgeDragViewInputControl(pCity->GetTerrain(), pView3D);
+		bridgeControl->SetParameterValue(GenericDragViewInputControl::ParameterType::Primary, height);
+		bridgeControl->SetParameterValue(GenericDragViewInputControl::ParameterType::Secondary, grade);
+		bridgeControl->SetParameterValue(GenericDragViewInputControl::ParameterType::Tertiary, width);
+
+		if (ActivateDragControl(bridgeControl)) {
+			ShowMessageBox("Bridge Drag Mode", "Drag to create bridge approaches");
+		}
+	}
+	bool ActivateDragControl(GenericDragViewInputControl* control) {
+		if (!pView3D || !control) return false;
+
+		mActiveDragControl = control;
+		if (mActiveDragControl->Init() &&
+			pView3D->SetCurrentViewInputControl(mActiveDragControl, 0)) {
+			return true;
+		}
+
+		mActiveDragControl = nullptr;
+		return false;
+	}
+
 
 	void ShowMessageBox(const std::string& title, const std::string& message) {
 		if (pWinMgr) {
@@ -213,6 +254,11 @@ private:
 	void ProcessCheat(cIGZMessage2Standard* pStandardMsg) {
 		const uint32_t cheatID = static_cast<uint32_t>(pStandardMsg->GetData1());
 
+		if (cheatID == kTerrainExtensionsBridgeCheatID) {
+			Logger::GetInstance().WriteLine(LogLevel::Info, "Bridge approach cheat code issued");
+			ActivateBridgeDragMode();
+			return;
+		}
 		if (cheatID == kTerrainExtensionsCheatID)
 		{
 			const cIGZString* pCheatString = static_cast<const cIGZString*>(pStandardMsg->GetVoid2());

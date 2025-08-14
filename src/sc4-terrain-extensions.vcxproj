@@ -11,9 +11,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BridgeDragViewInputControl.cpp" />
+    <ClCompile Include="GenericDragViewInputControl.cpp" />
+    <ClCompile Include="TunnelApproachTool.cpp" />
     <ClInclude Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\FileSystem.h" />
     <ClInclude Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\Logger.h" />
     <ClInclude Include="..\vendor\gzcom-dll\include\cISC4App.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\include\cISC4View3DWin.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\include\cISC4ViewInputControl.h" />
     <ClInclude Include="..\vendor\gzcom-dll\include\cISTETerrain.h" />
     <ClInclude Include="..\vendor\gzcom-dll\include\cRZBaseString.h" />
     <ClInclude Include="..\vendor\gzcom-dll\include\cRZCOMDllDirector.h" />
@@ -27,6 +32,7 @@
     <ClCompile Include="..\vendor\gzcom-dll\src\cRZMessage2.cpp" />
     <ClCompile Include="..\vendor\gzcom-dll\src\cRZMessage2Standard.cpp" />
     <ClCompile Include="..\vendor\sc4-dll-basics\src\Patcher.cpp" />
+    <ClCompile Include="BridgeApproachTool.cpp" />
     <ClCompile Include="ConstantGradeTool.cpp" />
     <ClCompile Include="FlattenTool.cpp" />
     <ClCompile Include="TerrainExtensionsDllDirector.cpp" />
