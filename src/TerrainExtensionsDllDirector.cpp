@@ -91,7 +91,6 @@ private:
 	cIGZCheatCodeManager* pCheatCodeManager;
 	cISC4View3DWin* pView3D;
 	cISC4City* pCity;
-	cISC4View3DWin* pView3D;
 	cIGZWinMgr* pWinMgr;
 	TerrainToolRegistry mToolRegistry;
 
