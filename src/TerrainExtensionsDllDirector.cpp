@@ -33,6 +33,7 @@
 #include "cIGZWin.h"
 #include "cIGZWinKeyAccelerator.h"
 #include "cIGZWinKeyAcceleratorRes.h"
+#include "cIGZWinMgr.h"
 #include "cISC4App.h"
 #include "cISC4City.h"
 #include "cISC4View3DWin.h"
@@ -44,6 +45,9 @@
 #include "args.hxx"
 #include "TerrainToolRegistry.hpp"
 #include "ConstantGradeTool.cpp"
+#include "FlattenTool.cpp"
+#include <sstream>
+#include "Patcher.h"
 
 static constexpr uint32_t kMessageCheatIssued = 0x230E27AC;
 static constexpr uint32_t kSC4MessagePostCityInit = 0x26D31EC1;
@@ -61,7 +65,8 @@ public:
 	TerrainExtensionsDllDirector()
 		: pCheatCodeManager(nullptr),
 		  pCity(nullptr),
-		  pView3D(nullptr)
+		  pView3D(nullptr),
+		  pWinMgr(nullptr)
 	{
 		Logger& logger = Logger::GetInstance();
 
@@ -86,6 +91,8 @@ private:
 	cIGZCheatCodeManager* pCheatCodeManager;
 	cISC4View3DWin* pView3D;
 	cISC4City* pCity;
+	cISC4View3DWin* pView3D;
+	cIGZWinMgr* pWinMgr;
 	TerrainToolRegistry mToolRegistry;
 
 	bool DoMessage(cIGZMessage2* pMsg)
@@ -107,6 +114,7 @@ private:
 
 		return true;
 	}
+
 
 	void PostCityInit(cIGZMessage2Standard* pStandardMsg)
 	{
@@ -170,9 +178,21 @@ private:
 		logger.WriteLine(LogLevel::Info, "Setting up terrain tools...");
 
 		mToolRegistry.RegisterTool(std::make_unique<ConstantGradeTool>(pTerrain));
+		mToolRegistry.RegisterTool(std::make_unique<FlattenTool>(pTerrain));
 
 		logger.WriteLine(LogLevel::Info, "Terrain tools setup complete.");
 		mToolRegistry.ListTools();
+	}
+
+	void ShowMessageBox(const std::string& title, const std::string& message) {
+		if (pWinMgr) {
+			cRZBaseString titleStr(title);
+			cRZBaseString messageStr(message);
+			pWinMgr->GZMsgBox(messageStr, titleStr, 0, true, 0);
+		}
+		else {
+			Logger::GetInstance().WriteLineFormatted(LogLevel::Error, "Failed to get window manager for message box: %s", message.c_str());
+		}
 	}
 
 	std::vector<std::string> SplitString(const std::string& input) {
@@ -217,28 +237,39 @@ private:
 				argv.push_back(const_cast<char*>(tokens[i].c_str())); // Use c_str() for stability
 			}
 
-			try {
-				args::ArgumentParser parser("Terrain extention tools");
+			args::ArgumentParser parser("Terrain extension tools");
 				args::Group commands(parser, "commands");
 
 				mToolRegistry.RegisterAllArguments(commands);
-
+			args::HelpFlag help(parser, "help", "Show this help menu", { "help" });
+			try {
 				parser.ParseCLI(argv.size(), argv.data());
 
 				if (!mToolRegistry.ExecuteAnyTool(parser)) {
-					// If no tool executed, show help
-					Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "No matching command found");
+					ShowMessageBox("Earthbender help", parser.Help());
+					Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "No matching command found - showing help");
 				}
 			}
-			catch (const args::Help& h) {
-				// Show help
-				Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "Parse help: %s", h);
+			catch (args::Help) {
+				ShowMessageBox("Earthbender help", parser.Help());
+				Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "Help requested");
 			}
-			catch (const args::ParseError& e) {
+			catch (args::ParseError e) {
+				std::string errorMsg = "Command parse error: ";
+				errorMsg += e.what();
+				errorMsg += "\n\n";
+				errorMsg += parser.Help();
+				ShowMessageBox("Earthbender parse error", errorMsg);
 				Logger::GetInstance().WriteLineFormatted(LogLevel::Error, "Parse error: %s", e.what());
 			}
-
-
+			catch (args::ValidationError e) {
+				std::string errorMsg = "Command validation error: ";
+				errorMsg += e.what();
+				errorMsg += "\n\n";
+				errorMsg += parser.Help();
+				ShowMessageBox("Earthbender validation error", errorMsg);
+				Logger::GetInstance().WriteLineFormatted(LogLevel::Error, "Validation error: %s", e.what());
+			}
 		}
 	}
 
@@ -257,6 +288,7 @@ private:
 			if (pApp->QueryInterface(GZIID_cISC4App, sc4App.AsPPVoid()))
 			{
 				pCheatCodeManager = sc4App->GetCheatCodeManager();
+				pWinMgr = sc4App->GetMainWindow()->GetWindowManager();
 			}
 		}
 

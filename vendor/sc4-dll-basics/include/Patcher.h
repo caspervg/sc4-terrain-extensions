@@ -38,4 +38,6 @@ namespace Patcher
 	void InstallCallHook(uintptr_t address, uintptr_t pfnFunc);
 
 	void OverwriteMemory(uintptr_t address, uint8_t newValue);
+
+	uintptr_t InstallJumpHook(uintptr_t address, uintptr_t destination, size_t stolenBytes = 5);
 }

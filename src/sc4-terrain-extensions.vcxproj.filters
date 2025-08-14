@@ -60,6 +60,9 @@
     <ClInclude Include="TerrainToolRegistry.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\vendor\sc4-dll-basics\include\Patcher.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="version.rc">
@@ -94,6 +97,12 @@
       <Filter>Source Files\GZCOM</Filter>
     </ClCompile>
     <ClCompile Include="ConstantGradeTool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="FlattenTool.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vendor\sc4-dll-basics\src\Patcher.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

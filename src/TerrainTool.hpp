@@ -54,14 +54,12 @@ public:
 		mLogger->WriteLineFormatted(LogLevel::Info, "Terrain refreshed in rectangle");
 	}
 
-	int ClampXToTerrainBounds(int x) {
-		if (x < 0) return 0;
+	uint32_t ClampXToTerrainBounds(uint32_t x) {
 		if (x >= mTerrain->CellCountX()) return mTerrain->CellCountX() - 1;
 		return x;
 	}
 
-	int ClampZToTerrainBounds(int z) {
-		if (z < 0) z = 0;
+	uint32_t ClampZToTerrainBounds(uint32_t z) {
 		if (z >= mTerrain->CellCountZ()) return mTerrain->CellCountZ() - 1;
 		return z;
 	}

@@ -20,12 +20,15 @@
     <ClInclude Include="..\vendor\gzcom-dll\include\cRZMessage2COMDirector.h" />
     <ClInclude Include="..\vendor\gzcom-dll\include\cRZMessage2Standard.h" />
     <ClInclude Include="..\vendor\gzcom-dll\include\SC4Rect.h" />
+    <ClInclude Include="..\vendor\sc4-dll-basics\include\Patcher.h" />
     <ClInclude Include="..\vendor\sc4-dll-basics\include\SC4VersionDetection.h" />
     <ClCompile Include="..\vendor\gzcom-dll\src\cRZBaseString.cpp" />
     <ClCompile Include="..\vendor\gzcom-dll\src\cRZCOMDllDirector.cpp" />
     <ClCompile Include="..\vendor\gzcom-dll\src\cRZMessage2.cpp" />
     <ClCompile Include="..\vendor\gzcom-dll\src\cRZMessage2Standard.cpp" />
+    <ClCompile Include="..\vendor\sc4-dll-basics\src\Patcher.cpp" />
     <ClCompile Include="ConstantGradeTool.cpp" />
+    <ClCompile Include="FlattenTool.cpp" />
     <ClCompile Include="TerrainExtensionsDllDirector.cpp" />
     <ClInclude Include="TerrainTool.hpp" />
     <ClInclude Include="TerrainToolRegistry.hpp" />
