@@ -11,26 +11,40 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\cRZBaseString.cpp" />
+    <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\cRZBaseUnknown.cpp" />
+    <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\cRZCellMap.cpp" />
+    <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\cRZCOMDllDirector.cpp" />
+    <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\cRZMessage2.cpp" />
+    <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\cS3DVector3.cpp" />
+    <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\cSC4BaseViewInputControl.cpp" />
+    <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\SC4UI.cpp" />
     <ClCompile Include="BridgeDragViewInputControl.cpp" />
-    <ClCompile Include="GenericDragViewInputControl.cpp" />
+    <ClCompile Include="BaseDragViewInputControl.cpp" />
     <ClCompile Include="TunnelApproachTool.cpp" />
     <ClInclude Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\FileSystem.h" />
     <ClInclude Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\Logger.h" />
-    <ClInclude Include="..\vendor\gzcom-dll\include\cISC4App.h" />
-    <ClInclude Include="..\vendor\gzcom-dll\include\cISC4View3DWin.h" />
-    <ClInclude Include="..\vendor\gzcom-dll\include\cISC4ViewInputControl.h" />
-    <ClInclude Include="..\vendor\gzcom-dll\include\cISTETerrain.h" />
-    <ClInclude Include="..\vendor\gzcom-dll\include\cRZBaseString.h" />
-    <ClInclude Include="..\vendor\gzcom-dll\include\cRZCOMDllDirector.h" />
-    <ClInclude Include="..\vendor\gzcom-dll\include\cRZMessage2COMDirector.h" />
-    <ClInclude Include="..\vendor\gzcom-dll\include\cRZMessage2Standard.h" />
-    <ClInclude Include="..\vendor\gzcom-dll\include\SC4Rect.h" />
+    <ClInclude Include="..\vendor\EASTL\include\EASTL\vector.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cIGZCursor.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cIGZCursorManager.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cIGZWin.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cIGZWinMgr.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISC43DRender.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISC4View3DWin.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISC4ViewInputControl.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISTETerrain.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cRZAutoRefCount.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cRZBaseString.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cRZCOMDllDirector.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cRZMessage2Standard.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cRZUnknown.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cS3DVector3.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cSC4BaseViewInputControl.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\SC4Point.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\SC4Rect.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\SC4String.h" />
     <ClInclude Include="..\vendor\sc4-dll-basics\include\Patcher.h" />
     <ClInclude Include="..\vendor\sc4-dll-basics\include\SC4VersionDetection.h" />
-    <ClCompile Include="..\vendor\gzcom-dll\src\cRZBaseString.cpp" />
-    <ClCompile Include="..\vendor\gzcom-dll\src\cRZCOMDllDirector.cpp" />
-    <ClCompile Include="..\vendor\gzcom-dll\src\cRZMessage2.cpp" />
-    <ClCompile Include="..\vendor\gzcom-dll\src\cRZMessage2Standard.cpp" />
     <ClCompile Include="..\vendor\sc4-dll-basics\src\Patcher.cpp" />
     <ClCompile Include="BridgeApproachTool.cpp" />
     <ClCompile Include="ConstantGradeTool.cpp" />
@@ -58,7 +72,7 @@
     <ProjectGuid>{8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942}</ProjectGuid>
     <RootNamespace>sc4terrainextensions</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>SC4TerrainExtension</ProjectName>
+    <ProjectName>SC4TerrainExtensions</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -98,7 +112,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>..\vendor\sc4-dll-basics\include;..\vendor\gzcom-dll\include;..\vendor\EASTL\include;..\vendor\EABase\include\Common;.\;.\public\include;.\child-directors;.\more-building-styles</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\vendor\sc4-dll-basics\include;..\vendor\gzcom-dll\gzcom-dll\include;..\vendor\EASTL\include;..\vendor\EABase\include\Common;.\;.\public\include;.\child-directors;.\more-building-styles</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <UseFullPaths>false</UseFullPaths>
@@ -124,7 +138,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>.\vendor\sc4-dll-basics\include;..\vendor\gzcom-dll\include;..\vendor\EASTL\include;..\vendor\EABase\include\Common;.\;.\public\include;.\child-directors;.\more-building-styles</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\vendor\sc4-dll-basics\include;..\vendor\gzcom-dll\gzcom-dll\include;..\vendor\EASTL\include;..\vendor\EABase\include\Common;.\;.\public\include;.\child-directors;.\more-building-styles</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>

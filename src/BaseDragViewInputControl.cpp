@@ -1,6 +1,6 @@
 #pragma once
 #include "cISTETerrain.h"
-#include "cISC4ViewInputControl.h"
+#include "cSC4BaseViewInputControl.h"
 #include "cISC4View3DWin.h"
 #include "cRZAutoRefCount.h"
 #include "cRZBaseString.h"
@@ -10,7 +10,7 @@
 #include <map>
 
 // Base class for all drag-based terrain tools
-class GenericDragViewInputControl : public cISC4ViewInputControl {
+class BaseDragViewInputControl : public cSC4BaseViewInputControl {
 public:
 	// Parameter types that can be adjusted with scroll wheel
 	enum class ParameterType {
@@ -44,30 +44,22 @@ public:
 	using DragFinishCallback = std::function<void(int32_t startX, int32_t startZ, int32_t endX, int32_t endZ)>;
 	using ValidateCallback = std::function<bool(int32_t startX, int32_t startZ, int32_t endX, int32_t endZ, std::string& errorMsg)>;
 
-	static const uint32_t GZIID_GenericDragViewInputControl = 0xA2771F6A;
-
 private:
-	uint32_t mRefCount;
-	uint32_t mID;
-	uint32_t mCursorIID;
-	cIGZCursor* mpCursor;
-	cIGZWin* mpWindow;
 	cISC4View3DWin* mpView3DWin;
+	cIGZWin* mpWindow;
 	cISTETerrain* mpTerrain;
+
 	Logger* mpLogger;
 
 	// Drag state
 	bool mIsDragging;
-	bool mIsInitialized;
 	bool mShowingFeedback;
 	int32_t mStartTileX, mStartTileZ;
 	int32_t mCurrentTileX, mCurrentTileZ;
 	int32_t mLastFeedbackX, mLastFeedbackY;
 
-	// Modifier key tracking
-	bool mShiftPressed;
-	bool mCtrlPressed;
-	bool mAltPressed;
+	// Current modifier state (cached from last event)
+	uint32_t mCurrentModifiers;
 
 	// Tool configuration
 	std::string mToolName;
@@ -85,24 +77,18 @@ private:
 	uint32_t mSecondaryTextID;
 
 public:
-	GenericDragViewInputControl(uint32_t controlID, cISTETerrain* pTerrain, cIGZWin* pWindow, cISC4View3DWin* pView3DWin,
+	BaseDragViewInputControl(uint32_t controlID, cISTETerrain* pTerrain, cIGZWin* pWindow, cISC4View3DWin* pView3DWin,
 		const std::string& toolName, const std::string& toolDescription)
-		: mRefCount(0)
-		, mID(controlID)
-		, mCursorIID(0)
-		, mpCursor(nullptr)
-		, mpWindow(pWindow)
+		: cSC4BaseViewInputControl(controlID)
 		, mpView3DWin(pView3DWin)
+		, mpWindow(pWindow)
 		, mpTerrain(pTerrain)
 		, mIsDragging(false)
-		, mIsInitialized(false)
 		, mShowingFeedback(false)
 		, mStartTileX(0), mStartTileZ(0)
 		, mCurrentTileX(0), mCurrentTileZ(0)
 		, mLastFeedbackX(0), mLastFeedbackY(0)
-		, mShiftPressed(false)
-		, mCtrlPressed(false)
-		, mAltPressed(false)
+		, mCurrentModifiers(0)
 		, mToolName(toolName)
 		, mToolDescription(toolDescription)
 		, mPrimaryTextID(controlID + 100)
@@ -111,8 +97,6 @@ public:
 		mpLogger = &Logger::GetInstance();
 		mpLogger->WriteLineFormatted(LogLevel::Info, "GenericDragViewInputControl created: %s", toolName.c_str());
 	}
-
-	virtual ~GenericDragViewInputControl() = default;
 
 	// Configuration methods
 	void SetParameter(ParameterType type, const Parameter& param) {
@@ -143,43 +127,11 @@ public:
 		return false;
 	}
 
-	// cIGZUnknown implementation with __thiscall calling convention
-	bool __thiscall QueryInterface(uint32_t riid, void** ppvObj) override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "QueryInterface called for %s drag mode control, requested IID: 0x%X", mToolName.c_str(), riid);
-		if (riid == GZIID_cIGZUnknown || riid == GZIID_GenericDragViewInputControl) {
-			*ppvObj = static_cast<cISC4ViewInputControl*>(this);
-			AddRef();
-			return true;
-		}
-		return false;
-	}
+	bool Shutdown() override {
+		cSC4BaseViewInputControl::Shutdown();
 
-	uint32_t __thiscall AddRef() override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "Adding reference to %s drag mode control, ref count: %u", mToolName.c_str(), mRefCount);
-
-		return ++mRefCount; }
-
-	uint32_t __thiscall Release() override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "Releasing %s drag mode control, ref count: %u", mToolName.c_str(), mRefCount);
-
-		if (--mRefCount == 0) {
-			delete this;
-			return 0;
-		}
-		return mRefCount;
-	}
-
-	// cISC4ViewInputControl implementation with __thiscall calling convention
-	bool __thiscall Init() override {
-		mIsInitialized = true;
-		mpLogger->WriteLineFormatted(LogLevel::Info, "%s drag mode initialized", mToolName.c_str());
-		return true;
-	}
-
-	bool __thiscall Shutdown() override {
 		mpLogger->WriteLineFormatted(LogLevel::Info, "%s drag mode shutdown requested", mToolName.c_str());
 
-		mIsInitialized = false;
 		if (mIsDragging) {
 			CancelDrag();
 		}
@@ -188,59 +140,30 @@ public:
 		return true;
 	}
 
-	uint32_t __thiscall GetID() override { return mID; }
-	bool __thiscall SetID(uint32_t id) override { mID = id; return true; }
-	cIGZCursor* __thiscall GetCursor() override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "Getting cursor for %s drag mode control: %p", mToolName.c_str(), mpCursor);
-		return mpCursor;
-	}
-	bool __thiscall SetCursor(cIGZCursor* cursor) override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "Setting cursor for %s drag mode control to %p", mToolName.c_str(), cursor);
-		mpCursor = cursor; return true;
-	}
-	bool __thiscall SetCursor(uint32_t cursor) override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "Setting cursor IID for %s drag mode control to 0x%X", mToolName.c_str(), cursor);
-		mCursorIID = cursor; return true;
-	}
-	bool __thiscall SetWindow(cIGZWin* window) override { mpWindow = window; return true; }
-	bool __thiscall IsSelfScrollingView() override { return false; }
-	bool __thiscall ShouldStack() override { return true; }
+	bool OnKeyDown(int32_t vkCode, uint32_t modifiers) override {
+		mpLogger->WriteLineFormatted(LogLevel::Info, "OnKeyDown: keyCode=0x%X, modifiers=0x%X", vkCode, modifiers);
 
-	bool __thiscall OnCharacter(char value) override { return false; }
-
-	bool __thiscall OnKeyDown(uint32_t keyCode) override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "OnKeyDown: keyCode=0x%X", keyCode);
-
-		switch (keyCode) {
-		case 0x10: mShiftPressed = true; UpdateParameterHints(); break;
-		case 0x11: mCtrlPressed = true; UpdateParameterHints(); break;
-		case 0x12: mAltPressed = true; UpdateParameterHints(); break;
-		case 0x1B: if (mIsDragging) { CancelDrag(); return true; } break;
+		mCurrentModifiers = modifiers;
+		switch (vkCode) {
+			case 0x1B: if (mIsDragging) { CancelDrag(); return true; } break; // ESC
 		}
 		return false;
 	}
 
-	bool __thiscall OnKeyUp(uint32_t keyCode) override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "OnKeyUp: keyCode=0x%X", keyCode);
-
-		switch (keyCode) {
-		case 0x10: mShiftPressed = false; UpdateParameterHints(); break;
-		case 0x11: mCtrlPressed = false; UpdateParameterHints(); break;
-		case 0x12: mAltPressed = false; UpdateParameterHints(); break;
-		}
-		return false;
-	}
-
-	bool __thiscall OnMouseDownL(int32_t screenX, uint32_t screenY) override {
+	bool OnMouseDownL(int32_t screenX, int32_t screenZ, uint32_t modifiers) override {
+		if (!IsOnTop()) return false;
+		
 		int32_t tileX, tileZ;
-		if (ScreenToTileCoordinates(screenX, static_cast<int32_t>(screenY), tileX, tileZ)) {
-			StartDrag(tileX, tileZ, screenX, static_cast<int32_t>(screenY));
+		if (ScreenToTileCoordinates(screenX, static_cast<int32_t>(screenZ), tileX, tileZ)) {
+			StartDrag(tileX, tileZ, screenX, static_cast<int32_t>(screenZ));
 			return true;
 		}
 		return false;
 	}
 
-	bool __thiscall OnMouseDownR(int32_t screenX, uint32_t screenY) override {
+	bool OnMouseDownR(int32_t x, int32_t z, uint32_t modifiers) override {
+		if (!IsOnTop()) return false;
+		
 		if (mIsDragging) {
 			CancelDrag();
 			return true;
@@ -248,10 +171,12 @@ public:
 		return false;
 	}
 
-	bool __thiscall OnMouseUpL(int32_t screenX, uint32_t screenY) override {
+	bool OnMouseUpL(int32_t screenX, int32_t screenZ, uint32_t modifiers) override {
+		if (!IsOnTop()) return false;
+		
 		if (mIsDragging) {
 			int32_t tileX, tileZ;
-			if (ScreenToTileCoordinates(screenX, static_cast<int32_t>(screenY), tileX, tileZ)) {
+			if (ScreenToTileCoordinates(screenX, static_cast<int32_t>(screenZ), tileX, tileZ)) {
 				FinishDrag(tileX, tileZ);
 				return true;
 			}
@@ -259,39 +184,41 @@ public:
 		return false;
 	}
 
-	bool __thiscall OnMouseUpR(int32_t screenX, uint32_t screenY) override {
-		return false; 
-	}
-
-	bool __thiscall OnMouseMove(int32_t screenX, uint32_t screenY) override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "OnMouseMove: screenX=%d, screenY=%d", screenX, screenY);
-
+	bool OnMouseMove(int32_t screenX, int32_t screenZ, uint32_t modifiers) override {
+		if (!IsOnTop()) return false;
+		
+		mCurrentModifiers = modifiers;
 		mLastFeedbackX = screenX;
-		mLastFeedbackY = static_cast<int32_t>(screenY);
+		mLastFeedbackY = screenZ;
 
 		if (mIsDragging) {
+			// Only update if we can safely convert coordinates
 			int32_t tileX, tileZ;
-			if (ScreenToTileCoordinates(screenX, static_cast<int32_t>(screenY), tileX, tileZ)) {
-				UpdateDrag(tileX, tileZ, screenX, static_cast<int32_t>(screenY));
-				return true;
+			if (ScreenToTileCoordinates(screenX, screenZ, tileX, tileZ)) {
+				UpdateDrag(tileX, tileZ, screenX, screenZ);
 			}
 		}
 		else {
-			ShowParameterFeedback(screenX, static_cast<int32_t>(screenY));
+			ShowParameterFeedback(screenX, screenZ);
 		}
-		return false;
+		
+		return true;
 	}
 
-	bool __thiscall OnMouseWheel(int32_t delta, int32_t screenX, uint32_t screenY, int32_t unknown) override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "OnMouseWheel: delta=%d, screenX=%d, screenY=%d", delta, screenX, screenY);
+	bool OnMouseWheel(int32_t screenX, int32_t screenZ, uint32_t modifiers, int32_t wheelDelta) override {
+		if (!IsOnTop()) return false;
+		
+		mpLogger->WriteLineFormatted(LogLevel::Info, "OnMouseWheel: wheelDelta=%d, screenX=%d, screenZ=%d, modifiers=%x", wheelDelta, screenX, screenZ, modifiers);
 
-		if (!mIsInitialized) return false;
+		if (!initialized) return false;
+		if (wheelDelta == 0) return false;
 
-		ParameterType targetParam = GetScrollTargetParameter();
+		mCurrentModifiers = modifiers;
+		ParameterType targetParam = GetScrollTargetParameter(modifiers);
 		auto it = mParameters.find(targetParam);
 
 		if (it != mParameters.end()) {
-			float adjustment = static_cast<float>(delta) * it->second.step;
+			float adjustment = (wheelDelta > 0 ? 1.0f : -1.0f) * it->second.step;
 			float newValue = it->second.value + adjustment;
 
 			if (SetParameterValue(targetParam, newValue)) {
@@ -299,7 +226,7 @@ public:
 					"%s adjusted to %.2f%s", it->second.name.c_str(),
 					it->second.value, it->second.unit.c_str());
 
-				ShowParameterFeedback(screenX, static_cast<int32_t>(screenY));
+				ShowParameterFeedback(screenX, screenZ);
 				return true;
 			}
 		}
@@ -307,7 +234,7 @@ public:
 		return false;
 	}
 
-	bool __thiscall OnMouseExit() override {
+	bool OnMouseExit() override {
 		mpLogger->WriteLineFormatted(LogLevel::Info, "OnMouseExit");
 
 		if (mIsDragging) {
@@ -316,33 +243,16 @@ public:
 		return true;
 	}
 
-	bool __thiscall Activate() override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "Activate");
-
-		mpLogger->WriteLineFormatted(LogLevel::Info, "%s: %s", mToolName.c_str(), mToolDescription.c_str());
-		ShowInitialFeedback();
- 		return true;
-	}
-
-	bool __thiscall Deactivate() override {
-		mpLogger->WriteLineFormatted(LogLevel::Info, "Deactivate");
-
-		if (mIsDragging) {
-			CancelDrag();
-		}
-		ClearAllVisualFeedback();
-		mpLogger->WriteLineFormatted(LogLevel::Info, "%s deactivated", mToolName.c_str());
-		return true;
-	}
-
-	bool __thiscall AmCapturing() override { return mIsDragging; }
-
 private:
-	ParameterType GetScrollTargetParameter() {
-		if (mCtrlPressed && mAltPressed) return ParameterType::Tertiary;
-		if (mAltPressed) return ParameterType::Secondary;
-		if (mShiftPressed) return ParameterType::Coarse;
-		if (mCtrlPressed) return ParameterType::Fine;
+	ParameterType GetScrollTargetParameter(uint32_t modifiers) {
+		bool ctrlPressed = (modifiers & 0x8) != 0;  // MK_CONTROL
+		bool shiftPressed = (modifiers & 0x4) != 0; // MK_SHIFT
+		bool altPressed = (modifiers & 0x20) != 0;  // MK_ALT (if supported by SC4)
+		
+		if (ctrlPressed && altPressed) return ParameterType::Tertiary;
+		if (altPressed) return ParameterType::Secondary;
+		if (shiftPressed) return ParameterType::Coarse;
+		if (ctrlPressed) return ParameterType::Fine;
 		return ParameterType::Primary;
 	}
 
@@ -400,12 +310,6 @@ private:
 		ShowParameterFeedback(mLastFeedbackX, mLastFeedbackY);
 	}
 
-	void UpdateParameterHints() {
-		if (mShowingFeedback) {
-			ShowParameterFeedback(mLastFeedbackX, mLastFeedbackY);
-		}
-	}
-
 	// Visual feedback methods
 	void ShowInitialFeedback() {
 		if (!mpView3DWin) return;
@@ -417,7 +321,7 @@ private:
 		instructionText.Sprintf("%s\nScroll: Adjust parameters | Click and drag to use tool",
 			mToolDescription.c_str());
 
-		//mpView3DWin->SetCursorText(mSecondaryTextID, 0, titleText, instructionText, 0);
+		mpView3DWin->SetCursorText(mSecondaryTextID, 0, &instructionText, &titleText, 0);
 		mShowingFeedback = true;
 	}
 
@@ -427,7 +331,7 @@ private:
 		cRZBaseString paramText = BuildParameterString();
 		cRZBaseString hintText = BuildHintString();
 
-		//mpView3DWin->SetCursorText(mPrimaryTextID, 0, paramText, hintText, 0);
+		mpView3DWin->SetCursorText(mPrimaryTextID, 0, &paramText, &hintText, 0);
 		mShowingFeedback = true;
 	}
 
@@ -437,10 +341,11 @@ private:
 		cRZBaseString dragText = BuildDragString();
 		cRZBaseString detailText = BuildDragDetailString();
 
-		/*mpView3DWin->SetCursorText(mPrimaryTextID, 0, dragText, detailText, 0);
-		mpView3DWin->SetCursorText(mSecondaryTextID, 0,
-			cRZBaseString("Release to execute | Right-click to cancel"),
-			BuildHintString(), 0);*/
+		mpView3DWin->SetCursorText(mPrimaryTextID, 0, &detailText, &dragText, 0);
+		
+		cRZBaseString cancelText("Release to execute | Right-click to cancel");
+		cRZBaseString hintText = BuildHintString();
+		mpView3DWin->SetCursorText(mSecondaryTextID, 0, &hintText, &cancelText, 0);
 		mShowingFeedback = true;
 	}
 
@@ -450,7 +355,8 @@ private:
 		cRZBaseString errorText;
 		errorText.Sprintf("%s Error", mToolName.c_str());
 
-		//mpView3DWin->SetCursorText(mPrimaryTextID, 0, errorText, cRZBaseString(error.c_str()), 0);
+		cRZBaseString errorDetailText(error.c_str());
+		mpView3DWin->SetCursorText(mPrimaryTextID, 0, &errorText, &errorDetailText, 0);
 	}
 
 	void ShowCompletionFeedback() {
@@ -459,19 +365,20 @@ private:
 		cRZBaseString completionText;
 		completionText.Sprintf("%s Completed!", mToolName.c_str());
 
-		//mpView3DWin->SetCursorText(mPrimaryTextID, 0, completionText, BuildParameterString(), 0);
+		cRZBaseString paramText = BuildParameterString();
+		mpView3DWin->SetCursorText(mPrimaryTextID, 0, &paramText, &completionText, 0);
 	}
 
 	void ClearDragFeedback() {
 		if (mpView3DWin) {
-			//mpView3DWin->ClearCursorText(mSecondaryTextID);
+			mpView3DWin->ClearCursorText(mSecondaryTextID);
 		}
 	}
 
 	void ClearAllVisualFeedback() {
 		if (mpView3DWin) {
-			//mpView3DWin->ClearCursorText(mPrimaryTextID);
-			//mpView3DWin->ClearCursorText(mSecondaryTextID);
+			mpView3DWin->ClearCursorText(mPrimaryTextID);
+			mpView3DWin->ClearCursorText(mSecondaryTextID);
 		}
 		mShowingFeedback = false;
 	}
@@ -499,16 +406,20 @@ private:
 	}
 
 	cRZBaseString BuildHintString() {
-		ParameterType target = GetScrollTargetParameter();
+		ParameterType target = GetScrollTargetParameter(mCurrentModifiers);
 		auto it = mParameters.find(target);
 
 		cRZBaseString hint;
 		if (it != mParameters.end()) {
+			bool ctrlPressed = (mCurrentModifiers & 0x8) != 0;
+			bool shiftPressed = (mCurrentModifiers & 0x4) != 0;
+			bool altPressed = (mCurrentModifiers & 0x20) != 0;
+			
 			const char* modifier = "";
-			if (mCtrlPressed && mAltPressed) modifier = "Ctrl+Alt+";
-			else if (mAltPressed) modifier = "Alt+";
-			else if (mShiftPressed) modifier = "Shift+";
-			else if (mCtrlPressed) modifier = "Ctrl+";
+			if (ctrlPressed && altPressed) modifier = "Ctrl+Alt+";
+			else if (altPressed) modifier = "Alt+";
+			else if (shiftPressed) modifier = "Shift+";
+			else if (ctrlPressed) modifier = "Ctrl+";
 
 			hint.Sprintf("%sScroll: %s", modifier, it->second.name.c_str());
 		}
@@ -540,12 +451,20 @@ private:
 	}
 
 	bool ScreenToTileCoordinates(int32_t screenX, int32_t screenY, int32_t& tileX, int32_t& tileZ) {
-		if (!mpView3DWin || !mpTerrain) return false;
+		if (!mpView3DWin || !mpTerrain) {
+			mpLogger->WriteLineFormatted(LogLevel::Error, "ScreenToTileCoordinates: null pointers - View3D:%p Terrain:%p", mpView3DWin, mpTerrain);
+			return false;
+		}
 
 		float worldCoords[3] = { 0.0f, 0.0f, 0.0f };
 		bool terrainQueryState = mpView3DWin->GetTerrainQueryEnabled();
+		
+		mpLogger->WriteLineFormatted(LogLevel::Info, "ScreenToTileCoordinates: calling PickTerrain(%d,%d)", screenX, screenY);
 
-		if (mpView3DWin->PickTerrain(screenX, screenY, worldCoords, terrainQueryState)) {
+		bool pickResult = false;
+		pickResult = mpView3DWin->PickTerrain(screenX, screenY, worldCoords, terrainQueryState);
+
+		if (pickResult) {
 			tileX = static_cast<int32_t>(worldCoords[0] / 16.0f);
 			tileZ = static_cast<int32_t>(worldCoords[2] / 16.0f);
 
@@ -555,9 +474,11 @@ private:
 			tileX = std::max(0, std::min(tileX, static_cast<int32_t>(maxX - 1)));
 			tileZ = std::max(0, std::min(tileZ, static_cast<int32_t>(maxZ - 1)));
 
+			mpLogger->WriteLineFormatted(LogLevel::Info, "ScreenToTileCoordinates: success - tile(%d,%d)", tileX, tileZ);
 			return true;
 		}
 
+		mpLogger->WriteLineFormatted(LogLevel::Info, "ScreenToTileCoordinates: PickTerrain failed");
 		return false;
 	}
 };

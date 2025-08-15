@@ -1,28 +1,29 @@
 #pragma once
-#include "GenericDragViewInputControl.cpp"
+#include "BaseDragViewInputControl.cpp"
 #include "BridgeApproachTool.cpp"
 
 static constexpr uint32_t kBridgeDragInputControlID = 0xA20FD559;
 
-class BridgeDragViewInputControl : public GenericDragViewInputControl {
+class BridgeDragViewInputControl : public BaseDragViewInputControl {
 private:
 	std::unique_ptr<BridgeApproachTool> mpBridgeTool;
 
 public:
 	BridgeDragViewInputControl(cISTETerrain* pTerrain, cIGZWin* pWindow, cISC4View3DWin* pView3DWin)
-		: GenericDragViewInputControl(kBridgeDragInputControlID, pTerrain, pWindow, pView3DWin,
+		: BaseDragViewInputControl(kBridgeDragInputControlID, pTerrain, pWindow, pView3DWin,
 			"Bridge Approach Tool",
 			"Drag from bridge start to end to create approaches")
 	{
 		mpBridgeTool = std::make_unique<BridgeApproachTool>(pTerrain);
+		SetCursor(0xa16f1463);
 
 		Logger& logger = Logger::GetInstance();
 		logger.WriteLineFormatted(LogLevel::Info, "BridgeDragViewInputControl %x : %x : %x", pTerrain, pWindow, pView3DWin);
 
 		// Configure parameters
-		SetParameter(ParameterType::Primary, Parameter("Height", 50.0f, 10.0f, 500.0f, 2.0f, "m"));
-		SetParameter(ParameterType::Fine, Parameter("Height", 50.0f, 10.0f, 500.0f, 0.5f, "m"));
-		SetParameter(ParameterType::Coarse, Parameter("Height", 50.0f, 10.0f, 500.0f, 10.0f, "m"));
+		SetParameter(ParameterType::Primary, Parameter("Height", 270.0f, 10.0f, 500.0f, 2.0f, "m"));
+		SetParameter(ParameterType::Fine, Parameter("Height", 270.0f, 10.0f, 500.0f, 0.5f, "m"));
+		SetParameter(ParameterType::Coarse, Parameter("Height", 270.0f, 10.0f, 500.0f, 10.0f, "m"));
 		SetParameter(ParameterType::Secondary, Parameter("Grade", 6.0f, 1.0f, 25.0f, 0.5f, "%"));
 		SetParameter(ParameterType::Tertiary, Parameter("Width", 2.0f, 1.0f, 10.0f, 0.25f, " tiles"));
 

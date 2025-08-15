@@ -108,3 +108,90 @@ Each tool inherits from TerrainTool and implements:
 - Logging via Logger singleton with structured log levels
 - Error handling with bounds checking for all terrain operations
 - Memory management follows RAII principles with smart pointers
+
+## SimCity 4 Interface Debugging
+
+**Note: The gzcom-dll headers are reverse-engineered and may contain inaccuracies. When encountering interface-related crashes, verify method signatures and vtable order using Ghidra on the Mac binary (which has symbols) or Windows binary.**
+
+### Common Interface Issues and Solutions:
+
+1. **Missing Virtual Methods**:
+   - **Symptoms**: Access violations, ESP errors, "privileged instruction" crashes
+   - **Cause**: Missing virtual methods cause vtable misalignment
+   - **Solution**: Check vtable order in Ghidra against header file
+   - **Example**: `cISC4View3DWin::PickOccupant` was missing, causing `SetCursorText` to call wrong function
+
+2. **Incorrect Method Signatures**:
+   - **Symptoms**: ESP corruption, stack misalignment after method calls
+   - **Cause**: Wrong parameter types (references vs pointers) or counts
+   - **Solution**: Compare decompiled method signatures with header declarations
+   - **Example**: `SetCursorText` expects `cIGZString const*` not `cIGZString const&`
+
+3. **Input Control Implementation**:
+   - **Object Layout**: Must match SC4's memory layout (use decompiled struct layouts)
+   - **Calling Conventions**: Use `__thiscall` for SC4 virtual methods
+   - **Cursor Setup**: Requires valid cursor IDs (e.g., `0xa16f1463` from existing tools)
+
+### Debugging Resources:
+- **Mac Binary**: Has symbols, easier to analyze vtables and method signatures
+- **Windows Binary**: Symbol-less but matches target platform exactly
+- **Ghidra Analysis**: Essential for verifying interface accuracy when crashes occur
+
+## SimCity 4 Selection System Architecture
+
+**SC4 provides a built-in selection visualization system accessible through the terrain interface.**
+
+### Selection System Components:
+
+1. **Terrain System (`cSTETerrain`)**:
+   - Method `GetView()` (vtable offset `0x108`) returns terrain view interface
+   - Returns `*(terrain + 0xe8) + 0xc` - points to selection interface within TerrainView3D
+
+2. **TerrainView3D (`cSTETerrainView3D`)**:
+   - Multi-interface object providing terrain rendering and selection
+   - Selection interface accessible via `terrain->GetView()`
+   - Key selection methods:
+     - `MarkSelected()` (multiple overloads) - Draw selection overlays
+     - `ClearCurrentSelections()` - Remove all visual selections
+     - `GetOverlayManager()` - Access overlay management system
+
+### Drag-to-Select Pattern (from `cSC4ViewInputControlLevelTerrain`):
+
+**Standard SC4 area selection workflow:**
+
+1. **Mouse Down**: Convert screen to terrain coordinates, store start position, set capture
+2. **Mouse Move**: Update current position, compute selection bounds, update visual selection
+3. **Mouse Up**: Finalize selection, execute operation, clear selection, release capture
+
+**Key Implementation Details:**
+- **Coordinate Conversion**: Screen coordinates → terrain tiles via division by tile scale factor
+- **Bounds Computation**: Always compute proper min/max regardless of drag direction
+- **Mouse Capture**: Use `SetCapture()`/`ReleaseCapture()` for reliable drag tracking
+- **Visual Feedback**: Real-time selection rectangle updates during drag
+- **Deferred Execution**: Perform operation only on mouse up, not during drag
+
+### Member Layout Pattern (cSC4ViewInputControlLevelTerrain):
+```cpp
+// Offset 0x28: Terrain system pointer (SL::spTerrain)
+// Offset 0x2c: Selection renderer pointer (from GetView())
+// Offset 0x30: Boolean dragging flag
+// Offset 0x34, 0x38: Start coordinates (X, Z)
+// Offset 0x3c, 0x40: Current coordinates (X, Z)  
+// Offset 0x44-0x50: Computed rectangle bounds (min_x, min_z, max_x, max_z)
+// Offset 0x54: Terrain tile scale factor
+```
+
+### Selection Rendering:
+```cpp
+// Get selection renderer from terrain
+auto* selectionRenderer = terrain->GetView();
+
+// Draw rectangle selection (called during mouse move)
+selectionRenderer->MarkSelected(bounds, 2, 1);  // bounds, type=2, visible=1
+
+// Clear selection (called on completion)
+selectionRenderer->ClearCurrentSelections();
+```
+
+This architecture provides consistent, performant selection visualization for all SC4 terrain tools.
+- Memorize the learnings from cSC4ViewInputControlLevelTerrain please :)

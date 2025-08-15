@@ -50,7 +50,6 @@
 #include "TunnelApproachTool.cpp"
 #include <sstream>
 #include "Patcher.h"
-//#include "GenericDragViewInputControl.cpp"
 #include "BridgeDragViewInputControl.cpp"
 
 static constexpr uint32_t kMessageCheatIssued = 0x230E27AC;
@@ -100,7 +99,7 @@ private:
 	cISC4City* pCity;
 	cIGZWinMgr* pWinMgr;
 	TerrainToolRegistry mToolRegistry;
-	cRZAutoRefCount<GenericDragViewInputControl> mActiveDragControl;
+	cRZAutoRefCount<BaseDragViewInputControl> mActiveDragControl;
 	cIGZMessageServer2* pMS2;
 
 	bool DoMessage(cIGZMessage2* pMsg)
@@ -202,27 +201,30 @@ private:
 	}
 
 	void ActivateBridgeDragMode(float height = 50.0f, float grade = 6.0f, float width = 2.0f) {
-		auto bridgeControl = new BridgeDragViewInputControl(pCity->GetTerrain(), pWinMgr->GetMainWindow(), pView3D);
-		bridgeControl->SetParameterValue(GenericDragViewInputControl::ParameterType::Primary, height);
-		bridgeControl->SetParameterValue(GenericDragViewInputControl::ParameterType::Secondary, grade);
-		bridgeControl->SetParameterValue(GenericDragViewInputControl::ParameterType::Tertiary, width);
+		cRZAutoRefCount<BridgeDragViewInputControl> bridgeControl(new BridgeDragViewInputControl(pCity->GetTerrain(), pWinMgr->GetMainWindow(), pView3D));
+		if (bridgeControl) {
+			bridgeControl->SetParameterValue(BaseDragViewInputControl::ParameterType::Primary, height);
+			bridgeControl->SetParameterValue(BaseDragViewInputControl::ParameterType::Secondary, grade);
+			bridgeControl->SetParameterValue(BaseDragViewInputControl::ParameterType::Tertiary, width);
 
-		if (ActivateDragControl(bridgeControl)) {
-			ShowMessageBox("Bridge Drag Mode", "Drag to create bridge approaches");
+			ActivateDragControl(bridgeControl);
+			// Dialog removed to simplify testing
 		}
 	}
-	bool ActivateDragControl(GenericDragViewInputControl* control) {
+	bool ActivateDragControl(BaseDragViewInputControl* control) {
 		if (!pView3D || !control) return false;
 
+		// If we already have an active control, deactivate it first
+		if (mActiveDragControl) {
+			mActiveDragControl->Deactivate();
+			mActiveDragControl = nullptr;
+		}
+
 		mActiveDragControl = control;
-		//if (mActiveDragControl->Init() &&
-		//	pView3D->SetCurrentViewInputControl(mActiveDragControl, 0)) {
-		//	return true;
-		//}
 		if (mActiveDragControl->Init()) {
-			Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "Activating drag control: %s", mActiveDragControl);
-			pView3D->SetCurrentViewInputControl(mActiveDragControl, 0);
-			Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "Activated drag control: %s", mActiveDragControl);
+			Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "Activating drag control: %p", static_cast<void*>(static_cast<BaseDragViewInputControl*>(mActiveDragControl)));
+			pView3D->SetCurrentViewInputControl(mActiveDragControl, cISC4View3DWin::ViewInputControlStackOperation_None);
+			Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "Activated drag control: %p", static_cast<void*>(static_cast<BaseDragViewInputControl*>(mActiveDragControl)));
 			return true;
 		}
 
