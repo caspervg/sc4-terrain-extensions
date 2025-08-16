@@ -105,6 +105,9 @@
     <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISC4City.h">
       <Filter>Header Files\GZCOM</Filter>
     </ClInclude>
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISTETerrainView.h">
+      <Filter>Header Files\GZCOM</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="version.rc">

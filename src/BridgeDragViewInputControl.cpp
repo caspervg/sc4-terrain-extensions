@@ -30,7 +30,7 @@ public:
 			this->mLastMarkedRect = SC4Rect<uint32_t>(
 				startX, startZ, startX, startZ
 			);
-			MarkSelected(this->mLastMarkedRect, HilightColor::BLUE, 1);
+			MarkSelected(this->mLastMarkedRect, cISTETerrain::eHilightColorType::Blue, 1);
 		});
 
 		SetDragUpdateCallback([this](int32_t startX, int32_t startZ, int32_t currentX, int32_t currentZ) {
@@ -39,9 +39,9 @@ public:
 			this->mLastMarkedRect = SC4Rect<uint32_t>(
 				std::min(startX, currentX), std::min(startZ, currentZ),
 				std::max(startX, currentX), std::max(startZ, currentZ));
-			HilightColor selectionColor = HilightColor::GREEN;
+			auto selectionColor = cISTETerrain::eHilightColorType::Green;
 			if (!IsValidSelection()) {
-				selectionColor = HilightColor::RED;
+				selectionColor = cISTETerrain::eHilightColorType::Red;
 			}
 			MarkSelected(this->mLastMarkedRect, selectionColor, 1);
 		});

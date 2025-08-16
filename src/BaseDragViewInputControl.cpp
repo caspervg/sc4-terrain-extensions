@@ -1,5 +1,6 @@
 #pragma once
 #include "cISTETerrain.h"
+#include "cISTETerrainView.h"
 #include "cSC4BaseViewInputControl.h"
 #include "cISC4View3DWin.h"
 #include "cRZAutoRefCount.h"
@@ -19,12 +20,6 @@ public:
 		Second,  // Shift + scroll (e.g., grade)
 		Third,   // Ctrl + Scroll (e.g., width)
 		Fourth,  // Alt + scroll (e.g., ?)
-	};
-
-	enum HilightColor {
-		RED = 0,
-		GREEN = 1,
-		BLUE = 2
 	};
 
 	// Parameter definition
@@ -206,6 +201,13 @@ public:
 		if (!initialized) return false;
 		if (wheelDelta == 0) return false;
 
+		// Only handle mouse wheel when Alt is pressed, otherwise let game handle zoom
+		bool altPressed = (modifiers & 0x20) != 0;  // MK_ALT
+		if (!altPressed) {
+			mpLogger->WriteLineFormatted(LogLevel::Info, "OnMouseWheel: Alt not pressed, letting game handle zoom");
+			return false;  // Let the game handle normal zoom
+		}
+
 		mCurrentModifiers = modifiers;
 		ParameterType targetParam = GetScrollTargetParameter(modifiers);
 		auto it = mParameters.find(targetParam);
@@ -240,12 +242,32 @@ private:
 	ParameterType GetScrollTargetParameter(uint32_t modifiers) {
 		bool ctrlPressed = (modifiers & 0x8) != 0;  // MK_CONTROL
 		bool shiftPressed = (modifiers & 0x4) != 0; // MK_SHIFT
-		bool altPressed = (modifiers & 0x20) != 0;  // MK_ALT (if supported by SC4)
+		bool altPressed = (modifiers & 0x20) != 0;  // MK_ALT
 		
-		// if (ctrlPressed && altPressed) return ParameterType::Tertiary;
-		if (altPressed) return ParameterType::Fourth;
-		if (shiftPressed) return ParameterType::Second;
-		if (ctrlPressed) return ParameterType::Third;
+		mpLogger->WriteLineFormatted(LogLevel::Info, 
+			"GetScrollTargetParameter: modifiers=0x%X, ctrl=%d, shift=%d, alt=%d", 
+			modifiers, ctrlPressed, shiftPressed, altPressed);
+		
+		// Alt is required for any parameter adjustment
+		// Alt+Ctrl+Shift = Fourth, Alt+Ctrl = Third, Alt+Shift = Second, Alt = First
+		if (altPressed) {
+			if (ctrlPressed && shiftPressed) {
+				mpLogger->WriteLineFormatted(LogLevel::Info, "Selected parameter: Fourth (Alt+Ctrl+Shift)");
+				return ParameterType::Fourth;
+			} else if (ctrlPressed) {
+				mpLogger->WriteLineFormatted(LogLevel::Info, "Selected parameter: Third (Alt+Ctrl)");
+				return ParameterType::Third;
+			} else if (shiftPressed) {
+				mpLogger->WriteLineFormatted(LogLevel::Info, "Selected parameter: Second (Alt+Shift)");
+				return ParameterType::Second;
+			} else {
+				mpLogger->WriteLineFormatted(LogLevel::Info, "Selected parameter: First (Alt only)");
+				return ParameterType::First;
+			}
+		}
+		
+		// This should not be reached since we only call this when Alt is pressed
+		mpLogger->WriteLineFormatted(LogLevel::Info, "Selected parameter: First (fallback)");
 		return ParameterType::First;
 	}
 
@@ -397,24 +419,30 @@ private:
 	}
 
 	cRZBaseString BuildHintString() {
-		ParameterType target = GetScrollTargetParameter(mCurrentModifiers);
-		auto it = mParameters.find(target);
-
 		cRZBaseString hint;
-		if (it != mParameters.end()) {
-			bool ctrlPressed = (mCurrentModifiers & 0x8) != 0;
-			bool shiftPressed = (mCurrentModifiers & 0x4) != 0;
-			bool altPressed = (mCurrentModifiers & 0x20) != 0;
+		bool ctrlPressed = (mCurrentModifiers & 0x8) != 0;
+		bool shiftPressed = (mCurrentModifiers & 0x4) != 0;
+		bool altPressed = (mCurrentModifiers & 0x20) != 0;
+		
+		if (altPressed) {
+			// Alt is pressed, show which parameter will be adjusted
+			ParameterType target = GetScrollTargetParameter(mCurrentModifiers);
+			auto it = mParameters.find(target);
 			
-			const char* modifier = "";
-			if (altPressed) modifier = "Alt+";
-			else if (shiftPressed) modifier = "Shift+";
-			else if (ctrlPressed) modifier = "Ctrl+";
+			if (it != mParameters.end()) {
+				const char* modifier = "";
+				if (ctrlPressed && shiftPressed) modifier = "Alt+Ctrl+Shift+";
+				else if (ctrlPressed) modifier = "Alt+Ctrl+";
+				else if (shiftPressed) modifier = "Alt+Shift+";
+				else modifier = "Alt+";
 
-			hint.Sprintf("%sScroll: %s", modifier, it->second.name.c_str());
-		}
-		else {
-			hint.Sprintf("Scroll: Adjust parameters");
+				hint.Sprintf("%sScroll: %s", modifier, it->second.name.c_str());
+			} else {
+				hint.Sprintf("Alt+Scroll: Adjust parameters");
+			}
+		} else {
+			// Alt not pressed, show instructions
+			hint.Sprintf("Alt+Scroll: Adjust parameters | Scroll: Zoom");
 		}
 
 		return hint;
@@ -475,9 +503,7 @@ protected:
 	Logger* mpLogger;
 	cISTETerrain* mpTerrain;
 
-	typedef uint32_t(__thiscall* cSTETerrainView3D_MarkSelected)(void* this_ptr, int* rect, HilightColor hilightColor, bool clearOthers);
-
-	bool MarkSelected(uint32_t startX, uint32_t startZ, uint32_t endX, uint32_t endZ, HilightColor hilightColor = HilightColor::RED, bool clearOthers = true) {
+	bool MarkSelected(uint32_t startX, uint32_t startZ, uint32_t endX, uint32_t endZ, cISTETerrain::eHilightColorType hilightColor = cISTETerrain::eHilightColorType::Red, bool clearOthers = true) {
 		if (startX < 0 || startZ < 0 || endX < 0 || endZ < 0 ||
 			startX > mpTerrain->CellCountX() - 1 || startZ > mpTerrain->CellCountZ() - 1 || endX > mpTerrain->CellCountX() - 1 || endZ > mpTerrain->CellCountZ()) {
 			mpLogger->WriteLine(LogLevel::Error, "MarkSelected: invalid coordinates, out of bounds");
@@ -488,55 +514,16 @@ protected:
 		this->MarkSelected(rect, hilightColor, clearOthers);
 	}
 
-	bool MarkSelected(SC4Rect<uint32_t> rect, HilightColor hilightColor = HilightColor::RED, bool clearOthers = true) {
+	bool MarkSelected(SC4Rect<uint32_t> rect, cISTETerrain::eHilightColorType hilightColor = cISTETerrain::eHilightColorType::Red, bool clearOthers = true) {
 		if (!mpTerrain || !mpTerrain->GetView()) {
 			mpLogger->WriteLine(LogLevel::Error, "MarkSelected: terrain or terrain view is null");
 			return false;
 		}
 
-		// TerrainView3D has sadly not yet been decoded, so we use a vtable hack
-		void* terrainView3DPtr = mpTerrain->GetView();
-		void*** vtablePtr = reinterpret_cast<void***>(terrainView3DPtr);
-		void** vtable = *vtablePtr;
-
-		// Get MarkSelected_2 function (vtable index 7)
-		cSTETerrainView3D_MarkSelected markSelectedFn = reinterpret_cast<cSTETerrainView3D_MarkSelected>(vtable[7]);
-
-		mpLogger->WriteLineFormatted(LogLevel::Info, "Marking selected area from (%d,%d) to (%d,%d)", rect.topLeftX, rect.topLeftY, rect.bottomRightX, rect.bottomRightY);
-		return markSelectedFn(terrainView3DPtr, reinterpret_cast<int*>(&rect), hilightColor, clearOthers);
+		return mpTerrain->GetView()->MarkSelected(rect, hilightColor, clearOthers);
 	}
 
 	void ClearCurrentSelections() {
-		SC4Rect<uint32_t> invalidRect(UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX);
-		MarkSelected(invalidRect, HilightColor::RED, true);
-		return;
-
-		/* This approach doesn't work due to wrong offsets probably
-		if (!mpTerrain || !mpTerrain->GetView()) {
-			mpLogger->WriteLine(LogLevel::Info, "ClearCurrentSelections: terrain or terrain view is null");
-			return;
-		}
-		void* terrainView3DPtr = mpTerrain->GetView();
-
-		// Get the cSTESelectedTerrainArea pointer from inside TerrainView3D
-		// Try offset 0x60 (Windows) or 0x6c (if closer to Mac layout)
-		void** selectedAreaPtr = reinterpret_cast<void**>(
-			reinterpret_cast<char*>(terrainView3DPtr) + 0x60);
-
-		if (selectedAreaPtr && *selectedAreaPtr && *selectedAreaPtr != (void*)0xcccccccc) {
-			void*** vtablePtr = reinterpret_cast<void***>(*selectedAreaPtr);
-			void** vtable = *vtablePtr;
-
-			// ClearCurrentSelections is at index 2 in this vtable
-			// (0x00ab4470 - 0x00ab4468) / 4 = 2
-			typedef void(__thiscall* ClearSelectionsFn)(void* this_ptr);
-			ClearSelectionsFn clearSelectionsFn = reinterpret_cast<ClearSelectionsFn>(vtable[2]);
-			clearSelectionsFn(*selectedAreaPtr);
-
-		}
-		else {
-			mpLogger->WriteLineFormatted(LogLevel::Info, "ClearCurrentSelections: selected area pointer is null or invalid: %p, %p", selectedAreaPtr, *selectedAreaPtr);
-		}
-		*/
+		mpTerrain->GetView()->ClearCurrentSelections();
 	}
 };
