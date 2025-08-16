@@ -21,9 +21,9 @@ public:
 
 		mpLogger->WriteLineFormatted(LogLevel::Info, "BridgeDragViewInputControl %x : %x : %x", pTerrain, pWindow, pView3DWin);
 
-		SetParameter(ParameterType::First, Parameter("Height", 270.0f, 10.0f, 500.0f, 2.0f, "m"));
-		SetParameter(ParameterType::Second, Parameter("Grade", 6.0f, 1.0f, 25.0f, 0.5f, "%"));
-		SetParameter(ParameterType::Third, Parameter("Width", 2.0f, 1.0f, 10.0f, 0.25f, " tiles"));
+		SetParameter(ParameterType::First, Parameter("Height", 275.0f, 10.0f, 500.0f, 5.0f, "m"));
+		SetParameter(ParameterType::Second, Parameter("Grade", 12.0f, 3.0f, 50.0f, 1.0f, "%"));
+		SetParameter(ParameterType::Third, Parameter("Width", 2.0f, 1.0f, 10.0f, 1.0f, " tiles"));
 
 		SetDragStartCallback([this](int32_t startX, int32_t startZ) {
 			mpLogger->WriteLineFormatted(LogLevel::Trace, "Drag start: (%d,%d)", startX, startZ);
