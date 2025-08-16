@@ -14,6 +14,15 @@
 // Base class for all drag-based terrain tools
 class BaseDragViewInputControl : public cSC4BaseViewInputControl {
 public:
+	// SimCity 4 modifier key flags
+	enum ModifierFlags : uint32_t {
+		None = 0,
+		Shift = 0x1,
+		Ctrl = 0x2,
+		Alt = 0x4,
+		All = Shift | Ctrl | Alt
+	};
+
 	// Parameter types that can be adjusted with scroll wheel
 	enum class ParameterType {
 		First,   // Normal scroll (e.g., height)
@@ -195,16 +204,13 @@ public:
 
 	bool OnMouseWheel(int32_t screenX, int32_t screenZ, uint32_t modifiers, int32_t wheelDelta) override {
 		if (!IsOnTop()) return false;
-		
-		mpLogger->WriteLineFormatted(LogLevel::Info, "OnMouseWheel: wheelDelta=%d, screenX=%d, screenZ=%d, modifiers=%x", wheelDelta, screenX, screenZ, modifiers);
 
 		if (!initialized) return false;
 		if (wheelDelta == 0) return false;
 
 		// Only handle mouse wheel when Alt is pressed, otherwise let game handle zoom
-		bool altPressed = (modifiers & 0x20) != 0;  // MK_ALT
+		bool altPressed = (modifiers & ModifierFlags::Alt) != 0;
 		if (!altPressed) {
-			mpLogger->WriteLineFormatted(LogLevel::Info, "OnMouseWheel: Alt not pressed, letting game handle zoom");
 			return false;  // Let the game handle normal zoom
 		}
 
@@ -240,9 +246,9 @@ public:
 
 private:
 	ParameterType GetScrollTargetParameter(uint32_t modifiers) {
-		bool ctrlPressed = (modifiers & 0x8) != 0;  // MK_CONTROL
-		bool shiftPressed = (modifiers & 0x4) != 0; // MK_SHIFT
-		bool altPressed = (modifiers & 0x20) != 0;  // MK_ALT
+		bool ctrlPressed = (modifiers & ModifierFlags::Ctrl) != 0;
+		bool shiftPressed = (modifiers & ModifierFlags::Shift) != 0;
+		bool altPressed = (modifiers & ModifierFlags::Alt) != 0;
 		
 		mpLogger->WriteLineFormatted(LogLevel::Info, 
 			"GetScrollTargetParameter: modifiers=0x%X, ctrl=%d, shift=%d, alt=%d", 
@@ -420,9 +426,9 @@ private:
 
 	cRZBaseString BuildHintString() {
 		cRZBaseString hint;
-		bool ctrlPressed = (mCurrentModifiers & 0x8) != 0;
-		bool shiftPressed = (mCurrentModifiers & 0x4) != 0;
-		bool altPressed = (mCurrentModifiers & 0x20) != 0;
+		bool ctrlPressed = (mCurrentModifiers & ModifierFlags::Ctrl) != 0;
+		bool shiftPressed = (mCurrentModifiers & ModifierFlags::Shift) != 0;
+		bool altPressed = (mCurrentModifiers & ModifierFlags::Alt) != 0;
 		
 		if (altPressed) {
 			// Alt is pressed, show which parameter will be adjusted
