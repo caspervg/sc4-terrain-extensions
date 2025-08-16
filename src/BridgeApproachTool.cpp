@@ -7,6 +7,7 @@ private:
 	std::unique_ptr<args::Command> mCommand{};
 	std::unique_ptr<args::Positional<int>> mStartTileX{}, mStartTileZ{}, mEndTileX{}, mEndTileZ{};
 	std::unique_ptr<args::ValueFlag<float>> mBridgeHeight{}, mApproachLength{}, mMaxGrade{}, mWidthTiles{};
+	std::unique_ptr<args::Flag> mTaper{};
 
 public:
 	BridgeApproachTool(cISTETerrain* terrain) : TerrainTool(terrain) {
@@ -35,6 +36,9 @@ public:
 		mWidthTiles = std::make_unique<args::ValueFlag<float>>(*mCommand, "width",
 			"Approach width in tiles",
 			args::Matcher{ 'w' }, 2.0f);
+		mTaper = std::make_unique<args::Flag>(*mCommand, "taper",
+			"Enable width tapering (default: full width)",
+			args::Matcher{ "taper" });
 	}
 
 	bool ShouldExecute(const args::ArgumentParser& parser) const override {
@@ -55,8 +59,9 @@ public:
 			"Creating bridge approaches from (%d,%d) to (%d,%d), height: %.2f, max grade: %.1f%%",
 			startTileX, startTileZ, endTileX, endTileZ, bridgeHeight, maxGrade);
 
+		bool useTapering = mTaper && *mTaper;  // Only taper if --taper flag is specified
 		CreateBridgeApproaches(startTileX, startTileZ, endTileX, endTileZ, 
-			bridgeHeight, approachLength, maxGrade, widthTiles);
+			bridgeHeight, approachLength, maxGrade, widthTiles, useTapering);
 	}
 
 	const char* GetName() const override {
@@ -68,11 +73,11 @@ public:
 	}
 
 	const char* GetUsage() const override {
-		return "bridgeapproach <startx> <startz> <endx> <endz> --height=<meters> [--length=<tiles>] [--grade=<percent>] [--width=<tiles>]";
+		return "bridgeapproach <startx> <startz> <endx> <endz> --height=<meters> [--length=<tiles>] [--grade=<percent>] [--width=<tiles>] [--taper]";
 	}
 
 	void CreateBridgeApproaches(int startTileX, int startTileZ, int endTileX, int endTileZ,
-		float bridgeHeight, float approachLength, float maxGrade, float widthTiles) {
+		float bridgeHeight, float approachLength, float maxGrade, float widthTiles, bool useTapering = false) {
 		
 		// Calculate bridge direction vector
 		int bridgeDx = endTileX - startTileX;
@@ -170,7 +175,7 @@ public:
 			idealEndEndX, idealEndEndZ, endApproachEndX, endApproachEndZ, endApproachLength, actualEndApproachLength);
 		
 		CreateSingleApproach(endTileX, endTileZ, endApproachEndX, endApproachEndZ,
-			bridgeHeight, endApproachTerrainHeight, widthTiles, "end");
+			bridgeHeight, endApproachTerrainHeight, widthTiles, "end", useTapering);
 	}
 
 private:
@@ -225,7 +230,7 @@ private:
 	}
 
 	void CreateSingleApproach(int startTileX, int startTileZ, int endTileX, int endTileZ,
-		float startHeight, float endHeight, float widthTiles, const char* label) {
+		float startHeight, float endHeight, float widthTiles, const char* label, bool useTapering = false) {
 		
 		int tileDx = endTileX - startTileX;
 		int tileDz = endTileZ - startTileZ;
@@ -265,9 +270,9 @@ private:
 
 			// For the final tile, don't apply internal gradient to avoid overshooting endpoint height
 			if (step == pathLength) {
-				ApplyGradeToTileWidth(tileX, tileZ, currentHeight, widthTiles, slopeInX, 0.0f);
+				ApplyGradeToTileWidth(tileX, tileZ, currentHeight, widthTiles, slopeInX, 0.0f, useTapering);
 			} else {
-				ApplyGradeToTileWidth(tileX, tileZ, currentHeight, widthTiles, slopeInX, heightStep);
+				ApplyGradeToTileWidth(tileX, tileZ, currentHeight, widthTiles, slopeInX, heightStep, useTapering);
 			}
 		}
 
@@ -282,7 +287,7 @@ private:
 	}
 
 	void ApplyGradeToTileWidth(int centerTileX, int centerTileZ, float baseHeight,
-		float widthTiles, bool slopeInX, float heightStep) {
+		float widthTiles, bool slopeInX, float heightStep, bool useTapering = false) {
 		mLogger->WriteLineFormatted(LogLevel::Trace, "Applying grade to (%d, %d) -> %f / %f / %d / %f", centerTileX, centerTileZ, baseHeight, widthTiles, slopeInX, heightStep);
 
 
@@ -297,7 +302,7 @@ private:
 			float distanceFromCenter = static_cast<float>(std::abs(offset));
 			if (distanceFromCenter <= widthTiles / 2.0f) {
 				float influence = 1.0f;
-				if (widthTiles > 1.0f) {
+				if (useTapering && widthTiles > 1.0f) {
 					influence = 1.0f - (distanceFromCenter / (widthTiles / 2.0f));
 					influence = std::max(0.0f, std::min(1.0f, influence));
 				}

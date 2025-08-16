@@ -202,6 +202,7 @@ private:
 
 	void ActivateBridgeDragMode() {
 		auto bridgeControl = new BridgeDragViewInputControl(pCity->GetTerrain(), pWinMgr->GetMainWindow(), pView3D);
+		bridgeControl->Init();
 		if (bridgeControl) {
 			ActivateDragControl(bridgeControl);
 		}

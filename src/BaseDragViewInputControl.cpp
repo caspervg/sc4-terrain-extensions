@@ -87,9 +87,9 @@ private:
 	uint32_t mSecondaryTextID;
 
 public:
-	BaseDragViewInputControl(uint32_t controlID, cISTETerrain* pTerrain, cIGZWin* pWindow, cISC4View3DWin* pView3DWin,
+	BaseDragViewInputControl(uint32_t controlID, uint32_t cursorID, cISTETerrain* pTerrain, cIGZWin* pWindow, cISC4View3DWin* pView3DWin,
 		const std::string& toolName, const std::string& toolDescription)
-		: cSC4BaseViewInputControl(controlID)
+		: cSC4BaseViewInputControl(controlID, cursorID)
 		, mpView3DWin(pView3DWin)
 		, mpWindow(pWindow)
 		, mpTerrain(pTerrain)
@@ -106,6 +106,12 @@ public:
 	{
 		mpLogger = &Logger::GetInstance();
 		mpLogger->WriteLineFormatted(LogLevel::Info, "GenericDragViewInputControl created: %s", toolName.c_str());
+	}
+
+	~BaseDragViewInputControl() {
+		// Ensure all visual feedback is cleared when the control is destroyed
+		ClearAllVisualFeedback();
+		mpLogger->WriteLineFormatted(LogLevel::Info, "BaseDragViewInputControl destroyed: %s", mToolName.c_str());
 	}
 
 	// Configuration methods
@@ -143,7 +149,14 @@ public:
 
 		mCurrentModifiers = modifiers;
 		switch (vkCode) {
-			case 0x1B: if (mIsDragging) { CancelDrag(); return true; } break; // ESC
+			case 0x1B:
+				if (mIsDragging) {
+					CancelDrag();
+					ClearAllVisualFeedback();
+					return true;
+				}
+				ClearAllVisualFeedback();
+				break; // ESC
 		}
 		return false;
 	}
@@ -241,6 +254,7 @@ public:
 		if (mIsDragging) {
 			CancelDrag();
 		}
+		ClearAllVisualFeedback();
 		return true;
 	}
 
@@ -327,10 +341,15 @@ private:
 
 	void CancelDrag() {
 		mIsDragging = false;
-		mOnDragCancel(mStartTileX, mStartTileZ, mCurrentTileX, mCurrentTileZ);
+		if (mOnDragCancel) {
+			mOnDragCancel(mStartTileX, mStartTileZ, mCurrentTileX, mCurrentTileZ);
+		}
 		ClearDragFeedback();
 		mpLogger->WriteLineFormatted(LogLevel::Info, "%s drag cancelled", mToolName.c_str());
-		ShowParameterFeedback(mLastFeedbackX, mLastFeedbackY);
+		// Only show parameter feedback if the mouse is still over the control
+		if (IsOnTop()) {
+			ShowParameterFeedback(mLastFeedbackX, mLastFeedbackY);
+		}
 	}
 
 	// Visual feedback methods
