@@ -30,6 +30,7 @@
     <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cIGZWin.h" />
     <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cIGZWinMgr.h" />
     <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISC43DRender.h" />
+    <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISC4City.h" />
     <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISC4View3DWin.h" />
     <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISC4ViewInputControl.h" />
     <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISTETerrain.h" />

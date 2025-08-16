@@ -200,17 +200,13 @@ private:
 		mToolRegistry.ListTools();
 	}
 
-	void ActivateBridgeDragMode(float height = 50.0f, float grade = 6.0f, float width = 2.0f) {
-		cRZAutoRefCount<BridgeDragViewInputControl> bridgeControl(new BridgeDragViewInputControl(pCity->GetTerrain(), pWinMgr->GetMainWindow(), pView3D));
+	void ActivateBridgeDragMode() {
+		auto bridgeControl = new BridgeDragViewInputControl(pCity->GetTerrain(), pWinMgr->GetMainWindow(), pView3D);
 		if (bridgeControl) {
-			bridgeControl->SetParameterValue(BaseDragViewInputControl::ParameterType::Primary, height);
-			bridgeControl->SetParameterValue(BaseDragViewInputControl::ParameterType::Secondary, grade);
-			bridgeControl->SetParameterValue(BaseDragViewInputControl::ParameterType::Tertiary, width);
-
 			ActivateDragControl(bridgeControl);
-			// Dialog removed to simplify testing
 		}
 	}
+
 	bool ActivateDragControl(BaseDragViewInputControl* control) {
 		if (!pView3D || !control) return false;
 

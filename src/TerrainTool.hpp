@@ -43,7 +43,7 @@ public:
 	void SetAltitudeAtVertex(int tileX, int tileZ, float height) {
 		if (IsValidTile(tileX, tileZ)) {
 			mTerrain->SetAltitudeAtVertex(tileX, tileZ, height);
-			mLogger->WriteLineFormatted(LogLevel::Info, "Set altitude at (%d, %d) to %.2f", tileX, tileZ, height);
+			mLogger->WriteLineFormatted(LogLevel::Debug, "Set altitude at (%d, %d) to %.2f", tileX, tileZ, height);
 		} else {
 			mLogger->WriteLineFormatted(LogLevel::Error, "Invalid tile (%d, %d)", tileX, tileZ);
 		}
@@ -54,13 +54,15 @@ public:
 		mLogger->WriteLineFormatted(LogLevel::Info, "Terrain refreshed in rectangle");
 	}
 
-	uint32_t ClampXToTerrainBounds(uint32_t x) {
-		if (x >= mTerrain->CellCountX()) return mTerrain->CellCountX() - 1;
+	int ClampXToTerrainBounds(int x) {
+		if (x < 0) return 0;
+		if (x >= static_cast<int>(mTerrain->CellCountX())) return mTerrain->CellCountX() - 1;
 		return x;
 	}
 
-	uint32_t ClampZToTerrainBounds(uint32_t z) {
-		if (z >= mTerrain->CellCountZ()) return mTerrain->CellCountZ() - 1;
+	int ClampZToTerrainBounds(int z) {
+		if (z < 0) return 0;
+		if (z >= static_cast<int>(mTerrain->CellCountZ())) return mTerrain->CellCountZ() - 1;
 		return z;
 	}
 

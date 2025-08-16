@@ -4,6 +4,7 @@
 #include "cISC4View3DWin.h"
 #include "cRZAutoRefCount.h"
 #include "cRZBaseString.h"
+#include "SC4Rect.h"
 #include "Logger.h"
 #include <memory>
 #include <functional>
@@ -14,11 +15,16 @@ class BaseDragViewInputControl : public cSC4BaseViewInputControl {
 public:
 	// Parameter types that can be adjusted with scroll wheel
 	enum class ParameterType {
-		Primary,    // Normal scroll (e.g., height)
-		Secondary,  // Alt + scroll (e.g., grade)
-		Tertiary,   // Ctrl + Alt + scroll (e.g., width)
-		Fine,       // Ctrl + scroll (fine adjustment of primary)
-		Coarse      // Shift + scroll (coarse adjustment of primary)
+		First,   // Normal scroll (e.g., height)
+		Second,  // Shift + scroll (e.g., grade)
+		Third,   // Ctrl + Scroll (e.g., width)
+		Fourth,  // Alt + scroll (e.g., ?)
+	};
+
+	enum HilightColor {
+		RED = 0,
+		GREEN = 1,
+		BLUE = 2
 	};
 
 	// Parameter definition
@@ -41,15 +47,14 @@ public:
 	// Callbacks for tool-specific behavior
 	using DragStartCallback = std::function<void(int32_t tileX, int32_t tileZ)>;
 	using DragUpdateCallback = std::function<void(int32_t startX, int32_t startZ, int32_t currentX, int32_t currentZ)>;
+	using DragCancelCallback = std::function<void(int32_t startX, int32_t startZ, int32_t currentX, int32_t currentZ)>;
 	using DragFinishCallback = std::function<void(int32_t startX, int32_t startZ, int32_t endX, int32_t endZ)>;
 	using ValidateCallback = std::function<bool(int32_t startX, int32_t startZ, int32_t endX, int32_t endZ, std::string& errorMsg)>;
 
 private:
 	cISC4View3DWin* mpView3DWin;
 	cIGZWin* mpWindow;
-	cISTETerrain* mpTerrain;
 
-	Logger* mpLogger;
 
 	// Drag state
 	bool mIsDragging;
@@ -69,6 +74,7 @@ private:
 	// Callbacks
 	DragStartCallback mOnDragStart;
 	DragUpdateCallback mOnDragUpdate;
+	DragCancelCallback mOnDragCancel;
 	DragFinishCallback mOnDragFinish;
 	ValidateCallback mOnValidate;
 
@@ -106,6 +112,7 @@ public:
 	void SetDragStartCallback(DragStartCallback callback) { mOnDragStart = callback; }
 	void SetDragUpdateCallback(DragUpdateCallback callback) { mOnDragUpdate = callback; }
 	void SetDragFinishCallback(DragFinishCallback callback) { mOnDragFinish = callback; }
+	void SetDragCancelCallback(DragCancelCallback callback) { mOnDragCancel = callback; }
 	void SetValidateCallback(ValidateCallback callback) { mOnValidate = callback; }
 
 	// Parameter access
@@ -127,19 +134,6 @@ public:
 		return false;
 	}
 
-	bool Shutdown() override {
-		cSC4BaseViewInputControl::Shutdown();
-
-		mpLogger->WriteLineFormatted(LogLevel::Info, "%s drag mode shutdown requested", mToolName.c_str());
-
-		if (mIsDragging) {
-			CancelDrag();
-		}
-		ClearAllVisualFeedback();
-		mpLogger->WriteLineFormatted(LogLevel::Info, "%s drag mode shutdown", mToolName.c_str());
-		return true;
-	}
-
 	bool OnKeyDown(int32_t vkCode, uint32_t modifiers) override {
 		mpLogger->WriteLineFormatted(LogLevel::Info, "OnKeyDown: keyCode=0x%X, modifiers=0x%X", vkCode, modifiers);
 
@@ -153,9 +147,9 @@ public:
 	bool OnMouseDownL(int32_t screenX, int32_t screenZ, uint32_t modifiers) override {
 		if (!IsOnTop()) return false;
 		
-		int32_t tileX, tileZ;
-		if (ScreenToTileCoordinates(screenX, static_cast<int32_t>(screenZ), tileX, tileZ)) {
-			StartDrag(tileX, tileZ, screenX, static_cast<int32_t>(screenZ));
+		uint32_t tileX, tileZ;
+		if (ScreenToTileCoordinates(screenX, screenZ, tileX, tileZ)) {
+			StartDrag(tileX, tileZ, screenX, screenZ);
 			return true;
 		}
 		return false;
@@ -175,8 +169,8 @@ public:
 		if (!IsOnTop()) return false;
 		
 		if (mIsDragging) {
-			int32_t tileX, tileZ;
-			if (ScreenToTileCoordinates(screenX, static_cast<int32_t>(screenZ), tileX, tileZ)) {
+			uint32_t tileX, tileZ;
+			if (ScreenToTileCoordinates(screenX, screenZ, tileX, tileZ)) {
 				FinishDrag(tileX, tileZ);
 				return true;
 			}
@@ -192,8 +186,7 @@ public:
 		mLastFeedbackY = screenZ;
 
 		if (mIsDragging) {
-			// Only update if we can safely convert coordinates
-			int32_t tileX, tileZ;
+			uint32_t tileX, tileZ;
 			if (ScreenToTileCoordinates(screenX, screenZ, tileX, tileZ)) {
 				UpdateDrag(tileX, tileZ, screenX, screenZ);
 			}
@@ -249,11 +242,11 @@ private:
 		bool shiftPressed = (modifiers & 0x4) != 0; // MK_SHIFT
 		bool altPressed = (modifiers & 0x20) != 0;  // MK_ALT (if supported by SC4)
 		
-		if (ctrlPressed && altPressed) return ParameterType::Tertiary;
-		if (altPressed) return ParameterType::Secondary;
-		if (shiftPressed) return ParameterType::Coarse;
-		if (ctrlPressed) return ParameterType::Fine;
-		return ParameterType::Primary;
+		// if (ctrlPressed && altPressed) return ParameterType::Tertiary;
+		if (altPressed) return ParameterType::Fourth;
+		if (shiftPressed) return ParameterType::Second;
+		if (ctrlPressed) return ParameterType::Third;
+		return ParameterType::First;
 	}
 
 	void StartDrag(int32_t tileX, int32_t tileZ, int32_t screenX, int32_t screenY) {
@@ -293,6 +286,7 @@ private:
 			mpLogger->WriteLineFormatted(LogLevel::Info, "%s validation failed: %s",
 				mToolName.c_str(), errorMsg.c_str());
 			ShowErrorFeedback(errorMsg);
+			mOnDragCancel(mStartTileX, mStartTileZ, tileX, tileZ);
 			return;
 		}
 
@@ -305,6 +299,7 @@ private:
 
 	void CancelDrag() {
 		mIsDragging = false;
+		mOnDragCancel(mStartTileX, mStartTileZ, mCurrentTileX, mCurrentTileZ);
 		ClearDragFeedback();
 		mpLogger->WriteLineFormatted(LogLevel::Info, "%s drag cancelled", mToolName.c_str());
 		ShowParameterFeedback(mLastFeedbackX, mLastFeedbackY);
@@ -389,10 +384,6 @@ private:
 		bool first = true;
 
 		for (const auto& pair : mParameters) {
-			if (pair.first == ParameterType::Fine || pair.first == ParameterType::Coarse) {
-				continue; // Skip fine/coarse as they're just modifiers
-			}
-
 			if (!first) result.Append(cRZBaseString(" | "));
 
 			cRZBaseString paramStr;
@@ -416,8 +407,7 @@ private:
 			bool altPressed = (mCurrentModifiers & 0x20) != 0;
 			
 			const char* modifier = "";
-			if (ctrlPressed && altPressed) modifier = "Ctrl+Alt+";
-			else if (altPressed) modifier = "Alt+";
+			if (altPressed) modifier = "Alt+";
 			else if (shiftPressed) modifier = "Shift+";
 			else if (ctrlPressed) modifier = "Ctrl+";
 
@@ -450,7 +440,7 @@ private:
 		return result;
 	}
 
-	bool ScreenToTileCoordinates(int32_t screenX, int32_t screenY, int32_t& tileX, int32_t& tileZ) {
+	bool ScreenToTileCoordinates(int32_t screenX, int32_t screenY, uint32_t& tileX, uint32_t& tileZ) {
 		if (!mpView3DWin || !mpTerrain) {
 			mpLogger->WriteLineFormatted(LogLevel::Error, "ScreenToTileCoordinates: null pointers - View3D:%p Terrain:%p", mpView3DWin, mpTerrain);
 			return false;
@@ -459,26 +449,94 @@ private:
 		float worldCoords[3] = { 0.0f, 0.0f, 0.0f };
 		bool terrainQueryState = mpView3DWin->GetTerrainQueryEnabled();
 		
-		mpLogger->WriteLineFormatted(LogLevel::Info, "ScreenToTileCoordinates: calling PickTerrain(%d,%d)", screenX, screenY);
+		mpLogger->WriteLineFormatted(LogLevel::Trace, "ScreenToTileCoordinates: calling PickTerrain(%d,%d)", screenX, screenY);
 
 		bool pickResult = false;
 		pickResult = mpView3DWin->PickTerrain(screenX, screenY, worldCoords, terrainQueryState);
 
 		if (pickResult) {
-			tileX = static_cast<int32_t>(worldCoords[0] / 16.0f);
-			tileZ = static_cast<int32_t>(worldCoords[2] / 16.0f);
+			tileX = static_cast<uint32_t>(worldCoords[0] / 16.0f);
+			tileZ = static_cast<uint32_t>(worldCoords[2] / 16.0f);
 
 			uint32_t maxX = mpTerrain->CellCountX();
 			uint32_t maxZ = mpTerrain->CellCountZ();
 
-			tileX = std::max(0, std::min(tileX, static_cast<int32_t>(maxX - 1)));
-			tileZ = std::max(0, std::min(tileZ, static_cast<int32_t>(maxZ - 1)));
+			tileX = std::max(static_cast<uint32_t>(0), std::min(tileX, static_cast<uint32_t>(maxX - 1)));
+			tileZ = std::max(static_cast<uint32_t>(0), std::min(tileZ, static_cast<uint32_t>(maxZ - 1)));
 
-			mpLogger->WriteLineFormatted(LogLevel::Info, "ScreenToTileCoordinates: success - tile(%d,%d)", tileX, tileZ);
+			mpLogger->WriteLineFormatted(LogLevel::Trace, "ScreenToTileCoordinates: success - tile(%d,%d)", tileX, tileZ);
 			return true;
 		}
 
-		mpLogger->WriteLineFormatted(LogLevel::Info, "ScreenToTileCoordinates: PickTerrain failed");
+		mpLogger->WriteLineFormatted(LogLevel::Error, "ScreenToTileCoordinates: PickTerrain failed");
 		return false;
+	}
+protected:
+	Logger* mpLogger;
+	cISTETerrain* mpTerrain;
+
+	typedef uint32_t(__thiscall* cSTETerrainView3D_MarkSelected)(void* this_ptr, int* rect, HilightColor hilightColor, bool clearOthers);
+
+	bool MarkSelected(uint32_t startX, uint32_t startZ, uint32_t endX, uint32_t endZ, HilightColor hilightColor = HilightColor::RED, bool clearOthers = true) {
+		if (startX < 0 || startZ < 0 || endX < 0 || endZ < 0 ||
+			startX > mpTerrain->CellCountX() - 1 || startZ > mpTerrain->CellCountZ() - 1 || endX > mpTerrain->CellCountX() - 1 || endZ > mpTerrain->CellCountZ()) {
+			mpLogger->WriteLine(LogLevel::Error, "MarkSelected: invalid coordinates, out of bounds");
+			return false;
+		}
+
+		SC4Rect<uint32_t> rect = { std::min(startX, endX), std::min(startZ, endZ), std::max(startX, endX), std::max(startZ, endZ)};
+		this->MarkSelected(rect, hilightColor, clearOthers);
+	}
+
+	bool MarkSelected(SC4Rect<uint32_t> rect, HilightColor hilightColor = HilightColor::RED, bool clearOthers = true) {
+		if (!mpTerrain || !mpTerrain->GetView()) {
+			mpLogger->WriteLine(LogLevel::Error, "MarkSelected: terrain or terrain view is null");
+			return false;
+		}
+
+		// TerrainView3D has sadly not yet been decoded, so we use a vtable hack
+		void* terrainView3DPtr = mpTerrain->GetView();
+		void*** vtablePtr = reinterpret_cast<void***>(terrainView3DPtr);
+		void** vtable = *vtablePtr;
+
+		// Get MarkSelected_2 function (vtable index 7)
+		cSTETerrainView3D_MarkSelected markSelectedFn = reinterpret_cast<cSTETerrainView3D_MarkSelected>(vtable[7]);
+
+		mpLogger->WriteLineFormatted(LogLevel::Info, "Marking selected area from (%d,%d) to (%d,%d)", rect.topLeftX, rect.topLeftY, rect.bottomRightX, rect.bottomRightY);
+		return markSelectedFn(terrainView3DPtr, reinterpret_cast<int*>(&rect), hilightColor, clearOthers);
+	}
+
+	void ClearCurrentSelections() {
+		SC4Rect<uint32_t> invalidRect(UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX);
+		MarkSelected(invalidRect, HilightColor::RED, true);
+		return;
+
+		/* This approach doesn't work due to wrong offsets probably
+		if (!mpTerrain || !mpTerrain->GetView()) {
+			mpLogger->WriteLine(LogLevel::Info, "ClearCurrentSelections: terrain or terrain view is null");
+			return;
+		}
+		void* terrainView3DPtr = mpTerrain->GetView();
+
+		// Get the cSTESelectedTerrainArea pointer from inside TerrainView3D
+		// Try offset 0x60 (Windows) or 0x6c (if closer to Mac layout)
+		void** selectedAreaPtr = reinterpret_cast<void**>(
+			reinterpret_cast<char*>(terrainView3DPtr) + 0x60);
+
+		if (selectedAreaPtr && *selectedAreaPtr && *selectedAreaPtr != (void*)0xcccccccc) {
+			void*** vtablePtr = reinterpret_cast<void***>(*selectedAreaPtr);
+			void** vtable = *vtablePtr;
+
+			// ClearCurrentSelections is at index 2 in this vtable
+			// (0x00ab4470 - 0x00ab4468) / 4 = 2
+			typedef void(__thiscall* ClearSelectionsFn)(void* this_ptr);
+			ClearSelectionsFn clearSelectionsFn = reinterpret_cast<ClearSelectionsFn>(vtable[2]);
+			clearSelectionsFn(*selectedAreaPtr);
+
+		}
+		else {
+			mpLogger->WriteLineFormatted(LogLevel::Info, "ClearCurrentSelections: selected area pointer is null or invalid: %p, %p", selectedAreaPtr, *selectedAreaPtr);
+		}
+		*/
 	}
 };

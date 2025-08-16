@@ -84,9 +84,22 @@ public:
 			return;
 		}
 
-		// Normalize direction vector
+		// Normalize direction vector (from start to end)
 		float dirX = bridgeDx / bridgeLength;
 		float dirZ = bridgeDz / bridgeLength;
+		
+		// Calculate approach directions (always pointing away from bridge)
+		float startApproachDirX = -dirX;  // Start approach extends opposite to bridge direction
+		float startApproachDirZ = -dirZ;
+		float endApproachDirX = dirX;     // End approach extends along bridge direction
+		float endApproachDirZ = dirZ;
+		
+		mLogger->WriteLineFormatted(LogLevel::Info,
+			"Bridge vector: (%d,%d) -> (%d,%d), dx=%d, dz=%d, length=%.2f",
+			startTileX, startTileZ, endTileX, endTileZ, bridgeDx, bridgeDz, bridgeLength);
+		mLogger->WriteLineFormatted(LogLevel::Info,
+			"Normalized direction: (%.3f, %.3f), Start approach dir: (%.3f, %.3f), End approach dir: (%.3f, %.3f)",
+			dirX, dirZ, startApproachDirX, startApproachDirZ, endApproachDirX, endApproachDirZ);
 
 		// Get terrain heights at bridge ends
 		float startTerrainHeight = GetTileAverageHeight(startTileX, startTileZ);
@@ -97,29 +110,67 @@ public:
 
 		if (approachLength < 0) {
 			// Calculate required approach lengths if not specified
-			startApproachLength = CalculateOptimalApproachLength(startTileX, startTileZ, -dirX, -dirZ, bridgeHeight, maxGrade);
-			endApproachLength = CalculateOptimalApproachLength(endTileX, endTileZ, dirX, dirZ, bridgeHeight, maxGrade);
+			startApproachLength = CalculateOptimalApproachLength(startTileX, startTileZ, startApproachDirX, startApproachDirZ, bridgeHeight, maxGrade);
+			endApproachLength = CalculateOptimalApproachLength(endTileX, endTileZ, endApproachDirX, endApproachDirZ, bridgeHeight, maxGrade);
 		}
 
 		mLogger->WriteLineFormatted(LogLevel::Info,
 			"Start terrain: %.2f, End terrain: %.2f, Start approach: %.1f tiles, End approach: %.1f tiles",
 			startTerrainHeight, endTerrainHeight, startApproachLength, endApproachLength);
 
-		// Create approach at start (extending backwards from bridge start)
-		int startApproachEndX = startTileX - static_cast<int>(dirX * startApproachLength);
-		int startApproachEndZ = startTileZ - static_cast<int>(dirZ * startApproachLength);
-		ClampToTerrainBounds(startApproachEndX, startApproachEndZ);
+		// Create approach at start (extending away from bridge direction)
+		// Calculate ideal end position
+		float idealStartEndX = startTileX + (startApproachDirX * startApproachLength);
+		float idealStartEndZ = startTileZ + (startApproachDirZ * startApproachLength);
+		
+		// Get terrain bounds
+		uint32_t maxX = mTerrain->CellCountX() - 1;
+		uint32_t maxZ = mTerrain->CellCountZ() - 1;
+		
+		// Clamp to terrain bounds and adjust approach length if needed
+		int startApproachEndX = std::max(0, std::min(static_cast<int>(idealStartEndX), static_cast<int>(maxX)));
+		int startApproachEndZ = std::max(0, std::min(static_cast<int>(idealStartEndZ), static_cast<int>(maxZ)));
+		
+		// Recalculate actual approach length based on clamped coordinates
+		float actualStartApproachLength = std::sqrt(static_cast<float>(
+			(startApproachEndX - startTileX) * (startApproachEndX - startTileX) + 
+			(startApproachEndZ - startTileZ) * (startApproachEndZ - startTileZ)));
+		
 		float startApproachTerrainHeight = GetTileAverageHeight(startApproachEndX, startApproachEndZ);
-		CreateSingleApproach(startApproachEndX, startApproachEndZ, startTileX, startTileZ,
-			startApproachTerrainHeight, bridgeHeight, widthTiles, "start");
+		
+		mLogger->WriteLineFormatted(LogLevel::Info,
+			"Start approach: ideal=(%.1f,%.1f), clamped=(%d,%d), planned_length=%.1f, actual_length=%.1f",
+			idealStartEndX, idealStartEndZ, startApproachEndX, startApproachEndZ, startApproachLength, actualStartApproachLength);
+		
+		mLogger->WriteLineFormatted(LogLevel::Info,
+			"Start approach: bridge=(%d,%d), length=%.1f, dir=(%.3f,%.3f) -> approach_end=(%d,%d)",
+			startTileX, startTileZ, startApproachLength, startApproachDirX, startApproachDirZ, startApproachEndX, startApproachEndZ);
+		
+		CreateSingleApproach(startTileX, startTileZ, startApproachEndX, startApproachEndZ,
+			bridgeHeight, startApproachTerrainHeight, widthTiles, "start");
 
-		// Create approach at end (extending forwards from bridge end)  
-		int endApproachEndX = endTileX + static_cast<int>(dirX * endApproachLength);
-		int endApproachEndZ = endTileZ + static_cast<int>(dirZ * endApproachLength);
-		ClampToTerrainBounds(endApproachEndX, endApproachEndZ);
+		// Create approach at end (extending away from bridge direction)
+		// Calculate ideal end position
+		float idealEndEndX = endTileX + (endApproachDirX * endApproachLength);
+		float idealEndEndZ = endTileZ + (endApproachDirZ * endApproachLength);
+		
+		// Clamp to terrain bounds and adjust approach length if needed
+		int endApproachEndX = std::max(0, std::min(static_cast<int>(idealEndEndX), static_cast<int>(maxX)));
+		int endApproachEndZ = std::max(0, std::min(static_cast<int>(idealEndEndZ), static_cast<int>(maxZ)));
+		
+		// Recalculate actual approach length based on clamped coordinates
+		float actualEndApproachLength = std::sqrt(static_cast<float>(
+			(endApproachEndX - endTileX) * (endApproachEndX - endTileX) + 
+			(endApproachEndZ - endTileZ) * (endApproachEndZ - endTileZ)));
+		
 		float endApproachTerrainHeight = GetTileAverageHeight(endApproachEndX, endApproachEndZ);
+		
+		mLogger->WriteLineFormatted(LogLevel::Info,
+			"End approach: ideal=(%.1f,%.1f), clamped=(%d,%d), planned_length=%.1f, actual_length=%.1f",
+			idealEndEndX, idealEndEndZ, endApproachEndX, endApproachEndZ, endApproachLength, actualEndApproachLength);
+		
 		CreateSingleApproach(endTileX, endTileZ, endApproachEndX, endApproachEndZ,
-			endApproachTerrainHeight, bridgeHeight, widthTiles, "end");
+			bridgeHeight, endApproachTerrainHeight, widthTiles, "end");
 	}
 
 private:
@@ -127,7 +178,7 @@ private:
 		float bridgeHeight, float maxGrade) {
 
 		// Start with a reasonable minimum approach length
-		float currentLength = 5.0f; // Start with 5 tiles minimum
+		float currentLength = 3.0f; // Start with 5 tiles minimum
 		const float maxIterations = 10;
 		const float convergenceThreshold = 0.5f; // Converge within 0.5 tiles
 
@@ -143,7 +194,7 @@ private:
 			// Calculate required length based on actual height difference
 			float requiredLength = CalculateRequiredApproachLength(actualStartHeight, bridgeHeight, maxGrade);
 
-			mLogger->WriteLineFormatted(LogLevel::Info,
+			mLogger->WriteLineFormatted(LogLevel::Trace,
 				"Iteration %d: Current length %.1f, Start height %.2f, Required length %.1f",
 				iteration, currentLength, actualStartHeight, requiredLength);
 
@@ -212,7 +263,12 @@ private:
 			int tileX = static_cast<int>(std::round(currentTileX));
 			int tileZ = static_cast<int>(std::round(currentTileZ));
 
-			ApplyGradeToTileWidth(tileX, tileZ, currentHeight, widthTiles, slopeInX, heightStep);
+			// For the final tile, don't apply internal gradient to avoid overshooting endpoint height
+			if (step == pathLength) {
+				ApplyGradeToTileWidth(tileX, tileZ, currentHeight, widthTiles, slopeInX, 0.0f);
+			} else {
+				ApplyGradeToTileWidth(tileX, tileZ, currentHeight, widthTiles, slopeInX, heightStep);
+			}
 		}
 
 		// Refresh the modified area
@@ -222,10 +278,13 @@ private:
 		int refreshMaxZ = ClampZToTerrainBounds(maxTileZ + 1);
 
 		Refresh(SC4Rect<int32_t>(refreshMinX, refreshMinZ, refreshMaxX, refreshMaxZ));
+		mLogger->WriteLineFormatted(LogLevel::Trace, "Refreshed terrain between (%d, %d) -> (%d, %d)", refreshMinX, refreshMinZ, refreshMaxX, refreshMaxZ);
 	}
 
 	void ApplyGradeToTileWidth(int centerTileX, int centerTileZ, float baseHeight,
 		float widthTiles, bool slopeInX, float heightStep) {
+		mLogger->WriteLineFormatted(LogLevel::Trace, "Applying grade to (%d, %d) -> %f / %f / %d / %f", centerTileX, centerTileZ, baseHeight, widthTiles, slopeInX, heightStep);
+
 
 		int perpDx = slopeInX ? 0 : 1;
 		int perpDz = slopeInX ? 1 : 0;
