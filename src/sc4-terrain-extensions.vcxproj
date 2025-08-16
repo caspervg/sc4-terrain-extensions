@@ -21,6 +21,7 @@
     <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\SC4UI.cpp" />
     <ClCompile Include="BridgeDragViewInputControl.cpp" />
     <ClCompile Include="BaseDragViewInputControl.cpp" />
+    <ClCompile Include="Logger.cpp" />
     <ClCompile Include="TunnelApproachTool.cpp" />
     <ClInclude Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\FileSystem.h" />
     <ClInclude Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\Logger.h" />
@@ -66,7 +67,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\FileSystem.cpp" />
-    <ClCompile Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\Logger.cpp" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
@@ -140,7 +140,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>.\vendor\sc4-dll-basics\include;..\vendor\gzcom-dll\gzcom-dll\include;..\vendor\EASTL\include;..\vendor\EABase\include\Common;.\;.\public\include;.\child-directors;.\more-building-styles</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\vendor\sc4-dll-basics\include;..\vendor\gzcom-dll\gzcom-dll\include;..\vendor\EASTL\include;..\vendor\EABase\include\Common;.\;.\public\include;.\child-directors;.\more-building-styles</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>

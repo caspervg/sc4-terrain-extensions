@@ -123,9 +123,6 @@
     <ClCompile Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\FileSystem.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\Logger.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="TerrainExtensionsDllDirector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -173,6 +170,9 @@
     </ClCompile>
     <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\cRZCOMDllDirector.cpp">
       <Filter>Source Files\GZCOM</Filter>
+    </ClCompile>
+    <ClCompile Include="Logger.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

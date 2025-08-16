@@ -89,7 +89,7 @@ private:
 public:
 	BaseDragViewInputControl(uint32_t controlID, uint32_t cursorID, cISTETerrain* pTerrain, cIGZWin* pWindow, cISC4View3DWin* pView3DWin,
 		const std::string& toolName, const std::string& toolDescription)
-		: cSC4BaseViewInputControl(controlID, cursorID)
+		: cSC4BaseViewInputControl(controlID)
 		, mpView3DWin(pView3DWin)
 		, mpWindow(pWindow)
 		, mpTerrain(pTerrain)
@@ -104,14 +104,9 @@ public:
 		, mPrimaryTextID(controlID + 100)
 		, mSecondaryTextID(controlID + 101)
 	{
+		this->cursorID = cursorID;
 		mpLogger = &Logger::GetInstance();
 		mpLogger->WriteLineFormatted(LogLevel::Info, "GenericDragViewInputControl created: %s", toolName.c_str());
-	}
-
-	~BaseDragViewInputControl() {
-		// Ensure all visual feedback is cleared when the control is destroyed
-		ClearAllVisualFeedback();
-		mpLogger->WriteLineFormatted(LogLevel::Info, "BaseDragViewInputControl destroyed: %s", mToolName.c_str());
 	}
 
 	// Configuration methods
@@ -444,32 +439,56 @@ private:
 	}
 
 	cRZBaseString BuildHintString() {
-		cRZBaseString hint;
-		bool ctrlPressed = (mCurrentModifiers & ModifierFlags::Ctrl) != 0;
-		bool shiftPressed = (mCurrentModifiers & ModifierFlags::Shift) != 0;
 		bool altPressed = (mCurrentModifiers & ModifierFlags::Alt) != 0;
+		std::string hintText;
 		
 		if (altPressed) {
-			// Alt is pressed, show which parameter will be adjusted
+			// Alt is pressed, show which parameter is currently active
 			ParameterType target = GetScrollTargetParameter(mCurrentModifiers);
 			auto it = mParameters.find(target);
 			
 			if (it != mParameters.end()) {
-				const char* modifier = "";
+				bool ctrlPressed = (mCurrentModifiers & ModifierFlags::Ctrl) != 0;
+				bool shiftPressed = (mCurrentModifiers & ModifierFlags::Shift) != 0;
+				
+				std::string modifier;
 				if (ctrlPressed && shiftPressed) modifier = "Alt+Ctrl+Shift+";
 				else if (ctrlPressed) modifier = "Alt+Ctrl+";
 				else if (shiftPressed) modifier = "Alt+Shift+";
 				else modifier = "Alt+";
 
-				hint.Sprintf("%sScroll: %s", modifier, it->second.name.c_str());
-			} else {
-				hint.Sprintf("Alt+Scroll: Adjust parameters");
+				hintText = modifier + "Scroll: " + it->second.name + " (active)";
 			}
 		} else {
-			// Alt not pressed, show instructions
-			hint.Sprintf("Alt+Scroll: Adjust parameters | Scroll: Zoom");
+			// Show all available parameters for discoverability
+			std::vector<std::string> paramEntries;
+			
+			// Build list of available parameters with their modifier keys
+			for (const auto& pair : mParameters) {
+				std::string modifierKey;
+				switch (pair.first) {
+					case ParameterType::First: modifierKey = "Alt"; break;
+					case ParameterType::Second: modifierKey = "Alt+Shift"; break;
+					case ParameterType::Third: modifierKey = "Alt+Ctrl"; break;
+					case ParameterType::Fourth: modifierKey = "Alt+Ctrl+Shift"; break;
+				}
+				
+				paramEntries.push_back(modifierKey + "+Scroll: " + pair.second.name);
+			}
+			
+			if (!paramEntries.empty()) {
+				// Join all parameter entries with " | "
+				for (size_t i = 0; i < paramEntries.size(); ++i) {
+					if (i > 0) hintText += " | ";
+					hintText += paramEntries[i];
+				}
+				hintText += " | Scroll: Zoom";
+			} else {
+				hintText = "Scroll: Zoom";
+			}
 		}
 
+		cRZBaseString hint(hintText.c_str());
 		return hint;
 	}
 
