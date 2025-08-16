@@ -19,12 +19,12 @@
     <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\cS3DVector3.cpp" />
     <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\cSC4BaseViewInputControl.cpp" />
     <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\SC4UI.cpp" />
+    <ClCompile Include="..\vendor\sc4-dll-basics\src\Logger.cpp" />
     <ClCompile Include="BridgeDragViewInputControl.cpp" />
     <ClCompile Include="BaseDragViewInputControl.cpp" />
-    <ClCompile Include="Logger.cpp" />
+    <ClInclude Include="..\vendor\sc4-dll-basics\include\Logger.h" />
     <ClCompile Include="TunnelApproachTool.cpp" />
-    <ClInclude Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\FileSystem.h" />
-    <ClInclude Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\Logger.h" />
+    <ClInclude Include="..\vendor\sc4-dll-basics\include\src\FileSystem.h" />
     <ClInclude Include="..\vendor\EASTL\include\EASTL\vector.h" />
     <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cIGZCursor.h" />
     <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cIGZCursorManager.h" />

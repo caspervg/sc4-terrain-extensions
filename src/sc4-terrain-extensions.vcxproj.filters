@@ -30,12 +30,6 @@
     <ClInclude Include="version.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\Logger.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\FileSystem.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="TerrainTool.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -108,6 +102,12 @@
     <ClInclude Include="..\vendor\gzcom-dll\gzcom-dll\include\cISTETerrainView.h">
       <Filter>Header Files\GZCOM</Filter>
     </ClInclude>
+    <ClInclude Include="..\vendor\sc4-dll-basics\include\src\FileSystem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vendor\sc4-dll-basics\include\Logger.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="version.rc">
@@ -120,9 +120,6 @@
     <None Include="vcpkg.json" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\FileSystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="TerrainExtensionsDllDirector.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -171,7 +168,10 @@
     <ClCompile Include="..\vendor\gzcom-dll\gzcom-dll\src\cRZCOMDllDirector.cpp">
       <Filter>Source Files\GZCOM</Filter>
     </ClCompile>
-    <ClCompile Include="Logger.cpp">
+    <ClCompile Include="..\..\..\ReverseEngineering\Projects\sc4-bulldoze-extensions\src\FileSystem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vendor\sc4-dll-basics\src\Logger.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
