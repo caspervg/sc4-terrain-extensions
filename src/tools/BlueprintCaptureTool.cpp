@@ -1,53 +1,72 @@
 #pragma once
 #include "TerrainTool.hpp"
+#include "BlueprintData.hpp"
 #include "cISC4City.h"
 #include "cISC4ZoneManager.h"
 #include "cISC4OccupantManager.h"
-#include "cISC4Occupant.h"
 #include "cISC4NetworkOccupant.h"
-#include "utils/Logger.h"
-#include <memory>
-#include <unordered_map>
-#include <string>
+#include "cISC4Occupant.h"
+#include "cISC4City.h"
+#include "SC4List.h"
+#include <unordered_set>
+#include "cRZAutoRefCount.h"
 #include <vector>
+#include <unordered_map>
 #include <sstream>
+#include "filters/NetworkOccupantFilter.h"
 
-// Phase 1: Capture zoning (and stub for network occupants) inside a rectangle.
-// Stores the latest captured blueprint in static memory for later stamping phases.
+namespace {
+	struct NetworkIterData {
+		int x1; int z1; int x2; int z2;
+		std::unordered_set<cISC4Occupant*>* visited;
+		CapturedBlueprint* bp;
+	};
 
-struct CapturedBlueprintPhase1 {
-	int originX = 0;
-	int originZ = 0;
-	int width = 0;   // inclusive span (#cells in X)
-	int height = 0;  // inclusive span (#cells in Z)
-	// Zone type map (same ordering as scan: z-major or row-major). We'll use row-major: index = (z*width + x)
-	std::vector<int32_t> zoneTypes; // store underlying enum integral values
-	// Simple counts per zone type value
-	std::unordered_map<int32_t, int> zoneCounts;
-};
+	static bool CollectNetworkCallback(cISC4Occupant* occ, void* pData) {
+		if (!occ || !pData) return true; // continue
+		auto* data = reinterpret_cast<NetworkIterData*>(pData);
+		if (data->visited->contains(occ)) return true;
+		data->visited->insert(occ);
+		cRZAutoRefCount<cISC4NetworkOccupant> netOcc;
+		if (!occ->QueryInterface(GZIID_cISC4NetworkOccupant, netOcc.AsPPVoid())) return true;
+		uint32_t cellX=0, cellZ=0; netOcc->GetOccupiedCell(cellX, cellZ);
+		if (cellX < static_cast<uint32_t>(data->x1) || cellX > static_cast<uint32_t>(data->x2) || cellZ < static_cast<uint32_t>(data->z1) || cellZ > static_cast<uint32_t>(data->z2)) return true;
+		CapturedNetworkPiece piece;
+		piece.relX = static_cast<int>(cellX) - data->x1;
+		piece.relZ = static_cast<int>(cellZ) - data->z1;
+		piece.pieceId = netOcc->PieceId();
+		piece.rotation = netOcc->GetRotation();
+		piece.flip = netOcc->GetFlip();
+		piece.variation = netOcc->GetVariation();
+		for (uint32_t t = 0; t <= 12; ++t) {
+			if (netOcc->IsOfType(static_cast<cISC4NetworkOccupant::eNetworkType>(t))) { piece.networkType = t; break; }
+		}
+		piece.isIntersection = netOcc->IsIntersection();
+		data->bp->networkPieces.push_back(piece);
+		return true; // continue
+	}
 
-static CapturedBlueprintPhase1 g_LastCapturedBlueprint; // global storage (simple for now)
-
-static const char* ZoneTypeToString(cISC4ZoneManager::ZoneType t) {
-	using Z = cISC4ZoneManager::ZoneType;
-	switch (t) {
-	case Z::None: return "None";
-	case Z::ResidentialLowDensity: return "ResLow";
-	case Z::ResidentialMediumDensity: return "ResMed";
-	case Z::ResidentialHighDensity: return "ResHigh";
-	case Z::CommercialLowDensity: return "ComLow";
-	case Z::CommercialMediumDensity: return "ComMed";
-	case Z::CommercialHighDensity: return "ComHigh";
-	case Z::Agriculture: return "Agri";
-	case Z::IndustrialMediumDensity: return "IndMed";
-	case Z::IndustrialHighDensity: return "IndHigh";
-	case Z::Military: return "Military";
-	case Z::Airport: return "Airport";
-	case Z::Seaport: return "Seaport";
-	case Z::Spaceport: return "Spaceport";
-	case Z::Landfill: return "Landfill";
-	case Z::Plopped: return "Plopped";
-	default: return "Unknown";
+	static const char* ZoneTypeToString(int32_t v) {
+		// Mirrors cISC4ZoneManager::ZoneType integral values
+		switch (v) {
+			case 0: return "None";
+			case 1: return "ResidentialLowDensity";
+			case 2: return "ResidentialMediumDensity";
+			case 3: return "ResidentialHighDensity";
+			case 4: return "CommercialLowDensity";
+			case 5: return "CommercialMediumDensity";
+			case 6: return "CommercialHighDensity";
+			case 7: return "Agriculture";
+			case 8: return "IndustrialMediumDensity";
+			case 9: return "IndustrialHighDensity";
+			case 10: return "Military";
+			case 11: return "Airport";
+			case 12: return "Seaport";
+			case 13: return "Spaceport";
+			case 14: return "Landfill";
+			case 15: return "Plopped";
+			default: return "Unknown";
+		}
 	}
 }
 
@@ -104,7 +123,7 @@ public:
 			return;
 		}
 
-		CapturedBlueprintPhase1 bp;
+		CapturedBlueprint bp; // use shared struct
 		bp.originX = x1;
 		bp.originZ = z1;
 		bp.width = width;
@@ -126,10 +145,48 @@ public:
 			}
 		}
 
-		// (Phase 1) Network occupant capture stub: logged only; full metadata capture will come in Phase 2
-		LOG_INFO("BlueprintCapture: network occupant capture deferred (phase 1 stub)");
+		cISC4OccupantManager* occMgr = mCity->GetOccupantManager();
+		if (occMgr) {
+			int debugVisitedCells = 0;
+			int debugFoundOcc = 0;
+			int debugDuplicates = 0;
+			// Reuse a single filter instance instead of allocating each call
+			auto* netFilter = new NetworkOccupantFilter(NetworkTypeFlags::AllTransportationNetworks);
+			std::unordered_set<cISC4Occupant*> seenNetworkOccupants;
+			for (int cz = z1; cz <= z2; ++cz) {
+				for (int cx = x1; cx <= x2; ++cx) {
+					++debugVisitedCells;
+					cISC4Occupant* occ = nullptr;
+					if (occMgr->GetFirstOccupantByStandardCityCell(occ, cx, cz, netFilter) && occ) {
+						++debugFoundOcc;
+						cRZAutoRefCount<cISC4NetworkOccupant> netOcc;
+						if (occ->QueryInterface(GZIID_cISC4NetworkOccupant, netOcc.AsPPVoid())) {
+							// Avoid duplicate recording if same occupant spans multiple queried cells
+							if (!seenNetworkOccupants.insert(occ).second) { ++debugDuplicates; continue; }
+							uint32_t cellX=0, cellZ=0; netOcc->GetOccupiedCell(cellX, cellZ);
+							CapturedNetworkPiece piece;
+							piece.relX = static_cast<int>(cellX) - x1;
+							piece.relZ = static_cast<int>(cellZ) - z1;
+							piece.pieceId = netOcc->PieceId();
+							piece.rotation = netOcc->GetRotation();
+							piece.flip = netOcc->GetFlip();
+							piece.variation = netOcc->GetVariation();
+							for (uint32_t t=0; t<=12; ++t) {
+								if (netOcc->IsOfType(static_cast<cISC4NetworkOccupant::eNetworkType>(t))) { piece.networkType = t; break; }
+							}
+							piece.isIntersection = netOcc->IsIntersection();
+							bp.networkPieces.push_back(piece);
+						}
+					}
+				}
+			}
+			delete netFilter;
+			LOG_INFO("BlueprintCapture: scanned cells={} first-occupants={} networks={} duplicatesSkipped={}", debugVisitedCells, debugFoundOcc, bp.networkPieces.size(), debugDuplicates);
+		} else {
+			LOG_INFO("BlueprintCapture: OccupantManager unavailable, skipped network capture");
+		}
 
-		// Commit global
+		// Commit global blueprint
 		g_LastCapturedBlueprint = std::move(bp);
 
 		// Summary log
@@ -137,19 +194,18 @@ public:
 		oss << "Zones summary:";
 		for (const auto& kv : g_LastCapturedBlueprint.zoneCounts) {
 			auto enumVal = static_cast<cISC4ZoneManager::ZoneType>(kv.first);
-			oss << ' ' << ZoneTypeToString(enumVal) << '=' << kv.second;
+			oss << ' ' << ZoneTypeToString(static_cast<int>(enumVal)) << '=' << kv.second;
 		}
-		LOG_INFO("BlueprintCapture: {}", oss.str().c_str());
 		int nonEmpty = 0;
-		for (int v : g_LastCapturedBlueprint.zoneTypes) {
-			if (v != 0) ++nonEmpty;
-		}
-		LOG_INFO("BlueprintCapture: total cells={} non-empty={} (excluding None)",
+		for (int v : g_LastCapturedBlueprint.zoneTypes) if (v != 0) ++nonEmpty;
+		LOG_INFO("BlueprintCapture: {}", oss.str().c_str());
+		LOG_INFO("BlueprintCapture: total cells={} non-empty={} networks={}",
 			g_LastCapturedBlueprint.width * g_LastCapturedBlueprint.height,
-			nonEmpty);
+			nonEmpty,
+			g_LastCapturedBlueprint.networkPieces.size());
 	}
 
 	const char* GetName() const override { return "blueprint-capture"; }
-	const char* GetDescription() const override { return "Capture zoning (phase 1) into an internal blueprint"; }
+	const char* GetDescription() const override { return "Capture zoning + networks into an internal blueprint"; }
 	const char* GetUsage() const override { return "blueprint-capture <x1> <z1> <x2> <z2>"; }
 };

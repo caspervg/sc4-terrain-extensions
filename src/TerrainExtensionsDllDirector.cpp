@@ -43,6 +43,7 @@
 #include "tools/FlattenTool.cpp"
 #include "tools/BridgeApproachTool.cpp"
 #include "tools/BlueprintCaptureTool.cpp"
+#include "tools/BlueprintExportTool.cpp"
 #include <sstream>
 #include "controls/BridgeDragViewInputControl.cpp"
 #include <windows.h>
@@ -194,6 +195,7 @@ private:
 		mToolRegistry.RegisterTool(std::make_unique<FlattenTool>(pTerrain));
 		mToolRegistry.RegisterTool(std::make_unique<BridgeApproachTool>(pTerrain));
 		mToolRegistry.RegisterTool(std::make_unique<BlueprintCaptureTool>(pTerrain, pCityIn));
+		mToolRegistry.RegisterTool(std::make_unique<BlueprintExportTool>(pTerrain));
 
 		LOG_DEBUG("Terrain tools setup complete.");
 		mToolRegistry.ListTools();

@@ -54,6 +54,9 @@ FetchContent_Declare(WIL
         URL https://github.com/microsoft/wil/archive/refs/tags/v1.0.250325.1.zip)
 FetchContent_MakeAvailable(WIL)
 
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.12.0/json.tar.xz)
+FetchContent_MakeAvailable(json)
+
 # gzcom-dll doesn't have CMakeLists.txt, so we include it directly
 set(GZCOM_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/vendor/gzcom-dll/gzcom-dll/include)
 set(GZCOM_SOURCE_DIR ${CMAKE_SOURCE_DIR}/vendor/gzcom-dll/gzcom-dll/src)
@@ -93,6 +96,8 @@ set(SOURCES
         ${GZCOM_SOURCES}
         ${SC4_DLL_BASICS_SOURCE_DIR}
         src/utils/Logger.cpp
+        src/filters/NetworkOccupantFilter.cpp
+        src/tools/BlueprintData.cpp
 )
 
 set(HEADERS
@@ -111,6 +116,7 @@ target_link_libraries(${PROJECT_NAME}
     WIL::WIL
     args
     mINI
+    nlohmann_json
 )
 
 # Windows-specific libraries
