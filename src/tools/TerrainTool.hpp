@@ -42,9 +42,9 @@ public:
 	void SetAltitudeAtVertex(int tileX, int tileZ, float height) {
 		if (IsValidTile(tileX, tileZ)) {
 			mTerrain->SetAltitudeAtVertex(tileX, tileZ, height);
-			LOG_DEBUG("Set altitude at (%d, %d) to %.2f", tileX, tileZ, height);
+			LOG_TRACE("Set altitude at ({}, {}) to {:.2f}", tileX, tileZ, height);
 		} else {
-			LOG_ERROR("Invalid tile (%d, %d)", tileX, tileZ);
+			LOG_ERROR("Invalid tile ({}, {})", tileX, tileZ);
 		}
 	}
 

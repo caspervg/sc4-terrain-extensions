@@ -207,7 +207,9 @@ private:
 		return std::max(2.0f, std::ceil(requiredLength * 1.2f)); // Minimum 2 tiles, 20% safety margin
 	}
 
-	void CreateSingleApproach(int startTileX, int startTileZ, int endTileX, int endTileZ,
+	void
+
+	CreateSingleApproach(int startTileX, int startTileZ, int endTileX, int endTileZ,
 		float startHeight, float endHeight, float widthTiles, const char* label, bool useTapering = false) {
 		
 		int tileDx = endTileX - startTileX;

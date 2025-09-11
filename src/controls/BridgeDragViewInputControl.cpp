@@ -52,8 +52,8 @@ public:
 			float grade = GetParameterValue(ParameterType::Second);
 
 			// Calculate drag direction and derive bridge orientation and dimensions
-			int32_t dragDx = endX - startX;
-			int32_t dragDz = endZ - startZ;
+			const int32_t dragDx = endX - startX;
+			const int32_t dragDz = endZ - startZ;
 			
 			if (dragDx == 0 && dragDz == 0) {
 				LOG_INFO("Start and end points are identical, cannot create bridge");
@@ -61,7 +61,7 @@ public:
 			}
 
 			// Determine bridge orientation from drag direction
-			bool isHorizontalBridge = abs(dragDx) >= abs(dragDz);  // >= handles perfect diagonal -> horizontal
+			const bool isHorizontalBridge = abs(dragDx) >= abs(dragDz);  // >= handles perfect diagonal -> horizontal
 			
 			float bridgeLength, bridgeWidth;
 			int32_t bridgeStartX, bridgeStartZ, bridgeEndX, bridgeEndZ;
