@@ -1,20 +1,24 @@
 # sc4-terrain-extensions
 
-A DLL Plugin for SimCity 4 that create some terrain extension tools.   
-
-The plugin can be downloaded from the Releases tab: https://github.com/0xC0000054/sc4-bulldoze-extensions/releases
+A DLL Plugin for SimCity 4 that provides terrain extension tools. The plugin creates custom terrain manipulation tools accessible through in-game cheat codes.
 
 ## Features
 
-### Flora Bulldoze Mode
+### Command-Line Terrain Tools
 
-This mode is activated in the city view using a _Control + B_ shortcut, this can be done with or without the bulldoze tool active.
-When the flora bulldoze mode is active, the bulldoze tool will only affect objects the game considers flora.
+Activated using the cheat code `earthbender` followed by tool commands:
 
-### Network Bulldoze Mode
+- **Constant Grade Tool**: Creates paths with constant grade/slope between two points
+- **Flatten Tool**: Flattens terrain areas to a specified height
+- **Bridge Approach Tool**: Creates bridge approaches with specified parameters
 
-This mode is activated in the city view using a _Shift + B_ shortcut, this can be done with or without the bulldoze tool active.
-When the network bulldoze mode is active, the bulldoze tool will only affect transportation networks (excluding power lines and water pipes).
+### Drag-Based Tools
+
+Activated using the cheat code `bridgebuilder` followed by tool name:
+
+- **Bridge Approach Drag Tool**: Interactive bridge approach creation with real-time parameter adjustment using scroll wheel
+- Parameter adjustment with modifier keys (Shift/Ctrl/Alt) for different settings
+- Visual feedback during drag operations
 
 
 ## System Requirements
@@ -27,12 +31,12 @@ The plugin may work on Windows 7 or later, but I do not have the ability to test
 ## Installation
 
 1. Close SimCity 4.
-2. Copy `SC4BulldozeExtensions.dll` and `BulldozeExtensions.dat` into the top-level of the Plugins folder in the SimCity 4 installation directory or Documents/SimCity 4 directory.
+2. Copy `SC4TerrainExtensions.dll` into the top-level of the Plugins folder in the SimCity 4 installation directory or Documents/SimCity 4 directory.
 3. Start SimCity 4.
 
 ## Troubleshooting
 
-The plugin should write a `SC4BulldozeExtensions.log` file in the same folder as the plugin.    
+The plugin should write a `SC4TerrainExtensions.log` file in the same folder as the plugin.    
 The log contains status information for the most recent run of the plugin.
 
 # License
@@ -43,27 +47,37 @@ See [LICENSE.txt](LICENSE.txt) for more information.
 ## 3rd party code
 
 [gzcom-dll](https://github.com/nsgomez/gzcom-dll/tree/master) Located in the vendor folder, MIT License.    
-[EABase](https://github.com/electronicarts/EABase) Located in the vendor folder, BSD 3-Clause License.    
-[EASTL](https://github.com/electronicarts/EASTL) Located in the vendor folder, BSD 3-Clause License.    
+[spdlog](https://github.com/gabime/spdlog) Located in the vendor folder, MIT License.    
+[args](https://github.com/Taywee/args) Located in the vendor folder, MIT License.    
+[mINI](https://github.com/metayeti/mINI) Located in the vendor folder, MIT License.    
 [Windows Implementation Library](https://github.com/microsoft/wil) - MIT License    
-[SC4Fix](https://github.com/nsgomez/sc4fix) - MIT License    
+[sc4-dll-basics](https://github.com/0xC0000054/sc4-dll-basics) Located in the vendor folder, MIT License.    
 
 # Source Code
 
 ## Prerequisites
 
-* Visual Studio 2022
+* Visual Studio 2022 or CLion with Visual Studio toolchain
+* CMake 3.20+
+* Windows 10 or later
 
 ## Building the plugin
 
-* Open the solution in the `src` folder
-* Update the post build events to copy the build output to you SimCity 4 application plugins folder.
-* Build the solution
+```bash
+# Configure with CMake presets
+cmake --preset vs2022-win32-debug     # Debug build
+cmake --preset vs2022-win32-release   # Release build
+
+# Build
+cmake --build cmake-build-debug-visual-studio --config Debug
+cmake --build cmake-build-release-visual-studio --config Release
+```
+
+The build system automatically deploys the DLL to your SimCity 4 Plugins folder.
 
 ## Debugging the plugin
 
-Visual Studio can be configured to launch SimCity 4 on the Debugging page of the project properties.
-I configured the debugger to launch the game in full screen with the following command line:    
+Configure your IDE to launch SimCity 4 with the following command line:    
 `-intro:off -CPUcount:1 -w -CustomResolution:enabled -r1920x1080x32`
 
 You may need to adjust the window resolution for your primary screen.
