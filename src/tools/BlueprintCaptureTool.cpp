@@ -237,7 +237,7 @@ public:
 			g_LastCapturedBlueprint.networkPieces.size());
 	}
 
-	const char* GetName() const override { return "blueprint-capture"; }
+	const char* GetName() const override { return "bpc"; }
 	const char* GetDescription() const override { return "Capture zoning + networks into an internal blueprint"; }
 	const char* GetUsage() const override { return "blueprint-capture <x1> <z1> <x2> <z2>"; }
 };
