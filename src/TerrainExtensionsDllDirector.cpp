@@ -42,6 +42,7 @@
 #include "tools/ConstantGradeTool.cpp"
 #include "tools/FlattenTool.cpp"
 #include "tools/BridgeApproachTool.cpp"
+#include "tools/BlueprintCaptureTool.cpp"
 #include <sstream>
 #include "controls/BridgeDragViewInputControl.cpp"
 #include <windows.h>
@@ -161,7 +162,7 @@ private:
 		}
 
 		pCity = static_cast<cISC4City*>(pStandardMsg->GetVoid1());
-		SetUpTools(pCity->GetTerrain());
+		SetUpTools(pCity, pCity->GetTerrain());
 
 		if (pCheatCodeManager) {
 			pCheatCodeManager->AddNotification2(this, 0);
@@ -186,12 +187,13 @@ private:
 		LOG_DEBUG("PostCityInit: Cheat code manager initialized with cheat ID: 0x{:X}", kTerrainExtensionsCheatID);
 	}
 
-	void SetUpTools(cISTETerrain* pTerrain) {
+	void SetUpTools(cISC4City* pCityIn, cISTETerrain* pTerrain) {
 		LOG_DEBUG("Setting up terrain tools...");
 
 		mToolRegistry.RegisterTool(std::make_unique<ConstantGradeTool>(pTerrain));
 		mToolRegistry.RegisterTool(std::make_unique<FlattenTool>(pTerrain));
 		mToolRegistry.RegisterTool(std::make_unique<BridgeApproachTool>(pTerrain));
+		mToolRegistry.RegisterTool(std::make_unique<BlueprintCaptureTool>(pTerrain, pCityIn));
 
 		LOG_DEBUG("Terrain tools setup complete.");
 		mToolRegistry.ListTools();

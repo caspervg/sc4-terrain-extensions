@@ -89,7 +89,7 @@ public:
 				return;
 			}
 
-			LOG_DEBUG("Creating bridge approaches from ({}},{}) to ({},{}), height: {:.2f}, grade: {:.1f}%, width: {:.1f} tiles, orientation: {}",
+			LOG_DEBUG("Creating bridge approaches from ({},{}) to ({},{}), height: {:.2f}, grade: {:.1f}%, width: {:.1f} tiles, orientation: {}",
 				bridgeStartX, bridgeStartZ, bridgeEndX, bridgeEndZ, height, grade, bridgeWidth, 
 				isHorizontalBridge ? "horizontal" : "vertical");
 				
