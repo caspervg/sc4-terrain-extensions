@@ -107,10 +107,29 @@ public:
 			});
 		}
 		j["networks"] = nets;
+
+		// Parcels
+		json parcels = json::array();
+		for (const auto& p : bp.zoneLotParcels) {
+			parcels.push_back({
+{"zoneType", p.zoneType},
+				{"relX", p.relX},
+				{"relZ", p.relZ},
+				{"width", p.width},
+				{"height", p.height},
+				{"facing", p.facing},
+				{"hasBuilding", p.hasBuilding},
+				{"isHistorical", p.isHistorical},
+				{"habitationState", p.habitationState}
+			});
+		}
+		j["parcels"] = parcels;
+
 		j["summary"] = {
 			{"totalCells", bp.width * bp.height},
 			{"zoneNonEmpty", nonEmpty},
-			{"networkCount", bp.networkPieces.size()}
+			{"networkCount", bp.networkPieces.size()},
+			{"parcelCount", bp.zoneLotParcels.size()}
 		};
 
 		std::error_code ec;

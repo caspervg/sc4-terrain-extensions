@@ -14,6 +14,12 @@
 #include <unordered_map>
 #include <sstream>
 #include "filters/NetworkOccupantFilter.h"
+#include "cISC4ZoneDeveloper.h"
+#include "SC4CellRegion.h"
+#include "cRZCellMap.h"
+#include <queue>
+#include "cISC4LotManager.h"
+#include "cISC4Lot.h"
 
 namespace {
 	struct NetworkIterData {
@@ -184,6 +190,32 @@ public:
 			LOG_INFO("BlueprintCapture: scanned cells={} first-occupants={} networks={} duplicatesSkipped={}", debugVisitedCells, debugFoundOcc, bp.networkPieces.size(), debugDuplicates);
 		} else {
 			LOG_INFO("BlueprintCapture: OccupantManager unavailable, skipped network capture");
+		}
+
+		cISC4LotManager* lotMgr = mCity->GetLotManager();
+		if (lotMgr) {
+			if (SC4List<cISC4Lot*> sLotList; lotMgr->GetLotsInCellRect(sLotList, x1, z1, x2, z2, false)) {
+				for (auto it = sLotList.begin(); it != sLotList.end(); ++it) {
+					cISC4Lot* lot = *it;
+					if (!lot) continue;
+					SC4Rect<int32_t> lotRect;
+					if (!lot->GetBoundingRect(lotRect)) continue;
+					ZoneLotParcel zlp;
+					zlp.zoneType = static_cast<int>(lot->GetZoneType());
+					zlp.relX = lotRect.topLeftX - x1;
+					zlp.relZ = lotRect.topLeftY - z1;
+					zlp.width = lotRect.bottomRightX - lotRect.topLeftX + 1;
+					zlp.height = lotRect.bottomRightY - lotRect.topLeftY + 1;
+					zlp.facing = lot->GetFacing();
+					zlp.hasBuilding = (lot->GetBuilding() != nullptr);
+					zlp.isHistorical = lot->IsHistorical();
+					zlp.habitationState = static_cast<int>(lot->GetState());
+					bp.zoneLotParcels.push_back(zlp);
+				}
+				LOG_INFO("BlueprintCapture: captured {} authoritative parcels from LotManager", bp.zoneLotParcels.size());
+			} else {
+				LOG_INFO("BlueprintCapture: LotManager.GetLotsInCellRect failed");
+			}
 		}
 
 		// Commit global blueprint

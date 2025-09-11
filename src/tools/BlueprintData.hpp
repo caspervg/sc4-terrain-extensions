@@ -15,6 +15,18 @@ struct CapturedNetworkPiece {
     bool isIntersection = false;
 };
 
+struct ZoneLotParcel {
+    int zoneType = 0;
+    int relX = 0;
+    int relZ = 0;
+    int width = 0;
+    int height = 0;
+    int facing = 0;
+    bool hasBuilding = false;
+    bool isHistorical = false;
+    int habitationState = -1; // cISC4Lot::HabitationState
+};
+
 struct CapturedBlueprint {
     int originX = 0;
     int originZ = 0;
@@ -23,6 +35,7 @@ struct CapturedBlueprint {
     std::vector<int32_t> zoneTypes;              // row-major (z * width + x)
     std::unordered_map<int32_t,int> zoneCounts;  // enum integral -> count
     std::vector<CapturedNetworkPiece> networkPieces;
+    std::vector<ZoneLotParcel> zoneLotParcels;
     bool IsValid() const { return width > 0 && height > 0 && (int)zoneTypes.size() == width * height; }
 };
 
