@@ -8,32 +8,36 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a DLL plugin for SimCity 4 that provides terrain extension tools. The plugin creates custom terrain manipulation tools accessible through in-game cheat codes. It uses modern C++20 with a modular architecture for adding new terrain tools.
+This is a DLL plugin for SimCity 4 that provides terrain extension tools. The plugin creates custom terrain manipulation tools accessible through in-game cheat codes. It uses modern C++17 with a modular architecture for adding new terrain tools and drag-based input controls.
 
 ## Build System
 
 **Prerequisites:**
-- Visual Studio 2022
+- Visual Studio 2022 or CLion with Visual Studio toolchain
 - Windows 10 or later
+- CMake 3.20+
 - Target platform: Win32 (32-bit)
 
-**Building the plugin:**
+**Building with CMake:**
 ```bash
-# Open the solution in Visual Studio
-# src/sc4-terrain-extensions.sln
+# Configure with CMake presets
+cmake --preset vs2022-win32-debug     # Debug build
+cmake --preset vs2022-win32-release   # Release build
 
-# Build configurations available:
-# - Debug|Win32
-# - Release|Win32
+# Build
+cmake --build cmake-build-debug-visual-studio --config Debug
+cmake --build cmake-build-release-visual-studio --config Release
 
-# Post-build events automatically copy DLL to SimCity 4 plugins folder:
-# Debug: C:\Users\caspe\Documents\SimCity 4\Plugins
-# Release: C:\Users\caspe\OneDrive - Maplix\SimCity 4\Plugins
+# Auto-deployment to SC4 Plugins folder is configured in CMakeLists.txt
 ```
 
-**Dependencies managed by vcpkg:**
-- wil (Windows Implementation Library)
-- args (command line argument parsing)
+**Dependencies:**
+- **spdlog**: Modern logging library (vendored)
+- **args**: Command line argument parsing (vendored)
+- **mINI**: INI file parsing (vendored)
+- **WIL**: Windows Implementation Library (FetchContent)
+- **gzcom-dll**: SimCity 4 COM interfaces (vendored submodule)
+- **sc4-dll-basics**: Common SC4 plugin utilities (vendored)
 
 ## Vendored Libraries
 
@@ -44,70 +48,110 @@ This is a DLL plugin for SimCity 4 that provides terrain extension tools. The pl
 - Persistence: `cIGZPersistResourceManager`, `cIGZFile`
 - Utilities: `cRZBaseString`, `cRZAutoRefCount`, service pointers
 - Math types: `SC4Rect`, `SC4Point`, `SC4Vector`
+- Input controls: `cSC4BaseViewInputControl` base class
 
-**EASTL** (`vendor/EASTL/`): High-performance STL replacement from EA
-- Containers: vector, list, map, hash_map, fixed_* variants
-- Algorithms and utilities
-- Memory management with custom allocators
+**spdlog** (`vendor/spdlog/`): Modern, fast C++ logging library
+- High performance, header-only logging
+- Multiple sink support (console, file, etc.)
+- Thread-safe logging with custom formatters
 
-**EABase** (`vendor/EABase/`): Platform abstraction layer
+**args** (`vendor/args/`): Simple header-only C++ argument parser
+- Command line argument parsing for cheat commands
+- Supports flags, positional arguments, and help generation
+
+**mINI** (`vendor/mINI/`): Modern, header-only INI parser
+- Configuration file parsing
+- Cross-platform INI file support
 
 **sc4-dll-basics** (`vendor/sc4-dll-basics/`): Common SC4 plugin utilities
-- Logger, FileSystem, DebugUtil, SC4VersionDetection
+- Patcher, SC4VersionDetection for game compatibility
 
 ## Architecture
 
 **Core Components:**
 
-1. **TerrainExtensionsDllDirector** (`src/TerrainExtensionsDllDirector.cpp`): Main plugin entry point that handles SimCity 4 integration, message processing, and cheat code management.
+1. **TerrainExtensionsDllDirector** (`src/TerrainExtensionsDllDirector.cpp`): Main plugin entry point that handles SimCity 4 integration, message processing, cheat code management, and input control activation.
 
-2. **TerrainToolRegistry** (`src/TerrainToolRegistry.hpp`): Registry system that manages all terrain tools, handles argument parsing, and executes appropriate tools.
+2. **TerrainToolRegistry** (`src/tools/TerrainToolRegistry.hpp`): Registry system that manages all terrain tools, handles argument parsing, and executes appropriate tools.
 
-3. **TerrainTool** (`src/TerrainTool.hpp`): Abstract base class for all terrain tools providing common terrain manipulation utilities, vertex operations, and coordinate validation.
+3. **TerrainTool** (`src/tools/TerrainTool.hpp`): Abstract base class for all terrain tools providing:
+   - Common terrain manipulation utilities and vertex operations
+   - Coordinate validation and bounds checking
+   - Terrain refresh functionality
+   - Helper methods for tile corner calculations
 
-4. **Tool Implementations**:
-   - `ConstantGradeTool` (`src/ConstantGradeTool.cpp`): Creates paths with constant grade/slope
-   - `SlopeMaker` (`src/SlopeMaker.cpp`): Creates smooth slopes between two points
+4. **Input Control System**:
+   - **BaseDragViewInputControl** (`src/controls/BaseDragViewInputControl.cpp`): Base class for drag-based terrain tools with parameter adjustment via scroll wheel
+   - **BridgeDragViewInputControl** (`src/controls/BridgeDragViewInputControl.cpp`): Specialized drag control for bridge approach tools
+
+5. **Tool Implementations**:
+   - `ConstantGradeTool` (`src/tools/ConstantGradeTool.cpp`): Creates paths with constant grade/slope
+   - `FlattenTool` (`src/tools/FlattenTool.cpp`): Flattens terrain areas
+   - `BridgeApproachTool` (`src/tools/BridgeApproachTool.cpp`): Creates bridge approaches with drag interface
 
 **Plugin Integration:**
 - Uses gzcom-dll framework for SimCity 4 COM integration
-- Cheat code: "earthbender" followed by tool commands
-- Integrates with SimCity 4's terrain system via cISTETerrain interface
+- Cheat codes: "earthbender" (terrain tools) and "bridgebuilder" (drag-based tools)
+- Integrates with SimCity 4's terrain system via `cISTETerrain` interface
+- Custom cursors located in `cursors/` directory
 
-**Tool Architecture Pattern:**
-Each tool inherits from TerrainTool and implements:
+**Tool Architecture Patterns:**
+
+**Command-line Tools** inherit from TerrainTool:
 - `RegisterArguments()`: Define command-line arguments using args library
 - `ShouldExecute()`: Check if this tool should handle the parsed command
 - `Execute()`: Perform the terrain manipulation
 - Tool metadata methods (GetName, GetDescription, GetUsage)
 
+**Drag-based Tools** use BaseDragViewInputControl:
+- Real-time parameter adjustment with scroll wheel and modifier keys
+- Visual selection feedback during drag operations
+- Mouse capture for reliable drag tracking
+- Configurable parameters with min/max bounds and step sizes
+
 ## Development Workflow
 
-**Adding a new terrain tool:**
-1. Create new class inheriting from TerrainTool
+**Adding a new command-line terrain tool:**
+1. Create new class in `src/tools/` inheriting from TerrainTool
 2. Implement required virtual methods
-3. Register tool in TerrainExtensionsDllDirector::SetUpTools()
+3. Include tool in TerrainExtensionsDllDirector.cpp
 4. Use TerrainTool base class utilities for terrain manipulation
 
+**Adding a new drag-based tool:**
+1. Create new input control inheriting from BaseDragViewInputControl
+2. Implement drag callbacks and parameter configuration
+3. Add cursor resources to `cursors/` directory
+4. Register tool in TerrainExtensionsDllDirector cheat handling
+
 **Testing:**
-- Configure Visual Studio to launch SimCity 4 with debugging
+- Configure IDE to launch SimCity 4 with debugging
 - Use command line: `-intro:off -CPUcount:1 -w -CustomResolution:enabled -r1920x1080x32`
-- In-game testing via cheat console: "earthbender [tool] [args]"
+- Command-line tools: cheat console "earthbender [tool] [args]"
+- Drag-based tools: cheat console "bridgebuilder [tool]" then use mouse
 
 **Key Terrain Utilities (TerrainTool base class):**
-- `GetTileCorners()`: Get vertex heights for a tile
+- `GetTileCorners()`: Get vertex heights for a tile (returns Vector3[4])
 - `SetAltitudeAtVertex()`: Modify terrain height with bounds checking
 - `GetTileAverageHeight()`: Calculate average height of tile corners
+- `GetTileHighestVertex()` / `GetTileLowestVertex()`: Find extreme heights
 - `ClampToTerrainBounds()`: Ensure coordinates are within terrain limits
 - `Refresh()`: Update terrain display after modifications
 
+**Drag Control Features:**
+- Parameter adjustment via scroll wheel with modifier keys (Shift/Ctrl/Alt)
+- Real-time visual feedback during drag operations
+- Mouse capture for reliable drag tracking
+- Status text updates showing current parameter values
+
 ## Code Conventions
 
-- Modern C++20 features used throughout
+- Modern C++17 features used throughout
 - Uses COM smart pointers (cRZAutoRefCount, service pointers)
-- Logging via Logger singleton with structured log levels
+- Logging via spdlog with Logger utility class (src/utils/Logger.h)
 - Error handling with bounds checking for all terrain operations
 - Memory management follows RAII principles with smart pointers
+- Header-only libraries preferred for simplicity
+- Tool organization: command-line tools in `src/tools/`, input controls in `src/controls/`
 
 ## SimCity 4 Interface Debugging
 
@@ -194,4 +238,9 @@ selectionRenderer->ClearCurrentSelections();
 ```
 
 This architecture provides consistent, performant selection visualization for all SC4 terrain tools.
-- Memorize the learnings from cSC4ViewInputControlLevelTerrain please :)
+
+**Current Implementation Status:**
+- The project has successfully implemented drag-based input controls using the SC4 selection system
+- BaseDragViewInputControl provides a reusable foundation for new drag-based tools
+- BridgeApproachTool demonstrates the pattern with real-time parameter adjustment
+- The cSC4BaseViewInputControl integration is working and provides proper mouse handling

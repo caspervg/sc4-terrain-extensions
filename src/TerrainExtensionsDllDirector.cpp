@@ -20,19 +20,14 @@
  */
 
 #include "version.h"
-#include "cGZPersistResourceKey.h"
-#include "Logger.h"
-#include "FileSystem.h"
+#include "utils/Logger.h"
 #include "cIGZApp.h"
 #include "cIGZCheatCodeManager.h"
 #include "cIGZCOM.h"
 #include "cIGZFrameWork.h"
 #include "cIGZMessage2Standard.h"
 #include "cIGZMessageServer2.h"
-#include "cIGZPersistResourceManager.h"
 #include "cIGZWin.h"
-#include "cIGZWinKeyAccelerator.h"
-#include "cIGZWinKeyAcceleratorRes.h"
 #include "cIGZWinMgr.h"
 #include "cISC4App.h"
 #include "cISC4City.h"
@@ -43,14 +38,13 @@
 #include "cRZMessage2COMDirector.h"
 #include "GZServPtrs.h"
 #include "args.hxx"
-#include "TerrainToolRegistry.hpp"
-#include "ConstantGradeTool.cpp"
-#include "FlattenTool.cpp"
-#include "BridgeApproachTool.cpp"
-#include "TunnelApproachTool.cpp"
+#include "tools/TerrainToolRegistry.hpp"
+#include "tools/ConstantGradeTool.cpp"
+#include "tools/FlattenTool.cpp"
+#include "tools/BridgeApproachTool.cpp"
 #include <sstream>
-#include "Patcher.h"
-#include "BridgeDragViewInputControl.cpp"
+#include "controls/BridgeDragViewInputControl.cpp"
+#include <windows.h>
 
 static constexpr uint32_t kMessageCheatIssued = 0x230E27AC;
 static constexpr uint32_t kSC4MessagePostCityInit = 0x26D31EC1;
@@ -74,20 +68,24 @@ public:
 		  pView3D(nullptr),
 		  pWinMgr(nullptr)
 	{
-		Logger& logger = Logger::GetInstance();
+		Logger::Initialize("SC4TerrainExtensions");
 
 		mToolRegistry = TerrainToolRegistry();
 
-		logger.Init(FileSystem::GetLogFilePath(), LogLevel::Info);
-		logger.WriteLogFileHeader("SC4TerrainExtensions v" PLUGIN_VERSION_STR);
+		LOG_INFO("SC4TerrainExtensions v{}", PLUGIN_VERSION_STR);
 	}
 
-	uint32_t GetDirectorID() const
+	~TerrainExtensionsDllDirector() override {
+		LOG_INFO("~TerrainExtensionsDllDirector()");
+		Logger::Shutdown();
+	}
+
+	uint32_t GetDirectorID() const override
 	{
 		return kTerrainExtensionsDirectorID;
 	}
 
-	bool OnStart(cIGZCOM* pCOM)
+	bool OnStart(cIGZCOM* pCOM) override
 	{
 		mpFrameWork->AddHook(this);
 		return true;
@@ -117,6 +115,9 @@ private:
 		case kSC4MessagePreCityShutdown:
 			PreCityShutdown(pStandardMsg);
 			break;
+		default:
+			LOG_DEBUG("Unsupported message type: 0x{:X}", pMsg->GetType());
+			break;
 		}
 
 		return true;
@@ -125,8 +126,6 @@ private:
 
 	void PostCityInit(cIGZMessage2Standard* pStandardMsg)
 	{
-		Logger& logger = Logger::GetInstance();
-
 		cISC4AppPtr pSC4App;
 		cIGZMessageServer2Ptr pMessageServer;
 		cIGZApp* pApp = mpFrameWork->Application();
@@ -154,7 +153,7 @@ private:
 
 						if (pCity)
 						{
-							logger.WriteLineFormatted(LogLevel::Info, "PostCityInit: City initialized with base elevation: %f", pCity->GetWorldBaseElevation());
+							LOG_INFO("PostCityInit: City initialized with base elevation: {}", pCity->GetWorldBaseElevation());
 						}
 					}
 				}
@@ -182,26 +181,24 @@ private:
 			);
 		}
 		else {
-			logger.WriteLine(LogLevel::Error, "PostCityInit: Cheat code manager is not initialized.");
+			LOG_ERROR("PostCityInit: Cheat code manager is not initialized.");
 		}
-		logger.WriteLineFormatted(LogLevel::Info, "PostCityInit: Cheat code manager initialized with cheat ID: 0x%x", kTerrainExtensionsCheatID);
+		LOG_DEBUG("PostCityInit: Cheat code manager initialized with cheat ID: 0x{:X}", kTerrainExtensionsCheatID);
 	}
 
 	void SetUpTools(cISTETerrain* pTerrain) {
-		Logger& logger = Logger::GetInstance();
-		logger.WriteLine(LogLevel::Info, "Setting up terrain tools...");
+		LOG_DEBUG("Setting up terrain tools...");
 
 		mToolRegistry.RegisterTool(std::make_unique<ConstantGradeTool>(pTerrain));
 		mToolRegistry.RegisterTool(std::make_unique<FlattenTool>(pTerrain));
 		mToolRegistry.RegisterTool(std::make_unique<BridgeApproachTool>(pTerrain));
-		mToolRegistry.RegisterTool(std::make_unique<TunnelApproachTool>(pTerrain));
 
-		logger.WriteLine(LogLevel::Info, "Terrain tools setup complete.");
+		LOG_DEBUG("Terrain tools setup complete.");
 		mToolRegistry.ListTools();
 	}
 
 	void ActivateBridgeDragMode() {
-		auto bridgeControl = new BridgeDragViewInputControl(pCity->GetTerrain(), pWinMgr->GetMainWindow(), pView3D);
+		const auto bridgeControl = new BridgeDragViewInputControl(pCity->GetTerrain(), pWinMgr->GetMainWindow(), pView3D);
 		bridgeControl->Init();
 		if (bridgeControl) {
 			ActivateDragControl(bridgeControl);
@@ -219,9 +216,9 @@ private:
 
 		mActiveDragControl = control;
 		if (mActiveDragControl->Init()) {
-			Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "Activating drag control: %p", static_cast<void*>(static_cast<BaseDragViewInputControl*>(mActiveDragControl)));
+			LOG_DEBUG("Activating drag control: {}", static_cast<void*>(mActiveDragControl));
 			pView3D->SetCurrentViewInputControl(mActiveDragControl, cISC4View3DWin::ViewInputControlStackOperation_None);
-			Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "Activated drag control: %p", static_cast<void*>(static_cast<BaseDragViewInputControl*>(mActiveDragControl)));
+			LOG_DEBUG("Activated drag control: {}", static_cast<void*>(mActiveDragControl));
 			return true;
 		}
 
@@ -230,18 +227,18 @@ private:
 	}
 
 
-	void ShowMessageBox(const std::string& title, const std::string& message) {
+	void ShowMessageBox(const std::string& title, const std::string& message) const {
 		if (pWinMgr) {
-			cRZBaseString titleStr(title);
-			cRZBaseString messageStr(message);
+			const cRZBaseString titleStr(title);
+			const cRZBaseString messageStr(message);
 			pWinMgr->GZMsgBox(messageStr, titleStr, 0, true, 0);
 		}
 		else {
-			Logger::GetInstance().WriteLineFormatted(LogLevel::Error, "Failed to get window manager for message box: %s", message.c_str());
+			LOG_ERROR("Failed to get window manager for message box with message: {}", message);
 		}
 	}
 
-	std::vector<std::string> SplitString(const std::string& input) {
+	static std::vector<std::string> SplitString(const std::string& input) {
 		std::vector<std::string> result;
 		if (input.empty()) return result;
 
@@ -261,24 +258,22 @@ private:
 		const uint32_t cheatID = static_cast<uint32_t>(pStandardMsg->GetData1());
 
 		if (cheatID == kTerrainExtensionsBridgeCheatID) {
-			Logger::GetInstance().WriteLine(LogLevel::Info, "Bridge approach cheat code issued");
+			LOG_DEBUG("Bridge approach cheat code issued");
 			ActivateBridgeDragMode();
 			return;
 		}
 		if (cheatID == kTerrainExtensionsCheatID)
 		{
-			const cIGZString* pCheatString = static_cast<const cIGZString*>(pStandardMsg->GetVoid2());
+			const auto* pCheatString = static_cast<const cIGZString*>(pStandardMsg->GetVoid2());
 			const std::string_view cheatStringView(pCheatString->Data(), pCheatString->Strlen());
-			const size_t cheatStrignLength = cheatStringView.size();
 
-			Logger& logger = Logger::GetInstance();
-			logger.WriteLineFormatted(LogLevel::Info, "Cheat code issued: %s (ID: 0x%x)", cheatStringView.data(), cheatID);
+			LOG_INFO("Cheat code issued: {} (ID: 0x{:X})", cheatStringView.data(), cheatID);
 
 			std::vector<std::string> tokens = SplitString(std::string(cheatStringView));
 
-			logger.WriteLineFormatted(LogLevel::Info, "Parsing %d tokens:", static_cast<int>(tokens.size()));
+			LOG_DEBUG("Parsing {} tokens:", tokens.size());
 			for (size_t i = 0; i < tokens.size(); ++i) {
-				logger.WriteLineFormatted(LogLevel::Info, "  Token[%d]: '%s'", static_cast<int>(i), tokens[i].c_str());
+				LOG_DEBUG("  Token[{}]: '{}'", i, tokens[i].c_str());
 			}
 
 			std::vector<char*> argv;
@@ -289,57 +284,55 @@ private:
 			}
 
 			args::ArgumentParser parser("Terrain extension tools");
-				args::Group commands(parser, "commands");
+			args::Group commands(parser, "commands");
 
-				mToolRegistry.RegisterAllArguments(commands);
+			mToolRegistry.RegisterAllArguments(commands);
 			args::HelpFlag help(parser, "help", "Show this help menu", { "help" });
 			try {
 				parser.ParseCLI(argv.size(), argv.data());
 
 				if (!mToolRegistry.ExecuteAnyTool(parser)) {
 					ShowMessageBox("Earthbender help", parser.Help());
-					Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "No matching command found - showing help");
+					LOG_DEBUG("No matching command found, showing help");
 				}
 			}
-			catch (args::Help) {
+			catch (args::Help&) {
 				ShowMessageBox("Earthbender help", parser.Help());
-				Logger::GetInstance().WriteLineFormatted(LogLevel::Info, "Help requested");
 			}
-			catch (args::ParseError e) {
+			catch (args::ParseError& e) {
 				std::string errorMsg = "Command parse error: ";
 				errorMsg += e.what();
 				errorMsg += "\n\n";
 				errorMsg += parser.Help();
 				ShowMessageBox("Earthbender parse error", errorMsg);
-				Logger::GetInstance().WriteLineFormatted(LogLevel::Error, "Parse error: %s", e.what());
+				LOG_DEBUG("Command parse error: {}", e.what());
 			}
-			catch (args::ValidationError e) {
+			catch (args::ValidationError& e) {
 				std::string errorMsg = "Command validation error: ";
 				errorMsg += e.what();
 				errorMsg += "\n\n";
 				errorMsg += parser.Help();
 				ShowMessageBox("Earthbender validation error", errorMsg);
-				Logger::GetInstance().WriteLineFormatted(LogLevel::Error, "Validation error: %s", e.what());
+				LOG_DEBUG("Command validation error: {}", e.what());
 			}
 		}
 	}
 
-	bool PostAppInit()
+	bool PostAppInit() override
 	{
 		cIGZMessageServer2Ptr pMS2;
-		Logger& logger = Logger::GetInstance();
-		logger.WriteLine(LogLevel::Info, "PostAppInit: Initializing TerrainExtensionsDllDirector");
+		LOG_INFO("PostAppInit: Initializing TerrainExtensionsDllDirector");
 
 		cIGZApp* const pApp = mpFrameWork->Application();
 
 		if (pApp)
 		{
-			cRZAutoRefCount<cISC4App> sc4App;
+			cRZAutoRefCount<cISC4App> pSC4App;
 
-			if (pApp->QueryInterface(GZIID_cISC4App, sc4App.AsPPVoid()))
+			if (pApp->QueryInterface(GZIID_cISC4App, pSC4App.AsPPVoid()))
 			{
-				pCheatCodeManager = sc4App->GetCheatCodeManager();
-				pWinMgr = sc4App->GetMainWindow()->GetWindowManager();
+				pCheatCodeManager = pSC4App->GetCheatCodeManager();
+				pWinMgr = pSC4App->GetMainWindow()->GetWindowManager();
 			}
 		}
 

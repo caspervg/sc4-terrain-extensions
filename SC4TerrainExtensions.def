@@ -1,0 +1,4 @@
+; SC4TerrainExtensions.def
+LIBRARY SC4TerrainExtensions
+EXPORTS
+    RZGetCOMDllDirector
