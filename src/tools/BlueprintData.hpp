@@ -10,6 +10,7 @@ struct CapturedNetworkPiece {
     uint32_t pieceId = 0;
     uint8_t rotation = 0;
     uint8_t flip = 0;
+    uint8_t rotationAndFlip = 0;
     uint8_t variation = 0;
     uint32_t networkType = 0; // cISC4NetworkOccupant::eNetworkType
     bool isIntersection = false;

@@ -169,6 +169,7 @@ public:
 						if (occ->QueryInterface(GZIID_cISC4NetworkOccupant, netOcc.AsPPVoid())) {
 							// Avoid duplicate recording if same occupant spans multiple queried cells
 							if (!seenNetworkOccupants.insert(occ).second) { ++debugDuplicates; continue; }
+							cISC4NetworkOccupant* netOcc2 = netOcc;
 							uint32_t cellX=0, cellZ=0; netOcc->GetOccupiedCell(cellX, cellZ);
 							CapturedNetworkPiece piece;
 							piece.relX = static_cast<int>(cellX) - x1;
@@ -176,6 +177,7 @@ public:
 							piece.pieceId = netOcc->PieceId();
 							piece.rotation = netOcc->GetRotation();
 							piece.flip = netOcc->GetFlip();
+							piece.rotationAndFlip = netOcc->GetRotationAndFlip();
 							piece.variation = netOcc->GetVariation();
 							for (uint32_t t=0; t<=12; ++t) {
 								if (netOcc->IsOfType(static_cast<cISC4NetworkOccupant::eNetworkType>(t))) { piece.networkType = t; break; }

@@ -6,14 +6,20 @@
 #include "cISC4LotManager.h"
 #include "cISC4NetworkManager.h"
 #include "cISC4NetworkTool.h"
+#include "cISC4OccupantManager.h"
+#include "cISC4Occupant.h"
+#include "cISC4NetworkOccupant.h"
+#include "cRZAutoRefCount.h"
+#include "cISC4ZoneDeveloper.h"
 #include "cISC4Demolition.h"
 #include "SC4CellRegion.h"
 #include "utils/Logger.h"
+#include "filters/NetworkOccupantFilter.h"
 #include <memory>
 #include <unordered_map>
 
 class BlueprintStampTool : public TerrainTool {
-private:
+  private:
     cISC4City* mCity; // non-owning
     std::unique_ptr<args::Command> mCommand;
     std::unique_ptr<args::Positional<int>> mTX, mTZ; // destination top-left
@@ -23,7 +29,9 @@ private:
     std::unique_ptr<args::Flag> mClear;
     std::unique_ptr<args::ValueFlag<int>> mNetRotate; // 0/90/180/270 only
 
-public:
+    constexpr static uintptr_t kFn_cSC4NetworkOccupant_SetRotationAndFlip = 0x00604df0; // thiscall
+    using cSC4NetworkOccupant_SetRotationAndFlip = void(__thiscall*)(void* /*this*/, uint8_t /*rotFlip*/);
+  public:
     BlueprintStampTool(cISTETerrain* terrain, cISC4City* city)
         : TerrainTool(terrain), mCity(city) {}
 
@@ -107,10 +115,12 @@ public:
         cISC4ZoneManager* zoneMgr = mCity->GetZoneManager();
         cISC4LotManager* lotMgr = mCity->GetLotManager();
         cISC4NetworkManager* netMgr = mCity->GetNetworkManager();
+        cISC4OccupantManager* occMgr = mCity->GetOccupantManager();
 
         if (doZones && !zoneMgr) { LOG_ERROR("BlueprintStamp: ZoneManager unavailable"); doZones = false; doLots = false; }
         if (doLots && !lotMgr) { LOG_WARN("BlueprintStamp: LotManager unavailable; skipping lot creation"); doLots = false; }
         if (doNetworks && !netMgr) { LOG_ERROR("BlueprintStamp: NetworkManager unavailable"); doNetworks = false; }
+        if (doNetworks && !occMgr) { LOG_WARN("BlueprintStamp: OccupantManager unavailable; skipping networks"); doNetworks = false; }
 
         int parcelsProcessed = 0;
         int zonesPlaced = 0;
@@ -178,6 +188,7 @@ public:
                 }
             };
 
+            auto *netFilter = new NetworkOccupantFilter(NetworkTypeFlags::AllTransportationNetworks);
             for (const auto& piece : bp.networkPieces) {
                 int rX=0, rZ=0; rotateCoord(piece.relX, piece.relZ, rX, rZ);
                 int worldX = tx + rX;
@@ -202,11 +213,27 @@ public:
                     continue;
                 }
                 uint32_t beforeFail = tool->GetFailureState();
-                tool->PlaceNetworkOccupantById(worldX, worldZ, piece.pieceId, false, static_cast<cISC4NetworkOccupant::eNetworkType>(piece.networkType));
+                tool->PlaceNetworkOccupantById(worldX, worldZ, piece.pieceId, true, static_cast<cISC4NetworkOccupant::eNetworkType>(piece.networkType));
                 if (tool->GetFailureState() != 0 && tool->GetFailureState() != beforeFail) {
                     ++networkFailures;
                     LOG_WARN("BlueprintStamp: Failed to place network piece id={} type={} at ({},{})", piece.pieceId, piece.networkType, worldX, worldZ);
                 } else {
+                    auto cSC4NetworkOccupant_SetRotationAndFlipFn = reinterpret_cast<cSC4NetworkOccupant_SetRotationAndFlip>(kFn_cSC4NetworkOccupant_SetRotationAndFlip);
+                    cSC4NetworkOccupant_SetRotationAndFlipFn(tool, piece.rotationAndFlip);
+                    cISC4Occupant* occ = nullptr;
+                    if (occMgr->GetFirstOccupantByStandardCityCell(occ, worldX, worldZ, netFilter) && occ) {
+                        cRZAutoRefCount<cISC4NetworkOccupant> netOcc;
+                        if (occ->QueryInterface(GZIID_cISC4NetworkOccupant, netOcc.AsPPVoid())) {
+                            netOcc->SetVariation(piece.variation);
+                            LOG_DEBUG("Attempting to set rotationAndFlip={} on network piece at ({},{})", (int)piece.rotationAndFlip, worldX, worldZ);
+                            cSC4NetworkOccupant_SetRotationAndFlipFn(netOcc, piece.rotationAndFlip);
+                            LOG_DEBUG("Set rotationAndFlip on network piece at ({},{}) to {}", worldX, worldZ, (int)piece.rotationAndFlip);
+                            LOG_DEBUG("Properties: {} {} {} {} {}", (int)netOcc->GetRotation(), (int)netOcc->GetFlip(), (int)netOcc->GetRotationAndFlip(), (int)netOcc->GetVariation(), (int)netOcc->PieceId());
+                            LOG_DEBUG("More properties: {} {} {}", netOcc->IsPlaced(), netOcc->IsUsable(), netOcc->IsImmovable());
+                            netOcc->SetUsable(true);
+
+                        }
+                    }
                     ++networkPiecesPlaced;
                 }
             }

@@ -101,6 +101,7 @@ public:
 				{"networkType", np.networkType},
 				{"pieceId", np.pieceId},
 				{"rotation", np.rotation},
+				{"rotationAndFlip", np.rotationAndFlip},
 				{"flip", np.flip},
 				{"variation", np.variation},
 				{"isIntersection", np.isIntersection}
