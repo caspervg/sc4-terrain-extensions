@@ -9,4 +9,4 @@
 	url = https://github.com/Taywee/args.git
 [submodule "vendor/mINI"]
 	path = vendor/mINI
-	url = git@github.com:metayeti/mINI.git
+	url = https://github.com/metayeti/mINI.git
