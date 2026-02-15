@@ -27,6 +27,8 @@ private:
     std::vector<BridgeVertex> heightMarkerVertices_;
 
 public:
+    // Build approach ramp preview on BOTH sides of the bridge span.
+    // startX/startZ and endX/endZ define the bridge SPAN endpoints (tile coords).
     void BuildApproachPreview(
         cISTETerrain* terrain,
         int32_t startX, int32_t startZ,
@@ -36,15 +38,28 @@ public:
         float width,
         bool isValid
     );
-    
+
+    // Build height marker lines on both approaches.
+    // Parameters match BuildApproachPreview (bridge span + height + grade + width).
     void BuildHeightMarkers(
         cISTETerrain* terrain,
         int32_t startX, int32_t startZ,
         int32_t endX, int32_t endZ,
         float bridgeHeight,
-        float approachLength
+        float maxGrade,
+        float width
     );
-    
+
+    // Build a tile-aligned grid overlay covering the approach areas.
+    void BuildGridOverlay(
+        cISTETerrain* terrain,
+        int32_t startX, int32_t startZ,
+        int32_t endX, int32_t endZ,
+        float bridgeHeight,
+        float maxGrade,
+        float width
+    );
+
     void BuildGradeVisualization(
         cISTETerrain* terrain,
         int32_t startX, int32_t startZ,
@@ -53,10 +68,10 @@ public:
         float maxGrade,
         float width
     );
-    
+
     void ClearPreview();
     void ClearAll();
-    
+
     void Draw(IDirect3DDevice7* device);
 };
 
