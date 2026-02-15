@@ -1,6 +1,7 @@
 #pragma once
 #include "BaseDragViewInputControl.cpp"
 #include "tools/BridgeApproachTool.cpp"
+#include "viz/BridgeApproachVisualizer.hpp"
 
 static constexpr uint32_t kBridgeDragInputControlID = 0xA20FD559;
 static constexpr uint32_t kBridgeDragInputCursorID = 0xD9B4FFAA;
@@ -9,6 +10,9 @@ class BridgeDragViewInputControl : public BaseDragViewInputControl {
 private:
 	std::unique_ptr<BridgeApproachTool> mpBridgeTool;
 	SC4Rect<uint32_t> mLastMarkedRect;
+	bool mShowHeightMarkers = true;
+	bool mShowGradeColors = false;
+	bool mShowGrid = true;
 public:
 	BridgeDragViewInputControl(cISTETerrain* pTerrain, cIGZWin* pWindow, cISC4View3DWin* pView3DWin)
 		: BaseDragViewInputControl(kBridgeDragInputControlID, kBridgeDragInputCursorID, pTerrain, pWindow, pView3DWin,
@@ -32,6 +36,8 @@ public:
 		SetDragUpdateCallback([this](int32_t startX, int32_t startZ, int32_t currentX, int32_t currentZ) {
 			LOG_TRACE("Drag update: start=({},{}), current=({},{})", startX, startZ, currentX, currentZ);
 
+			UpdateVisualPreview(startX, startZ, currentX, currentZ);
+
 			this->mLastMarkedRect = SC4Rect<uint32_t>(
 				std::min(startX, currentX), std::min(startZ, currentZ),
 				std::max(startX, currentX), std::max(startZ, currentZ));
@@ -45,6 +51,7 @@ public:
 		SetDragCancelCallback([this](int32_t startX, int32_t startZ, int32_t currentX, int32_t currentZ) {
 			LOG_TRACE("Drag cancelled: start=({},{}), current=({},{})", startX, startZ, currentX, currentZ);
 			ClearCurrentSelections();
+			gBridgeVisualizer.ClearAll();
 		});
 
 		SetDragFinishCallback([this](int32_t startX, int32_t startZ, int32_t endX, int32_t endZ) {
@@ -54,7 +61,7 @@ public:
 			// Calculate drag direction and derive bridge orientation and dimensions
 			const int32_t dragDx = endX - startX;
 			const int32_t dragDz = endZ - startZ;
-			
+
 			if (dragDx == 0 && dragDz == 0) {
 				LOG_INFO("Start and end points are identical, cannot create bridge");
 				return;
@@ -62,10 +69,10 @@ public:
 
 			// Determine bridge orientation from drag direction
 			const bool isHorizontalBridge = abs(dragDx) >= abs(dragDz);  // >= handles perfect diagonal -> horizontal
-			
+
 			float bridgeLength, bridgeWidth;
 			int32_t bridgeStartX, bridgeStartZ, bridgeEndX, bridgeEndZ;
-			
+
 			if (isHorizontalBridge) {
 				// Bridge runs horizontally (East-West)
 				bridgeLength = static_cast<float>(abs(dragDx));
@@ -90,9 +97,9 @@ public:
 			}
 
 			LOG_DEBUG("Creating bridge approaches from ({},{}) to ({},{}), height: {:.2f}, grade: {:.1f}%, width: {:.1f} tiles, orientation: {}",
-				bridgeStartX, bridgeStartZ, bridgeEndX, bridgeEndZ, height, grade, bridgeWidth, 
+				bridgeStartX, bridgeStartZ, bridgeEndX, bridgeEndZ, height, grade, bridgeWidth,
 				isHorizontalBridge ? "horizontal" : "vertical");
-				
+
 			mpBridgeTool->CreateBridgeApproaches(bridgeStartX, bridgeStartZ, bridgeEndX, bridgeEndZ,
 				height, -1.0f, grade, bridgeWidth, false);  // Explicit: no tapering for rectangular drags
 			ClearCurrentSelections();
@@ -120,6 +127,38 @@ public:
 	}
 
 private:
+	void UpdateVisualPreview(int32_t startX, int32_t startZ, int32_t endX, int32_t endZ) {
+		float height = GetParameterValue(ParameterType::First);
+		float grade = GetParameterValue(ParameterType::Second);
+		float width = static_cast<float>(abs(endX - startX) > abs(endZ - startZ)
+			? static_cast<float>(abs(endZ - startZ))
+			: static_cast<float>(abs(endX - startX))
+		);
+
+		bool isValid = IsValidSelection(startX, startZ, endX, endZ);
+
+		gBridgeVisualizer.BuildApproachPreview(
+			mpTerrain, startX, startZ, endX, endZ, height, grade, width, isValid
+		);
+
+		if (mShowHeightMarkers) {
+			int32_t dx = endX - startX;
+			int32_t dz = endZ - startZ;
+			float bridgeLength = std::sqrt(dx * dx + dz * dz);
+			float approachLength = (height * 100.0f / grade) / 16.0f;
+
+			gBridgeVisualizer.BuildHeightMarkers(
+				mpTerrain, startX, startZ, endX, endZ, bridgeLength, approachLength
+			);
+		}
+
+		if (mShowGradeColors) {
+			gBridgeVisualizer.BuildGradeVisualization(
+				mpTerrain, startX, startZ, endX, endZ, height, grade, width
+			);
+		}
+	}
+
 	bool IsValidSelection(uint32_t startX, uint32_t startZ, uint32_t endX, uint32_t endZ) {
 		if (startX < 0 || startZ < 0 || endX < 0 || endZ < 0 ||
 			startX >= mpTerrain->CellCountX() || startZ >= mpTerrain->CellCountZ() ||
@@ -130,14 +169,14 @@ private:
 		// Same logic as validation callback: check bridge length from dominant dimension
 		int32_t dragDx = endX - startX;
 		int32_t dragDz = endZ - startZ;
-		
+
 		if (dragDx == 0 && dragDz == 0) {
 			return false;  // Start and end are identical
 		}
-		
+
 		bool isHorizontalBridge = abs(dragDx) >= abs(dragDz);
 		float bridgeLength = isHorizontalBridge ? static_cast<float>(abs(dragDx)) : static_cast<float>(abs(dragDz));
-		
+
 		if (bridgeLength < 3.0f) {
 			return false;  // Bridge must be at least 3 tiles long
 		}
