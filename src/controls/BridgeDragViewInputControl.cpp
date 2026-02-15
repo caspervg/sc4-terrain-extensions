@@ -3,12 +3,23 @@
 #include "tools/BridgeApproachTool.cpp"
 #include "viz/BridgeApproachVisualizer.hpp"
 #include "viz/BridgeToolPanel.hpp"  // for gShowHeightMarkers, gShowGradeColors, gShowGrid
+#include <optional>
 
 static constexpr uint32_t kBridgeDragInputControlID = 0xA20FD559;
 static constexpr uint32_t kBridgeDragInputCursorID = 0xD9B4FFAA;
 
 class BridgeDragViewInputControl : public BaseDragViewInputControl {
 private:
+	struct BridgeDragPlacement {
+		bool isHorizontal = true;
+		float bridgeLength = 0.0f;
+		float bridgeWidth = 1.0f;
+		int32_t bridgeStartX = 0;
+		int32_t bridgeStartZ = 0;
+		int32_t bridgeEndX = 0;
+		int32_t bridgeEndZ = 0;
+	};
+
 	std::unique_ptr<BridgeApproachTool> mpBridgeTool;
 	SC4Rect<uint32_t> mLastMarkedRect;
 
@@ -57,48 +68,23 @@ public:
 			float height = GetParameterValue(ParameterType::First);
 			float grade = GetParameterValue(ParameterType::Second);
 
-			// Calculate drag direction and derive bridge orientation and dimensions
-			const int32_t dragDx = endX - startX;
-			const int32_t dragDz = endZ - startZ;
-
-			if (dragDx == 0 && dragDz == 0) {
+			auto placement = ComputeBridgePlacement(startX, startZ, endX, endZ);
+			if (!placement.has_value()) {
 				LOG_INFO("Start and end points are identical, cannot create bridge");
 				return;
 			}
 
-			// Determine bridge orientation from drag direction
-			const bool isHorizontalBridge = abs(dragDx) >= abs(dragDz);
-
-			float bridgeLength, bridgeWidth;
-			int32_t bridgeStartX, bridgeStartZ, bridgeEndX, bridgeEndZ;
-
-			if (isHorizontalBridge) {
-				bridgeLength = static_cast<float>(abs(dragDx));
-				bridgeWidth = static_cast<float>(abs(dragDz));
-				bridgeStartX = std::min(startX, endX);
-				bridgeEndX = std::max(startX, endX);
-				bridgeStartZ = (startZ + endZ) / 2;
-				bridgeEndZ = bridgeStartZ;
-			} else {
-				bridgeLength = static_cast<float>(abs(dragDz));
-				bridgeWidth = static_cast<float>(abs(dragDx));
-				bridgeStartZ = std::min(startZ, endZ);
-				bridgeEndZ = std::max(startZ, endZ);
-				bridgeStartX = (startX + endX) / 2;
-				bridgeEndX = bridgeStartX;
-			}
-
-			if (bridgeLength < 3.0f) {
-				LOG_INFO("Bridge too short - minimum 3 tiles required (current: {:.1f} tiles)", bridgeLength);
+			if (placement->bridgeLength < 3.0f) {
+				LOG_INFO("Bridge too short - minimum 3 tiles required (current: {:.1f} tiles)", placement->bridgeLength);
 				return;
 			}
 
 			LOG_DEBUG("Creating bridge approaches from ({},{}) to ({},{}), height: {:.2f}, grade: {:.1f}%, width: {:.1f} tiles, orientation: {}",
-				bridgeStartX, bridgeStartZ, bridgeEndX, bridgeEndZ, height, grade, bridgeWidth,
-				isHorizontalBridge ? "horizontal" : "vertical");
+				placement->bridgeStartX, placement->bridgeStartZ, placement->bridgeEndX, placement->bridgeEndZ, height, grade, placement->bridgeWidth,
+				placement->isHorizontal ? "horizontal" : "vertical");
 
-			mpBridgeTool->CreateBridgeApproaches(bridgeStartX, bridgeStartZ, bridgeEndX, bridgeEndZ,
-				height, -1.0f, grade, bridgeWidth, false);
+			mpBridgeTool->CreateBridgeApproaches(placement->bridgeStartX, placement->bridgeStartZ, placement->bridgeEndX, placement->bridgeEndZ,
+				height, -1.0f, grade, placement->bridgeWidth, false);
 			ClearCurrentSelections();
 			gBridgeVisualizer.ClearAll();
 		});
@@ -109,12 +95,13 @@ public:
 				return false;
 			}
 
-			int32_t dragDx = endX - startX;
-			int32_t dragDz = endZ - startZ;
-			bool isHorizontalBridge = abs(dragDx) >= abs(dragDz);
-			float bridgeLength = isHorizontalBridge ? static_cast<float>(abs(dragDx)) : static_cast<float>(abs(dragDz));
+			auto placement = ComputeBridgePlacement(startX, startZ, endX, endZ);
+			if (!placement.has_value()) {
+				error = "Start and end points are identical";
+				return false;
+			}
 
-			if (bridgeLength < 3.0f) {
+			if (placement->bridgeLength < 3.0f) {
 				error = "Bridge too short - minimum 3 tiles required";
 				return false;
 			}
@@ -124,40 +111,63 @@ public:
 	}
 
 private:
+	std::optional<BridgeDragPlacement> ComputeBridgePlacement(int32_t startX, int32_t startZ, int32_t endX, int32_t endZ) const {
+		const int32_t dragDx = endX - startX;
+		const int32_t dragDz = endZ - startZ;
+
+		if (dragDx == 0 && dragDz == 0) {
+			return std::nullopt;
+		}
+
+		BridgeDragPlacement placement;
+		placement.isHorizontal = abs(dragDx) >= abs(dragDz);
+
+		if (placement.isHorizontal) {
+			const int32_t minZ = std::min(startZ, endZ);
+			const int32_t maxZ = std::max(startZ, endZ);
+			placement.bridgeLength = static_cast<float>(abs(dragDx));
+			placement.bridgeWidth = static_cast<float>((maxZ - minZ) + 1);
+			placement.bridgeStartX = std::min(startX, endX);
+			placement.bridgeEndX = std::max(startX, endX);
+			placement.bridgeStartZ = minZ + ((maxZ - minZ) / 2);
+			placement.bridgeEndZ = placement.bridgeStartZ;
+		}
+		else {
+			const int32_t minX = std::min(startX, endX);
+			const int32_t maxX = std::max(startX, endX);
+			placement.bridgeLength = static_cast<float>(abs(dragDz));
+			placement.bridgeWidth = static_cast<float>((maxX - minX) + 1);
+			placement.bridgeStartZ = std::min(startZ, endZ);
+			placement.bridgeEndZ = std::max(startZ, endZ);
+			placement.bridgeStartX = minX + ((maxX - minX) / 2);
+			placement.bridgeEndX = placement.bridgeStartX;
+		}
+
+		return placement;
+	}
+
 	void UpdateVisualPreview(int32_t startX, int32_t startZ, int32_t endX, int32_t endZ) {
 		float height = GetParameterValue(ParameterType::First);
 		float grade = GetParameterValue(ParameterType::Second);
-		float width = static_cast<float>(abs(endX - startX) > abs(endZ - startZ)
-			? abs(endZ - startZ)
-			: abs(endX - startX)
-		);
+		auto placement = ComputeBridgePlacement(startX, startZ, endX, endZ);
+		if (!placement.has_value()) {
+			gBridgeVisualizer.ClearAll();
+			return;
+		}
+
+		float width = placement->bridgeWidth;
 
 		bool isValid = IsValidSelection(startX, startZ, endX, endZ);
 
 		// Always build the approach preview (main surface)
 		gBridgeVisualizer.BuildApproachPreview(
-			mpTerrain, startX, startZ, endX, endZ, height, grade, width, isValid
+			mpTerrain, placement->bridgeStartX, placement->bridgeStartZ, placement->bridgeEndX, placement->bridgeEndZ, height, grade, width, isValid
 		);
 
 		// Height markers — use the global panel toggle
 		if (gShowHeightMarkers) {
 			gBridgeVisualizer.BuildHeightMarkers(
-				mpTerrain, startX, startZ, endX, endZ, height, grade, width
-			);
-		}
-
-		// Grid overlay
-		if (gShowGrid) {
-			gBridgeVisualizer.BuildGridOverlay(
-				mpTerrain, startX, startZ, endX, endZ, height, grade, width
-			);
-		}
-
-		// Grade colours are always part of the approach preview surface,
-		// but we could add extra indicators here if gShowGradeColors is set.
-		if (gShowGradeColors) {
-			gBridgeVisualizer.BuildGradeVisualization(
-				mpTerrain, startX, startZ, endX, endZ, height, grade, width
+				mpTerrain, placement->bridgeStartX, placement->bridgeStartZ, placement->bridgeEndX, placement->bridgeEndZ, height, grade, width
 			);
 		}
 	}

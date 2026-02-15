@@ -233,6 +233,12 @@ public:
 				LOG_TRACE("{} adjusted to {:.2f}{}", it->second.name.c_str(),
 					it->second.value, it->second.unit.c_str());
 
+				// If we're currently dragging, force a live preview rebuild so
+				// parameter changes (e.g. height/grade) are reflected immediately.
+				if (mIsDragging && mOnDragUpdate) {
+					mOnDragUpdate(mStartTileX, mStartTileZ, mCurrentTileX, mCurrentTileZ);
+				}
+
 				ShowParameterFeedback(screenX, screenZ);
 				return true;
 			}

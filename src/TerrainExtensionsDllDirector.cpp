@@ -193,13 +193,13 @@ void TerrainExtensionsDllDirector::PostCityInit_(const cIGZMessage2Standard* pSt
 
 		pPanel = std::make_unique<BridgeToolPanel>(this, pImGui);
 		const ImGuiPanelDesc desc = ImGuiPanelAdapter<BridgeToolPanel>::MakeDesc(
-			pPanel.get(), kBridgeToolPanelId, 100, true
+			pPanel.get(), kBridgeToolPanelId, 100, false
 		);
 
 		if (pImGui->RegisterPanel(desc)) {
 			bPanelRegistered = true;
-			bPanelVisible = true;
-			pPanel->SetOpen(true);
+			bPanelVisible = false;
+			pPanel->SetOpen(false);
 			spdlog::info("Registered ImGui panel");
 		}
 	}

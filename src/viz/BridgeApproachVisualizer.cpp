@@ -8,6 +8,7 @@ BridgeApproachVisualizer gBridgeVisualizer;
 namespace {
     constexpr float kTerrainOffset = 0.1f;  // Lift above terrain to avoid z-fighting
     constexpr uint32_t kZBias = 1;
+    constexpr DWORD kSkeletonColor = 0xD0FFFFFF;
 
     void EmitQuad(const BridgeVertex& a, const BridgeVertex& b,
                   const BridgeVertex& c, const BridgeVertex& d,
@@ -67,14 +68,31 @@ namespace {
         return terrainHeight + (bridgeHeight - terrainHeight) * smoothT;
     }
 
-    DWORD GetGradeColor(float grade, float maxGrade) {
-        if (grade <= maxGrade * 0.8f) {
-            return kGradeOkColor;
-        } else if (grade <= maxGrade) {
-            return kGradeWarningColor;
-        } else {
-            return kGradeErrorColor;
-        }
+    // Shared terrain vertices make boundary tiles blend with adjacent outside tiles.
+    // Blend in a 1-tile outward sample so preview rails follow that diagonal tendency.
+    float SampleBoundaryTerrainHeight(
+        cISTETerrain* terrain,
+        float worldX,
+        float worldZ,
+        float outwardDirX,
+        float outwardDirZ)
+    {
+        constexpr float kTileSize = 16.0f;
+        const float edgeSample = SampleTerrainHeight(terrain, worldX, worldZ);
+        const float outsideSample = SampleTerrainHeight(
+            terrain,
+            worldX + outwardDirX * kTileSize,
+            worldZ + outwardDirZ * kTileSize);
+        return (edgeSample + outsideSample) * 0.5f;
+    }
+
+    int GetEffectiveWidthTiles(float width) {
+        return std::max(1, static_cast<int>(std::round(width)));
+    }
+
+    void GetWidthOffsetBounds(int effectiveWidthTiles, int& negativeOffset, int& positiveOffset) {
+        negativeOffset = (effectiveWidthTiles - 1) / 2;
+        positiveOffset = effectiveWidthTiles / 2;
     }
 
     // Build one approach ramp extending outward from a bridge endpoint.
@@ -93,14 +111,17 @@ namespace {
         float dirX, float dirZ,
         float perpX, float perpZ,
         float bridgeHeight,
-        float maxGrade,
         float halfWidth,
         float approachLength,
-        bool isValid,
         std::vector<BridgeVertex>& outVerts)
     {
         const int steps = static_cast<int>(approachLength * 4);  // 4 subdivisions per tile
         if (steps <= 0) return;
+        const float railThickness = 1.5f;
+        const float rungThickness = 1.0f;
+        const float sideRailThickness = 0.50f;
+        const float sideStrutThickness = 0.50f;
+        constexpr float kOutsideTileOffset = 16.0f;
 
         for (int i = 0; i < steps; ++i) {
             // t goes from 0 (at bridge deck) to 1 (at terrain level, far from bridge)
@@ -115,31 +136,65 @@ namespace {
             float x1 = bridgeEndX + dirX * dist1;
             float z1 = bridgeEndZ + dirZ * dist1;
 
-            float terrain0 = SampleTerrainHeight(terrain, x0, z0);
-            float terrain1 = SampleTerrainHeight(terrain, x1, z1);
+            float leftX0 = x0 - perpX * halfWidth;
+            float leftZ0 = z0 - perpZ * halfWidth;
+            float rightX0 = x0 + perpX * halfWidth;
+            float rightZ0 = z0 + perpZ * halfWidth;
+            float leftX1 = x1 - perpX * halfWidth;
+            float leftZ1 = z1 - perpZ * halfWidth;
+            float rightX1 = x1 + perpX * halfWidth;
+            float rightZ1 = z1 + perpZ * halfWidth;
+            float leftToeX0 = leftX0 - perpX * kOutsideTileOffset;
+            float leftToeZ0 = leftZ0 - perpZ * kOutsideTileOffset;
+            float rightToeX0 = rightX0 + perpX * kOutsideTileOffset;
+            float rightToeZ0 = rightZ0 + perpZ * kOutsideTileOffset;
+            float leftToeX1 = leftX1 - perpX * kOutsideTileOffset;
+            float leftToeZ1 = leftZ1 - perpZ * kOutsideTileOffset;
+            float rightToeX1 = rightX1 + perpX * kOutsideTileOffset;
+            float rightToeZ1 = rightZ1 + perpZ * kOutsideTileOffset;
 
-            // Height goes from bridgeHeight (t=0) down to terrain (t=1)
-            float y0 = CalculateApproachHeight(terrain0, bridgeHeight, 1.0f - t0, approachLength);
-            float y1 = CalculateApproachHeight(terrain1, bridgeHeight, 1.0f - t1, approachLength);
+            float leftTerrain0 = SampleBoundaryTerrainHeight(terrain, leftX0, leftZ0, -perpX, -perpZ);
+            float rightTerrain0 = SampleBoundaryTerrainHeight(terrain, rightX0, rightZ0, perpX, perpZ);
+            float leftTerrain1 = SampleBoundaryTerrainHeight(terrain, leftX1, leftZ1, -perpX, -perpZ);
+            float rightTerrain1 = SampleBoundaryTerrainHeight(terrain, rightX1, rightZ1, perpX, perpZ);
 
-            // Calculate grade for colour
-            float segmentDist = dist1 - dist0;
-            DWORD color;
-            if (!isValid) {
-                color = kInvalidColor;
-            } else if (segmentDist > 0.001f) {
-                float segmentGrade = std::abs(y1 - y0) / segmentDist * 100.0f;
-                color = GetGradeColor(segmentGrade, maxGrade);
-            } else {
-                color = kGradeOkColor;
+            // Heights transition from bridge deck (t=0) down to terrain (t=1).
+            float leftY0 = CalculateApproachHeight(leftTerrain0, bridgeHeight, 1.0f - t0, approachLength);
+            float rightY0 = CalculateApproachHeight(rightTerrain0, bridgeHeight, 1.0f - t0, approachLength);
+            float leftY1 = CalculateApproachHeight(leftTerrain1, bridgeHeight, 1.0f - t1, approachLength);
+            float rightY1 = CalculateApproachHeight(rightTerrain1, bridgeHeight, 1.0f - t1, approachLength);
+            float leftToeY0 = SampleTerrainHeight(terrain, leftToeX0, leftToeZ0);
+            float rightToeY0 = SampleTerrainHeight(terrain, rightToeX0, rightToeZ0);
+            float leftToeY1 = SampleTerrainHeight(terrain, leftToeX1, leftToeZ1);
+            float rightToeY1 = SampleTerrainHeight(terrain, rightToeX1, rightToeZ1);
+
+            BridgeVertex left0 = {leftX0, leftY0, leftZ0, kSkeletonColor};
+            BridgeVertex right0 = {rightX0, rightY0, rightZ0, kSkeletonColor};
+            BridgeVertex left1 = {leftX1, leftY1, leftZ1, kSkeletonColor};
+            BridgeVertex right1 = {rightX1, rightY1, rightZ1, kSkeletonColor};
+            BridgeVertex center0 = {x0, (leftY0 + rightY0) * 0.5f, z0, kSkeletonColor};
+            BridgeVertex center1 = {x1, (leftY1 + rightY1) * 0.5f, z1, kSkeletonColor};
+            BridgeVertex leftToe0 = {leftToeX0, leftToeY0, leftToeZ0, kSkeletonColor};
+            BridgeVertex rightToe0 = {rightToeX0, rightToeY0, rightToeZ0, kSkeletonColor};
+            BridgeVertex leftToe1 = {leftToeX1, leftToeY1, leftToeZ1, kSkeletonColor};
+            BridgeVertex rightToe1 = {rightToeX1, rightToeY1, rightToeZ1, kSkeletonColor};
+
+            EmitLine(left0, left1, railThickness, kSkeletonColor, outVerts);
+            EmitLine(right0, right1, railThickness, kSkeletonColor, outVerts);
+            EmitLine(center0, center1, sideRailThickness, kSkeletonColor, outVerts);
+            EmitLine(leftToe0, leftToe1, sideRailThickness, kSkeletonColor, outVerts);
+            EmitLine(rightToe0, rightToe1, sideRailThickness, kSkeletonColor, outVerts);
+
+            // Add periodic cross-ties for a "skeleton" look.
+            if ((i % 4) == 0 || i == (steps - 1)) {
+                EmitLine(left0, right0, rungThickness, kSkeletonColor, outVerts);
             }
 
-            BridgeVertex v1 = {x0 - perpX * halfWidth, y0, z0 - perpZ * halfWidth, color};
-            BridgeVertex v2 = {x0 + perpX * halfWidth, y0, z0 + perpZ * halfWidth, color};
-            BridgeVertex v3 = {x1 + perpX * halfWidth, y1, z1 + perpZ * halfWidth, color};
-            BridgeVertex v4 = {x1 - perpX * halfWidth, y1, z1 - perpZ * halfWidth, color};
-
-            EmitQuad(v1, v2, v3, v4, color, outVerts);
+            // Show embankment slopes from approach edges down to adjacent terrain.
+            if ((i % 2) == 0 || i == (steps - 1)) {
+                EmitLine(left0, leftToe0, sideStrutThickness, kSkeletonColor, outVerts);
+                EmitLine(right0, rightToe0, sideStrutThickness, kSkeletonColor, outVerts);
+            }
         }
     }
 
@@ -203,13 +258,15 @@ namespace {
         int32_t dx = endX - startX;
         int32_t dz = endZ - startZ;
         p.isHorizontal = abs(dx) >= abs(dz);
+        const int effectiveWidthTiles = GetEffectiveWidthTiles(width);
+        const float evenWidthCenterOffset = (effectiveWidthTiles % 2 == 0) ? 8.0f : 0.0f;
 
         // Bridge span endpoints in world coordinates
         if (p.isHorizontal) {
             // Bridge runs along X axis
-            p.bridgeStartWorldX = std::min(startX, endX) * 16.0f;
-            p.bridgeEndWorldX   = std::max(startX, endX) * 16.0f;
-            float centerZ       = (startZ + endZ) * 8.0f;
+            p.bridgeStartWorldX = (std::min(startX, endX) + 0.5f) * 16.0f;
+            p.bridgeEndWorldX   = (std::max(startX, endX) + 0.5f) * 16.0f;
+            float centerZ       = (startZ + 0.5f) * 16.0f + evenWidthCenterOffset;
             p.bridgeStartWorldZ = centerZ;
             p.bridgeEndWorldZ   = centerZ;
 
@@ -220,11 +277,11 @@ namespace {
             p.perpX = 0.0f;  p.perpZ = 1.0f;
         } else {
             // Bridge runs along Z axis
-            float centerX       = (startX + endX) * 8.0f;
+            float centerX       = (startX + 0.5f) * 16.0f + evenWidthCenterOffset;
             p.bridgeStartWorldX = centerX;
             p.bridgeEndWorldX   = centerX;
-            p.bridgeStartWorldZ = std::min(startZ, endZ) * 16.0f;
-            p.bridgeEndWorldZ   = std::max(startZ, endZ) * 16.0f;
+            p.bridgeStartWorldZ = (std::min(startZ, endZ) + 0.5f) * 16.0f;
+            p.bridgeEndWorldZ   = (std::max(startZ, endZ) + 0.5f) * 16.0f;
 
             p.startDirX = 0.0f;  p.startDirZ = -1.0f;
             p.endDirX   = 0.0f;  p.endDirZ   =  1.0f;
@@ -261,24 +318,29 @@ void BridgeApproachVisualizer::BuildApproachPreview(
     previewVertices_.clear();
 
     if (!terrain) return;
+    (void)isValid;
 
     ApproachParams p = ComputeApproachParams(terrain, startX, startZ, endX, endZ,
                                               bridgeHeight, maxGrade, width);
 
-    float halfWidth = width * 8.0f;  // tiles to world-unit half-width
+    float halfWidth = static_cast<float>(GetEffectiveWidthTiles(width)) * 8.0f;  // tiles to world-unit half-width
 
-    // === Bridge deck flat surface ===
+    // === Bridge deck outline ===
     {
-        DWORD deckColor = isValid ? kApproachColor : kInvalidColor;
+        const float deckThickness = 0.35f;
         BridgeVertex v1 = {p.bridgeStartWorldX - p.perpX * halfWidth, bridgeHeight + kTerrainOffset,
-                           p.bridgeStartWorldZ - p.perpZ * halfWidth, deckColor};
+                           p.bridgeStartWorldZ - p.perpZ * halfWidth, kSkeletonColor};
         BridgeVertex v2 = {p.bridgeStartWorldX + p.perpX * halfWidth, bridgeHeight + kTerrainOffset,
-                           p.bridgeStartWorldZ + p.perpZ * halfWidth, deckColor};
+                           p.bridgeStartWorldZ + p.perpZ * halfWidth, kSkeletonColor};
         BridgeVertex v3 = {p.bridgeEndWorldX + p.perpX * halfWidth, bridgeHeight + kTerrainOffset,
-                           p.bridgeEndWorldZ + p.perpZ * halfWidth, deckColor};
+                           p.bridgeEndWorldZ + p.perpZ * halfWidth, kSkeletonColor};
         BridgeVertex v4 = {p.bridgeEndWorldX - p.perpX * halfWidth, bridgeHeight + kTerrainOffset,
-                           p.bridgeEndWorldZ - p.perpZ * halfWidth, deckColor};
-        EmitQuad(v1, v2, v3, v4, deckColor, previewVertices_);
+                           p.bridgeEndWorldZ - p.perpZ * halfWidth, kSkeletonColor};
+
+        EmitLine(v1, v2, deckThickness, kSkeletonColor, previewVertices_);
+        EmitLine(v2, v3, deckThickness, kSkeletonColor, previewVertices_);
+        EmitLine(v3, v4, deckThickness, kSkeletonColor, previewVertices_);
+        EmitLine(v4, v1, deckThickness, kSkeletonColor, previewVertices_);
     }
 
     // === Start-side approach (extends away from bridgeStart) ===
@@ -287,9 +349,8 @@ void BridgeApproachVisualizer::BuildApproachPreview(
         p.bridgeStartWorldX, p.bridgeStartWorldZ,
         p.startDirX, p.startDirZ,
         p.perpX, p.perpZ,
-        bridgeHeight, maxGrade, halfWidth,
+        bridgeHeight, halfWidth,
         p.startApproachLength,
-        isValid,
         previewVertices_
     );
 
@@ -299,9 +360,8 @@ void BridgeApproachVisualizer::BuildApproachPreview(
         p.bridgeEndWorldX, p.bridgeEndWorldZ,
         p.endDirX, p.endDirZ,
         p.perpX, p.perpZ,
-        bridgeHeight, maxGrade, halfWidth,
+        bridgeHeight, halfWidth,
         p.endApproachLength,
-        isValid,
         previewVertices_
     );
 }
@@ -354,25 +414,20 @@ void BridgeApproachVisualizer::BuildGridOverlay(
     ApproachParams p = ComputeApproachParams(terrain, startX, startZ, endX, endZ,
                                               bridgeHeight, maxGrade, width);
 
-    float halfWidth = width * 8.0f;
-
     // Determine the full extent in tile space to draw grid lines
-    int32_t dx = endX - startX;
-    int32_t dz = endZ - startZ;
-
     int minTileX, maxTileX, minTileZ, maxTileZ;
-    int widthRadius = static_cast<int>(std::ceil(width / 2.0f));
+    int negativeOffset = 0;
+    int positiveOffset = 0;
+    GetWidthOffsetBounds(GetEffectiveWidthTiles(width), negativeOffset, positiveOffset);
 
     if (p.isHorizontal) {
         minTileX = std::min(startX, endX) - static_cast<int>(p.startApproachLength) - 1;
         maxTileX = std::max(startX, endX) + static_cast<int>(p.endApproachLength) + 1;
-        int centerZ = (startZ + endZ) / 2;
-        minTileZ = centerZ - widthRadius - 1;
-        maxTileZ = centerZ + widthRadius + 1;
+        minTileZ = startZ - negativeOffset - 1;
+        maxTileZ = startZ + positiveOffset + 1;
     } else {
-        int centerX = (startX + endX) / 2;
-        minTileX = centerX - widthRadius - 1;
-        maxTileX = centerX + widthRadius + 1;
+        minTileX = startX - negativeOffset - 1;
+        maxTileX = startX + positiveOffset + 1;
         minTileZ = std::min(startZ, endZ) - static_cast<int>(p.startApproachLength) - 1;
         maxTileZ = std::max(startZ, endZ) + static_cast<int>(p.endApproachLength) + 1;
     }
@@ -422,8 +477,8 @@ void BridgeApproachVisualizer::BuildGradeVisualization(
     float maxGrade,
     float width)
 {
-    // Grade colouring is already integrated into BuildApproachPreview via GetGradeColor.
-    // This method is kept for future extensions (e.g. grade arrows or numeric labels).
+    // Skeleton preview mode does not render grade colors.
+    // This method is kept for future extensions (e.g. numeric grade labels).
 }
 
 void BridgeApproachVisualizer::ClearPreview() {

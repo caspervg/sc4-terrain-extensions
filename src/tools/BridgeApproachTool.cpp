@@ -163,6 +163,15 @@ public:
 	}
 
 private:
+	int GetEffectiveWidthTiles(float widthTiles) const {
+		return std::max(1, static_cast<int>(std::round(widthTiles)));
+	}
+
+	void GetWidthOffsetBounds(int effectiveWidthTiles, int& negativeOffset, int& positiveOffset) const {
+		negativeOffset = (effectiveWidthTiles - 1) / 2;
+		positiveOffset = effectiveWidthTiles / 2;
+	}
+
 	float CalculateOptimalApproachLength(int bridgeX, int bridgeZ, float dirX, float dirZ,
 		float bridgeHeight, float maxGrade) {
 
@@ -232,11 +241,18 @@ private:
 		int minTileZ = std::min(startTileZ, endTileZ);
 		int maxTileZ = std::max(startTileZ, endTileZ);
 
-		int widthRadius = static_cast<int>(std::ceil(widthTiles / 2.0f));
-		minTileX -= widthRadius;
-		maxTileX += widthRadius;
-		minTileZ -= widthRadius;
-		maxTileZ += widthRadius;
+		int negativeOffset = 0;
+		int positiveOffset = 0;
+		GetWidthOffsetBounds(GetEffectiveWidthTiles(widthTiles), negativeOffset, positiveOffset);
+
+		if (slopeInX) {
+			minTileZ -= negativeOffset;
+			maxTileZ += positiveOffset;
+		}
+		else {
+			minTileX -= negativeOffset;
+			maxTileX += positiveOffset;
+		}
 
 		// Apply grading along the approach
 		for (int step = 0; step <= pathLength; step++) {
@@ -272,17 +288,22 @@ private:
 
 		int perpDx = slopeInX ? 0 : 1;
 		int perpDz = slopeInX ? 1 : 0;
-		int widthRadius = static_cast<int>(std::ceil(widthTiles / 2.0f));
+		int effectiveWidthTiles = GetEffectiveWidthTiles(widthTiles);
+		int negativeOffset = 0;
+		int positiveOffset = 0;
+		GetWidthOffsetBounds(effectiveWidthTiles, negativeOffset, positiveOffset);
+		float halfWidth = static_cast<float>(effectiveWidthTiles) / 2.0f;
+		float taperDenominator = static_cast<float>(std::max(negativeOffset, positiveOffset));
 
-		for (int offset = -widthRadius; offset <= widthRadius; offset++) {
+		for (int offset = -negativeOffset; offset <= positiveOffset; offset++) {
 			int targetTileX = centerTileX + perpDx * offset;
 			int targetTileZ = centerTileZ + perpDz * offset;
 
 			float distanceFromCenter = static_cast<float>(std::abs(offset));
-			if (distanceFromCenter <= widthTiles / 2.0f) {
+			if (distanceFromCenter <= halfWidth) {
 				float influence = 1.0f;
-				if (useTapering && widthTiles > 1.0f) {
-					influence = 1.0f - (distanceFromCenter / (widthTiles / 2.0f));
+				if (useTapering && taperDenominator > 0.0f) {
+					influence = 1.0f - (distanceFromCenter / taperDenominator);
 					influence = std::max(0.0f, std::min(1.0f, influence));
 				}
 
