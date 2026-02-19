@@ -121,15 +121,18 @@ else()
     endif()
 endif()
 
-set(PROJECT_SOURCES
-    "${CMAKE_SOURCE_DIR}/src/TerrainExtensionsDllDirector.cpp"
-    "${CMAKE_SOURCE_DIR}/src/utils/Logger.cpp"
-    "${CMAKE_SOURCE_DIR}/src/filters/NetworkOccupantFilter.cpp"
-    "${CMAKE_SOURCE_DIR}/src/tools/BlueprintData.cpp"
-    "${CMAKE_SOURCE_DIR}/src/viz/BridgeToolPanel.cpp"
-    "${CMAKE_SOURCE_DIR}/src/viz/BridgeApproachVisualizer.cpp"
-    "${CMAKE_SOURCE_DIR}/src/version.rc"
+file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
+# These .cpp files are #include'd directly by TerrainExtensionsDllDirector.cpp
+list(REMOVE_ITEM PROJECT_SOURCES
+    "${CMAKE_SOURCE_DIR}/src/tools/ConstantGradeTool.cpp"
+    "${CMAKE_SOURCE_DIR}/src/tools/FlattenTool.cpp"
+    "${CMAKE_SOURCE_DIR}/src/tools/BlueprintCaptureTool.cpp"
+    "${CMAKE_SOURCE_DIR}/src/tools/BlueprintExportTool.cpp"
+    "${CMAKE_SOURCE_DIR}/src/tools/BlueprintStampTool.cpp"
+)
+list(APPEND PROJECT_SOURCES "${CMAKE_SOURCE_DIR}/src/version.rc")
 set(SC4_DLL_DEF "${CMAKE_SOURCE_DIR}/SC4TerrainExtensions.def")
 
 add_library(${PROJECT_NAME} SHARED ${PROJECT_SOURCES} ${SC4_DLL_DEF})

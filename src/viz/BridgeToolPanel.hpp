@@ -1,6 +1,7 @@
 #pragma once
 #include "public/ImGuiPanel.h"
-#include "TerrainExtensionsDllDirector.hpp"
+
+struct BridgeToolSettings;
 
 static constexpr auto kBridgeToolPanelId = 0x5489af52u;
 
@@ -10,13 +11,12 @@ static auto gShowGrid = true;
 
 class BridgeToolPanel final : public ImGuiPanel {
 public:
-    explicit BridgeToolPanel(TerrainExtensionsDllDirector* director, cIGZImGuiService* imgui);
+    explicit BridgeToolPanel(BridgeToolSettings& settings);
 
     void OnRender() override;
     void SetOpen(bool open);
 
 private:
-    TerrainExtensionsDllDirector* pDirector;
-    cIGZImGuiService* pImguiService;
+    BridgeToolSettings& settings_;
     bool bOpen;
 };

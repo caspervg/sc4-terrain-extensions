@@ -22,7 +22,7 @@ public:
 
 		mTileX1 = std::make_unique<args::Positional<int>>(*mCommand, "x1", "Tile X coordinate");
 		mTileZ1 = std::make_unique<args::Positional<int>>(*mCommand, "z1", "Tile Z coordinate");
-		
+
 		mRectGroup = std::make_unique<args::Group>(*mCommand, "Rectangle coordinates (optional, both or neither):", args::Group::Validators::AllOrNone);
 		mTileX2 = std::make_unique<args::Positional<int>>(*mRectGroup, "x2", "End tile X");
 		mTileZ2 = std::make_unique<args::Positional<int>>(*mRectGroup, "z2", "End tile Z");
@@ -40,11 +40,11 @@ public:
 	void Execute(const args::ArgumentParser& parser) override {
 		int tileX1 = args::get(*mTileX1);
 		int tileZ1 = args::get(*mTileZ1);
-		
+
 		bool isRectangleMode = *mTileX2 && *mTileZ2;
 		int tileX2 = isRectangleMode ? args::get(*mTileX2) : tileX1;
 		int tileZ2 = isRectangleMode ? args::get(*mTileZ2) : tileZ1;
-		
+
 		bool hasHeight = *mHeight;
 		float targetHeight = hasHeight ? args::get(*mHeight) : 0.0f;
 		std::string mode = args::get(*mMode);
@@ -80,7 +80,7 @@ private:
 
 		// Calculate target height
 		float targetHeight = CalculateTargetHeight(minX, minZ, maxX, maxZ, specifiedHeight, mode, isRectangle, hasHeight);
-		
+
 		LOG_DEBUG("Target height: {:.2f}", targetHeight);
 
 		// Flatten all vertices in the area
@@ -93,7 +93,7 @@ private:
 		// Refresh terrain display
 		SC4Rect<int32_t> refreshRect(minX, minZ, maxX + 1, maxZ + 1);
 		Refresh(refreshRect);
-		
+
 		LOG_DEBUG("Terrain flattening completed");
 	}
 
@@ -121,11 +121,11 @@ private:
 
 	float FindMinHeight(int minX, int minZ, int maxX, int maxZ) {
 		float minHeight = std::numeric_limits<float>::max();
-		
+
 		for (int z = minZ; z <= maxZ + 1; z++) {
 			for (int x = minX; x <= maxX + 1; x++) {
-				if (mTerrain->LocationIsInBounds(static_cast<float>(x), static_cast<float>(z))) {
-					float height = mTerrain->GetAltitudeAtVertex(x, z);
+				if (terrain_->LocationIsInBounds(static_cast<float>(x), static_cast<float>(z))) {
+					float height =terrain_->GetAltitudeAtVertex(x, z);
 					minHeight = std::min(minHeight, height);
 				}
 			}
@@ -135,11 +135,11 @@ private:
 
 	float FindMaxHeight(int minX, int minZ, int maxX, int maxZ) {
 		float maxHeight = std::numeric_limits<float>::lowest();
-		
+
 		for (int z = minZ; z <= maxZ + 1; z++) {
 			for (int x = minX; x <= maxX + 1; x++) {
-				if (mTerrain->LocationIsInBounds(static_cast<float>(x), static_cast<float>(z))) {
-					float height = mTerrain->GetAltitudeAtVertex(x, z);
+				if (terrain_->LocationIsInBounds(static_cast<float>(x), static_cast<float>(z))) {
+					float height =terrain_->GetAltitudeAtVertex(x, z);
 					maxHeight = std::max(maxHeight, height);
 				}
 			}
@@ -150,11 +150,11 @@ private:
 	float CalculateAverageHeight(int minX, int minZ, int maxX, int maxZ) {
 		float totalHeight = 0.0f;
 		int count = 0;
-		
+
 		for (int z = minZ; z <= maxZ + 1; z++) {
 			for (int x = minX; x <= maxX + 1; x++) {
-				if (mTerrain->LocationIsInBounds(static_cast<float>(x), static_cast<float>(z))) {
-					totalHeight += mTerrain->GetAltitudeAtVertex(x, z);
+				if (terrain_->LocationIsInBounds(static_cast<float>(x), static_cast<float>(z))) {
+					totalHeight +=terrain_->GetAltitudeAtVertex(x, z);
 					count++;
 				}
 			}

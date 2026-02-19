@@ -1,6 +1,8 @@
 #pragma once
 #include "TerrainTool.hpp"
 #include <algorithm>
+#include "SC4Rect.h"
+#include "utils/Logger.h"
 
 class ConstantGradeTool : public TerrainTool {
 private:
@@ -247,8 +249,8 @@ private:
 	}
 
 	float CalculateHorizontalDistance(int x1, int z1, int x2, int z2) {
-		float dx = static_cast<float>(x2 - x1);
-		float dz = static_cast<float>(z2 - z1);
+		auto dx = static_cast<float>(x2 - x1);
+		auto dz = static_cast<float>(z2 - z1);
 		return std::sqrt(dx * dx + dz * dz);
 	}
 };
