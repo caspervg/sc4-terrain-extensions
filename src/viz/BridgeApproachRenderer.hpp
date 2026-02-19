@@ -107,6 +107,13 @@ private:
         float t, float approachLength
     );
 
+    static float CalculateOptimalApproachLength_(
+        cISTETerrain* terrain,
+        int32_t bridgeX, int32_t bridgeZ,
+        float dirX, float dirZ,
+        float bridgeHeight, float maxGrade
+    );
+
     static float CalculateApproachLength_(
         float terrainHeight, float bridgeHeight,
         float maxGrade

@@ -8,7 +8,9 @@
 #include "cRZAutoRefCount.h"
 #include "public/cIGZImGuiService.h"
 
-class BridgeDragViewInputControl;
+struct ViewInputControlReleaser {
+    void operator()(StatefulDragViewInputControl* control) const noexcept;
+};
 
 class BridgeApproachDragTool final : public IDragTool {
 public:
@@ -29,9 +31,11 @@ private:
 
     BridgeToolSettings settings_;
     std::unique_ptr<BridgeApproachRenderer> renderer_;
-    std::unique_ptr<BridgeDragViewInputControl> control_;
+    std::unique_ptr<StatefulDragViewInputControl, ViewInputControlReleaser> control_;
     std::unique_ptr<BridgeToolPanel> panel_;
     cRZAutoRefCount<cIGZImGuiService> imguiService_;
+    OverlayDrawManager* drawMgr_{nullptr};
+    cISC4View3DWin* view3d_{nullptr};
 
     bool panelRegistered_{false};
 };

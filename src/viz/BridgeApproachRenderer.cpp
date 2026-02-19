@@ -292,22 +292,32 @@ BridgeApproachRenderer::ApproachParams BridgeApproachRenderer::ComputeApproachPa
 
 	const int32_t dx = endX - startX;
 	const int32_t dz = endZ - startZ;
+	const float bridgeLength = std::sqrt(
+		static_cast<float>(dx * dx + dz * dz));
+
+	if (bridgeLength == 0.0f) return p;
+
+	// Unit direction along the bridge span (start → end), matching the tool
+	const float dirX = static_cast<float>(dx) / bridgeLength;
+	const float dirZ = static_cast<float>(dz) / bridgeLength;
+
 	p.isHorizontal = std::abs(dx) >= std::abs(dz);
 
 	const int effectiveWidthTiles = GetEffectiveWidthTiles_(width);
 	const float evenWidthCenterOffset =
 		(effectiveWidthTiles % 2 == 0) ? 8.0f : 0.0f;
 
+	// Bridge endpoint world positions — use raw start/end, no min/max reorder
+	p.bridgeStartWorldX = (startX + 0.5f) * 16.0f;
+	p.bridgeStartWorldZ = (startZ + 0.5f) * 16.0f;
+	p.bridgeEndWorldX = (endX + 0.5f) * 16.0f;
+	p.bridgeEndWorldZ = (endZ + 0.5f) * 16.0f;
+
+	// Snap the perpendicular axis to the center offset for even widths
 	if (p.isHorizontal) {
-		p.bridgeStartWorldX = (std::min(startX, endX) + 0.5f) * 16.0f;
-		p.bridgeEndWorldX = (std::max(startX, endX) + 0.5f) * 16.0f;
 		const float centerZ = (startZ + 0.5f) * 16.0f + evenWidthCenterOffset;
 		p.bridgeStartWorldZ = centerZ;
 		p.bridgeEndWorldZ = centerZ;
-		p.startDirX = -1.0f;
-		p.startDirZ = 0.0f;
-		p.endDirX = 1.0f;
-		p.endDirZ = 0.0f;
 		p.perpX = 0.0f;
 		p.perpZ = 1.0f;
 	}
@@ -315,23 +325,21 @@ BridgeApproachRenderer::ApproachParams BridgeApproachRenderer::ComputeApproachPa
 		const float centerX = (startX + 0.5f) * 16.0f + evenWidthCenterOffset;
 		p.bridgeStartWorldX = centerX;
 		p.bridgeEndWorldX = centerX;
-		p.bridgeStartWorldZ = (std::min(startZ, endZ) + 0.5f) * 16.0f;
-		p.bridgeEndWorldZ = (std::max(startZ, endZ) + 0.5f) * 16.0f;
-		p.startDirX = 0.0f;
-		p.startDirZ = -1.0f;
-		p.endDirX = 0.0f;
-		p.endDirZ = 1.0f;
 		p.perpX = 1.0f;
 		p.perpZ = 0.0f;
 	}
 
-	const float startTerrainH =
-		SampleTerrainHeight_(terrain, p.bridgeStartWorldX, p.bridgeStartWorldZ);
-	const float endTerrainH =
-		SampleTerrainHeight_(terrain, p.bridgeEndWorldX, p.bridgeEndWorldZ);
+	// Approach directions: away from the bridge at each end
+	p.startDirX = -dirX;
+	p.startDirZ = -dirZ;
+	p.endDirX = dirX;
+	p.endDirZ = dirZ;
 
-	p.startApproachLength = CalculateApproachLength_(startTerrainH, height, grade);
-	p.endApproachLength = CalculateApproachLength_(endTerrainH, height, grade);
+	// Iterative approach length — matches BridgeApproachTool::CalculateOptimalApproachLength_
+	p.startApproachLength = CalculateOptimalApproachLength_(
+		terrain, startX, startZ, p.startDirX, p.startDirZ, height, grade);
+	p.endApproachLength = CalculateOptimalApproachLength_(
+		terrain, endX, endZ, p.endDirX, p.endDirZ, height, grade);
 
 	return p;
 }
@@ -360,8 +368,45 @@ float BridgeApproachRenderer::SampleBoundaryTerrainHeight_(
 float BridgeApproachRenderer::CalculateApproachHeight_(
 	const float terrainHeight, const float bridgeHeight,
 	const float t, float approachLength) {
-	const float smoothT = t * t * (3.0f - 2.0f * t);
-	return terrainHeight + (bridgeHeight - terrainHeight) * smoothT;
+	return terrainHeight + (bridgeHeight - terrainHeight) * t;
+}
+
+float BridgeApproachRenderer::CalculateOptimalApproachLength_(
+	cISTETerrain* terrain,
+	int32_t bridgeX, int32_t bridgeZ,
+	float dirX, float dirZ,
+	float bridgeHeight, float maxGrade) {
+	constexpr int kMaxIterations = 10;
+	constexpr float kConvergenceThreshold = 0.5f;
+	constexpr float kDamping = 0.3f;
+	constexpr float kNewWeight = 0.7f;
+	constexpr float kMinLength = 2.0f;
+
+	const uint32_t maxTileX = terrain->CellCountX() - 1;
+	const uint32_t maxTileZ = terrain->CellCountZ() - 1;
+
+	float currentLength = 3.0f;
+
+	for (int i = 0; i < kMaxIterations; ++i) {
+		int sampleX = bridgeX + static_cast<int>(dirX * currentLength);
+		int sampleZ = bridgeZ + static_cast<int>(dirZ * currentLength);
+		sampleX = std::clamp(sampleX, 0, static_cast<int>(maxTileX));
+		sampleZ = std::clamp(sampleZ, 0, static_cast<int>(maxTileZ));
+
+		const float terrainH = SampleTerrainHeight_(
+			terrain, (sampleX + 0.5f) * 16.0f, (sampleZ + 0.5f) * 16.0f);
+		const float requiredLength = CalculateApproachLength_(terrainH, bridgeHeight, maxGrade);
+
+		if (std::abs(requiredLength - currentLength) < kConvergenceThreshold) {
+			return requiredLength;
+		}
+
+		currentLength = std::max(
+			kMinLength,
+			kDamping * currentLength + kNewWeight * requiredLength);
+	}
+
+	return currentLength;
 }
 
 float BridgeApproachRenderer::CalculateApproachLength_(

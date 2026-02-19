@@ -13,6 +13,12 @@
 #include "states/BridgeSelectingState.hpp"
 #include "viz/OverlayDrawManager.hpp"
 
+void ViewInputControlReleaser::operator()(StatefulDragViewInputControl* control) const noexcept {
+	if (control) {
+		control->Release();
+	}
+}
+
 class BridgeDragViewInputControl final : public StatefulDragViewInputControl, public IBridgeDragContext {
 public:
 	BridgeDragViewInputControl(
@@ -42,8 +48,8 @@ public:
 		TransitionTo(ControlStateId::Hovering);
 	}
 
-	BridgeToolSettings& GetSettings() { return settings_; }
-	BridgeApproachRenderer& GetRenderer() { return renderer_; }
+	BridgeToolSettings& GetSettings() const { return settings_; }
+	BridgeApproachRenderer& GetRenderer() const { return renderer_; }
 
 	int32_t GetDragStartX()   const noexcept override { return dragStartX_; }
 	int32_t GetDragStartZ()   const noexcept override { return dragStartZ_; }
@@ -95,20 +101,29 @@ void BridgeApproachDragTool::Activate(
 	cIGZImGuiService* imguiService,
 	OverlayDrawManager& drawMgr)
 {
-	if (!city || !view3d) {
-		LOG_ERROR("BridgeApproachDragTool::Activate: null city or view3d");
+	if (!city || !view3d || !windowMgr) {
+		LOG_ERROR("BridgeApproachDragTool::Activate: missing city/view3d/windowMgr");
 		return;
 	}
 
 	cISTETerrain* terrain = city->GetTerrain();
 	cIGZWin* window = windowMgr->GetMainWindow();
+	if (!terrain || !window) {
+		LOG_ERROR("BridgeApproachDragTool::Activate: missing terrain/window");
+		return;
+	}
 
-	control_ = std::make_unique<BridgeDragViewInputControl>(
+	auto* newControl = new BridgeDragViewInputControl(
 		terrain, window, view3d, settings_, *renderer_
 	);
+	newControl->AddRef();
+	control_.reset(newControl);
+
 	control_->Init();
 	control_->Activate();
+	view3d_ = view3d;
 
+	drawMgr_ = &drawMgr;
 	drawMgr.Register(renderer_.get());
 
 	if (imguiService) {
@@ -120,6 +135,7 @@ void BridgeApproachDragTool::Activate(
 		);
 		if (imguiService_->RegisterPanel(desc)) {
 			panelRegistered_ = true;
+			panel_->SetOpen(true);
 			LOG_INFO("BridgeApproachDragTool: ImGui panel registered");
 		}
 	}
@@ -130,8 +146,19 @@ void BridgeApproachDragTool::Activate(
 }
 
 void BridgeApproachDragTool::Deactivate() {
+	if (control_ && view3d_) {
+		cISC4ViewInputControl* currentControl = view3d_->GetCurrentViewInputControl();
+		if (currentControl == control_.get()) {
+			view3d_->RemoveCurrentViewInputControl(false);
+		}
+	}
+
 	if (renderer_) {
 		renderer_->ClearAll();
+		if (drawMgr_) {
+			drawMgr_->Unregister(renderer_.get());
+			drawMgr_ = nullptr;
+		}
 	}
 
 	if (panelRegistered_ && panel_) {
@@ -142,7 +169,11 @@ void BridgeApproachDragTool::Deactivate() {
 	}
 
 	panel_.reset();
+	if (control_) {
+		control_->Shutdown();
+	}
 	control_.reset();
+	view3d_ = nullptr;
 
 	LOG_INFO("BridgeApproachDragTool: Deactivated");
 }

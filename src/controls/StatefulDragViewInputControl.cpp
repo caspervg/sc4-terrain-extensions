@@ -15,9 +15,9 @@ StatefulDragViewInputControl::StatefulDragViewInputControl(
 	cIGZWin* window,
 	cISC4View3DWin* view3D)
 	: cSC4BaseViewInputControl(controlId)
-	  , terrain_(terrain)
-	  , view3D_(view3D)
-	  , window_(window)
+	  , terrain_(terrain, cRZAutoRefCount<cISTETerrain>::kAddRef)
+	  , window_(window, cRZAutoRefCount<cIGZWin>::kAddRef)
+	  , view3D_(view3D, cRZAutoRefCount<cISC4View3DWin>::kAddRef)
 	  , currentState_(nullptr) {
 	this->cursorID = cursorId;
 }

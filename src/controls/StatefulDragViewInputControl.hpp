@@ -33,6 +33,9 @@ public:
     void SetCursorText(uint32_t slot, const cRZBaseString& body, const cRZBaseString& title) const;
     void ClearCursorText(uint32_t slot) const;
 
+    bool BeginCapture() { return SetCapture(); }
+    bool EndCapture() { return ReleaseCapture(); }
+
     bool OnMouseMove(int32_t x, int32_t z, uint32_t mod) override;
     bool OnMouseDownL(int32_t x, int32_t z, uint32_t mod) override;
     bool OnMouseUpL(int32_t x, int32_t z, uint32_t mod) override;

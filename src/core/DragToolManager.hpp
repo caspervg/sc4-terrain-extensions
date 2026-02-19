@@ -27,5 +27,5 @@ private:
 private:
     std::vector<std::unique_ptr<IDragTool>> tools_{};
     int32_t activeToolIdx_{-1};
-
+    cISC4View3DWin* view3d_{nullptr};
 };

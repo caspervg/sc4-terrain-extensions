@@ -94,7 +94,7 @@ void OverlayRenderer::SetupRenderState_(IDirect3DDevice7* device) {
 	device->GetRenderState(D3DRENDERSTATE_CULLMODE, &savedState_.cullMode);
 	device->GetRenderState(D3DRENDERSTATE_ZBIAS, &savedState_.zBias);
 
-	device->SetRenderState(D3DRENDERSTATE_ZENABLE, TRUE);
+	device->SetRenderState(D3DRENDERSTATE_ZENABLE, FALSE);
 	device->SetRenderState(D3DRENDERSTATE_ZWRITEENABLE, FALSE);
 	device->SetRenderState(D3DRENDERSTATE_LIGHTING, FALSE);
 	device->SetRenderState(D3DRENDERSTATE_ALPHABLENDENABLE, TRUE);

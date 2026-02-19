@@ -40,6 +40,7 @@ bool DragToolManager::TryActivate(
 
 	candidate->Activate(city, view3d, winManager, imguiService, overlayManager);
 	activeToolIdx_ = candidateIdx;
+	view3d_ = view3d;
 
 	return true;
 }
@@ -47,8 +48,7 @@ bool DragToolManager::TryActivate(
 void DragToolManager::DeactivateAll() {
 	if (activeToolIdx_ < 0) return;
 
-	tools_[activeToolIdx_]->Deactivate();
-	activeToolIdx_ = -1;
+	DeactivateCurrent_(view3d_);
 }
 
 void DragToolManager::DeactivateCurrent_(cISC4View3DWin* view3d) {

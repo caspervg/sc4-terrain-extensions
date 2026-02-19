@@ -14,6 +14,8 @@ BridgeSelectingState::BridgeSelectingState(BridgeToolSettings& settings,
 	, context_(context) {}
 
 void BridgeSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
+	ctrl.BeginCapture();
+
 	const auto sel = ctrl.MarkSelected(context_.GetDragStartX(), context_.GetDragStartZ(),
 	                  context_.GetDragCurrentX(), context_.GetDragCurrentZ(),
 	                  cISTETerrain::eHilightColorType::Blue,
@@ -37,6 +39,11 @@ bool BridgeSelectingState::OnMouseMove(StatefulDragViewInputControl& ctrl, int32
 
 	context_.SetDragCurrent(tileX, tileZ);
 	RebuildPreview_(ctrl);
+	return true;
+}
+
+bool BridgeSelectingState::OnMouseDownR(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod) {
+	ctrl.TransitionTo(ControlStateId::Hovering);
 	return true;
 }
 
@@ -97,6 +104,7 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) c
 }
 
 void BridgeSelectingState::OnExit(StatefulDragViewInputControl& ctrl) {
+	ctrl.EndCapture();
 	ctrl.ClearSelections();
 	ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryTextSlot);
 	ctrl.ClearCursorText(StatefulDragViewInputControl::kSecondaryTextSlot);
