@@ -146,6 +146,12 @@ void BridgeApproachDragTool::Activate(
 }
 
 void BridgeApproachDragTool::Deactivate() {
+	if (control_) {
+		control_->ClearSelections();
+		control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryTextSlot);
+		control_->ClearCursorText(StatefulDragViewInputControl::kSecondaryTextSlot);
+	}
+
 	if (control_ && view3d_) {
 		cISC4ViewInputControl* currentControl = view3d_->GetCurrentViewInputControl();
 		if (currentControl == control_.get()) {
@@ -174,8 +180,6 @@ void BridgeApproachDragTool::Deactivate() {
 	}
 	control_.reset();
 	view3d_ = nullptr;
-
-	LOG_INFO("BridgeApproachDragTool: Deactivated");
 }
 
 StatefulDragViewInputControl* BridgeApproachDragTool::GetInputControl() {

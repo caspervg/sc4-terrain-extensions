@@ -55,6 +55,11 @@ bool BridgeHoveringState::OnMouseWheel(StatefulDragViewInputControl& ctrl, int32
 }
 
 bool BridgeHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t vk, uint32_t mod) {
+	if (vk == 0x1B) { // VK_ESCAPE
+		ctrl.TransitionTo(ControlStateId::Inactive);
+		return true;
+	}
+
 	UpdateHintText_(ctrl, mod);
 	return false;
 }

@@ -106,6 +106,7 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) c
 void BridgeSelectingState::OnExit(StatefulDragViewInputControl& ctrl) {
 	ctrl.EndCapture();
 	ctrl.ClearSelections();
+	renderer_.ClearAll();
 	ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryTextSlot);
 	ctrl.ClearCursorText(StatefulDragViewInputControl::kSecondaryTextSlot);
 }
@@ -119,6 +120,11 @@ bool BridgeSelectingState::OnMouseWheel(StatefulDragViewInputControl& ctrl, int3
 }
 
 bool BridgeSelectingState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t vk, uint32_t mod) {
+	if (vk == 0x1B) { // VK_ESCAPE
+		ctrl.TransitionTo(ControlStateId::Inactive);
+		return true;
+	}
+
 	RebuildPreview_(ctrl);
 	return false;
 }

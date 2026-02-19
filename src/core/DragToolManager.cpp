@@ -58,10 +58,13 @@ void DragToolManager::DeactivateCurrent_(cISC4View3DWin* view3d) {
 
 	StatefulDragViewInputControl* control = active->GetInputControl();
 	if (control && view3d) {
-		view3d->SetCurrentViewInputControl(
-			nullptr,
-			cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl
-		);
+		cISC4ViewInputControl* currentControl = view3d->GetCurrentViewInputControl();
+		if (currentControl == control) {
+			view3d->SetCurrentViewInputControl(
+				nullptr,
+				cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl
+			);
+		}
 	}
 
 	active->Deactivate();
