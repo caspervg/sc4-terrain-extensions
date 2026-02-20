@@ -1,23 +1,56 @@
 #include "BridgeSelectingState.hpp"
 
 #include "cRZBaseString.h"
+#include "cISTETerrain.h"
 #include "controls/StatefulDragViewInputControl.hpp"
+#include "tools/bridge/BridgeApproachGeometry.hpp"
+#include "tools/bridge/BridgePlacement.hpp"
 #include "tools/bridge/BridgeToolSettings.hpp"
 #include "utils/Logger.h"
 #include "viz/BridgeApproachRenderer.hpp"
 
+namespace {
+
+float SampleTileHeight(void* context, const int tileX, const int tileZ) {
+	auto* terrain = static_cast<cISTETerrain*>(context);
+	return BridgeApproachGeometry::SampleTileAverageHeight(terrain, tileX, tileZ);
+}
+
+std::optional<BridgeApproachGeometry::ApproachParams> BuildPreviewGeometry(
+	cISTETerrain* terrain,
+	const BridgePlacement& placement,
+	const BridgeToolSettings& settings) {
+	if (!terrain) return std::nullopt;
+
+	const int maxTileX = static_cast<int>(terrain->CellCountX()) - 1;
+	const int maxTileZ = static_cast<int>(terrain->CellCountZ()) - 1;
+
+	return BridgeApproachGeometry::BuildApproachParams(
+		placement,
+		settings.height.value,
+		settings.grade.value,
+		static_cast<float>(settings.widthTiles.value),
+		maxTileX,
+		maxTileZ,
+		&SampleTileHeight,
+		terrain
+	);
+}
+
+} // namespace
+
 BridgeSelectingState::BridgeSelectingState(BridgeToolSettings& settings,
                                            BridgeApproachRenderer& renderer,
-                                           IBridgeDragContext& context)
+                                           BridgeDragState& dragState)
 	: settings_(settings)
 	, renderer_(renderer)
-	, context_(context) {}
+	, dragState_(dragState) {}
 
 void BridgeSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
 	ctrl.BeginCapture();
 
-	const auto sel = ctrl.MarkSelected(context_.GetDragStartX(), context_.GetDragStartZ(),
-	                  context_.GetDragCurrentX(), context_.GetDragCurrentZ(),
+	const auto sel = ctrl.MarkSelected(dragState_.startX, dragState_.startZ,
+	                  dragState_.currentX, dragState_.currentZ,
 	                  cISTETerrain::eHilightColorType::Blue,
 	                  true
 	);
@@ -35,9 +68,10 @@ bool BridgeSelectingState::OnMouseMove(StatefulDragViewInputControl& ctrl, int32
 	int32_t tileX, tileZ;
 	if (!ctrl.ScreenToTile(x, z, tileX, tileZ)) return true;
 
-	if (tileX == context_.GetDragCurrentX() && tileZ == context_.GetDragCurrentZ()) return true;
+	if (tileX == dragState_.currentX && tileZ == dragState_.currentZ) return true;
 
-	context_.SetDragCurrent(tileX, tileZ);
+	dragState_.currentX = tileX;
+	dragState_.currentZ = tileZ;
 	RebuildPreview_(ctrl);
 	return true;
 }
@@ -54,9 +88,15 @@ bool BridgeSelectingState::OnMouseUpL(StatefulDragViewInputControl& ctrl, int32_
 		return true;
 	}
 
-	context_.SetDragCurrent(tileX, tileZ);
+	dragState_.currentX = tileX;
+	dragState_.currentZ = tileZ;
 
-	const auto placement = context_.ComputePlacement();
+	const auto placement = ComputeBridgePlacement(
+		dragState_.startX,
+		dragState_.startZ,
+		dragState_.currentX,
+		dragState_.currentZ
+	);
 	if (!placement.has_value() || !placement->IsValid()) {
 		ctrl.TransitionTo(ControlStateId::Hovering);
 		return true;
@@ -67,12 +107,17 @@ bool BridgeSelectingState::OnMouseUpL(StatefulDragViewInputControl& ctrl, int32_
 }
 
 void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) const {
-	const auto placement = context_.ComputePlacement();
+	const auto placement = ComputeBridgePlacement(
+		dragState_.startX,
+		dragState_.startZ,
+		dragState_.currentX,
+		dragState_.currentZ
+	);
 	const bool isValid = placement.has_value() && placement->IsValid();
 
 	const auto sel = ctrl.MarkSelected(
-		context_.GetDragStartX(), context_.GetDragStartZ(),
-		context_.GetDragCurrentX(), context_.GetDragCurrentZ(),
+		dragState_.startX, dragState_.startZ,
+		dragState_.currentX, dragState_.currentZ,
 		isValid ? cISTETerrain::eHilightColorType::Green : cISTETerrain::eHilightColorType::Red,
 		true
 	);
@@ -82,13 +127,16 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) c
 	}
 
 	if (placement.has_value()) {
+		const auto geometry = BuildPreviewGeometry(ctrl.GetTerrain(), *placement, settings_);
+		if (!geometry.has_value()) {
+			renderer_.ClearAll();
+			return;
+		}
+
 		renderer_.Update(
 			ctrl.GetTerrain(),
-			placement->bridgeStartX,
-			placement->bridgeStartZ,
-			placement->bridgeEndX,
-			placement->bridgeEndZ,
-			settings_,
+			*geometry,
+			settings_.showHeightMarkers,
 			isValid
 		);
 	} else {

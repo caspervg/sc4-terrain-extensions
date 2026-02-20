@@ -1,5 +1,4 @@
 #include "BridgeApproachRenderer.hpp"
-#include "tools/bridge/BridgeToolSettings.hpp"
 #include "utils/Logger.h"
 
 #include <algorithm>
@@ -7,31 +6,22 @@
 
 void BridgeApproachRenderer::Update(
 	cISTETerrain* terrain,
-	const int32_t startX,
-	const int32_t startZ,
-	const int32_t endX,
-	const int32_t endZ,
-	const BridgeToolSettings& settings,
+	const BridgeApproachGeometry::ApproachParams& geometry,
+	const bool showHeightMarkers,
 	const bool isValid) {
 	if (!terrain) {
 		ClearAll();
 		return;
 	}
 
-	const float height = settings.height.value;
-	const float grade = settings.grade.value;
-	const float width = static_cast<float>(settings.widthTiles.value);
-
 	// Always rebuild the approach layer
 	this->ClearLayer(kLayerApproach);
-	BuildApproachLayer_(terrain, startX, startZ, endX, endZ,
-	                    height, grade, width, isValid);
+	BuildApproachLayer_(terrain, geometry, isValid);
 
 	// Height markers — rebuild only if toggled on, clear if off
 	this->ClearLayer(kLayerHeightMarkers);
-	if (settings.showHeightMarkers) {
-		BuildHeightMarkerLayer_(terrain, startX, startZ, endX, endZ,
-		                        height, grade, width);
+	if (showHeightMarkers) {
+		BuildHeightMarkerLayer_(terrain, geometry);
 	}
 }
 
@@ -42,14 +32,9 @@ void BridgeApproachRenderer::ClearAll() {
 
 void BridgeApproachRenderer::BuildApproachLayer_(
 	cISTETerrain* terrain,
-	int32_t startX, int32_t startZ,
-	int32_t endX, int32_t endZ,
-	float height, float grade, float width,
+	const BridgeApproachGeometry::ApproachParams& p,
 	bool isValid) {
-	const ApproachParams p = ComputeApproachParams_(
-		terrain, startX, startZ, endX, endZ, height, grade, width);
-
-	const float halfWidth = static_cast<float>(GetEffectiveWidthTiles_(width)) * 8.0f;
+	const float halfWidth = static_cast<float>(p.effectiveWidthTiles) * 8.0f;
 	const DWORD color = isValid ? kSkeletonColor : kInvalidColor;
 
 	// Bridge deck outline
@@ -59,22 +44,22 @@ void BridgeApproachRenderer::BuildApproachLayer_(
 
 		const OverlayVertex v1 = {
 			p.bridgeStartWorldX - p.perpX * halfWidth,
-			height + kTerrainOffset,
+			p.bridgeHeight + kTerrainOffset,
 			p.bridgeStartWorldZ - p.perpZ * halfWidth
 		};
 		const OverlayVertex v2 = {
 			p.bridgeStartWorldX + p.perpX * halfWidth,
-			height + kTerrainOffset,
+			p.bridgeHeight + kTerrainOffset,
 			p.bridgeStartWorldZ + p.perpZ * halfWidth
 		};
 		const OverlayVertex v3 = {
 			p.bridgeEndWorldX + p.perpX * halfWidth,
-			height + kTerrainOffset,
+			p.bridgeHeight + kTerrainOffset,
 			p.bridgeEndWorldZ + p.perpZ * halfWidth
 		};
 		const OverlayVertex v4 = {
 			p.bridgeEndWorldX - p.perpX * halfWidth,
-			height + kTerrainOffset,
+			p.bridgeHeight + kTerrainOffset,
 			p.bridgeEndWorldZ - p.perpZ * halfWidth
 		};
 
@@ -90,7 +75,7 @@ void BridgeApproachRenderer::BuildApproachLayer_(
 		p.bridgeStartWorldX, p.bridgeStartWorldZ,
 		p.startDirX, p.startDirZ,
 		p.perpX, p.perpZ,
-		height, halfWidth,
+		p.bridgeHeight, halfWidth,
 		p.startApproachLength,
 		kLayerApproach, color
 	);
@@ -101,7 +86,7 @@ void BridgeApproachRenderer::BuildApproachLayer_(
 		p.bridgeEndWorldX, p.bridgeEndWorldZ,
 		p.endDirX, p.endDirZ,
 		p.perpX, p.perpZ,
-		height, halfWidth,
+		p.bridgeHeight, halfWidth,
 		p.endApproachLength,
 		kLayerApproach, color
 	);
@@ -109,24 +94,19 @@ void BridgeApproachRenderer::BuildApproachLayer_(
 
 void BridgeApproachRenderer::BuildHeightMarkerLayer_(
 	cISTETerrain* terrain,
-	int32_t startX, int32_t startZ,
-	int32_t endX, int32_t endZ,
-	float height, float grade, float width) {
-	const ApproachParams p = ComputeApproachParams_(
-		terrain, startX, startZ, endX, endZ, height, grade, width);
-
+	const BridgeApproachGeometry::ApproachParams& p) {
 	BuildSingleHeightMarkers_(
 		terrain,
 		p.bridgeStartWorldX, p.bridgeStartWorldZ,
 		p.startDirX, p.startDirZ,
-		height, p.startApproachLength
+		p.bridgeHeight, p.startApproachLength
 	);
 
 	BuildSingleHeightMarkers_(
 		terrain,
 		p.bridgeEndWorldX, p.bridgeEndWorldZ,
 		p.endDirX, p.endDirZ,
-		height, p.endApproachLength
+		p.bridgeHeight, p.endApproachLength
 	);
 }
 
@@ -283,67 +263,6 @@ void BridgeApproachRenderer::BuildSingleHeightMarkers_(
 	}
 }
 
-BridgeApproachRenderer::ApproachParams BridgeApproachRenderer::ComputeApproachParams_(
-	cISTETerrain* terrain,
-	int32_t startX, int32_t startZ,
-	int32_t endX, int32_t endZ,
-	float height, float grade, float width) {
-	ApproachParams p{};
-
-	const int32_t dx = endX - startX;
-	const int32_t dz = endZ - startZ;
-	const float bridgeLength = std::sqrt(
-		static_cast<float>(dx * dx + dz * dz));
-
-	if (bridgeLength == 0.0f) return p;
-
-	// Unit direction along the bridge span (start → end), matching the tool
-	const float dirX = static_cast<float>(dx) / bridgeLength;
-	const float dirZ = static_cast<float>(dz) / bridgeLength;
-
-	p.isHorizontal = std::abs(dx) >= std::abs(dz);
-
-	const int effectiveWidthTiles = GetEffectiveWidthTiles_(width);
-	const float evenWidthCenterOffset =
-		(effectiveWidthTiles % 2 == 0) ? 8.0f : 0.0f;
-
-	// Bridge endpoint world positions — use raw start/end, no min/max reorder
-	p.bridgeStartWorldX = (startX + 0.5f) * 16.0f;
-	p.bridgeStartWorldZ = (startZ + 0.5f) * 16.0f;
-	p.bridgeEndWorldX = (endX + 0.5f) * 16.0f;
-	p.bridgeEndWorldZ = (endZ + 0.5f) * 16.0f;
-
-	// Snap the perpendicular axis to the center offset for even widths
-	if (p.isHorizontal) {
-		const float centerZ = (startZ + 0.5f) * 16.0f + evenWidthCenterOffset;
-		p.bridgeStartWorldZ = centerZ;
-		p.bridgeEndWorldZ = centerZ;
-		p.perpX = 0.0f;
-		p.perpZ = 1.0f;
-	}
-	else {
-		const float centerX = (startX + 0.5f) * 16.0f + evenWidthCenterOffset;
-		p.bridgeStartWorldX = centerX;
-		p.bridgeEndWorldX = centerX;
-		p.perpX = 1.0f;
-		p.perpZ = 0.0f;
-	}
-
-	// Approach directions: away from the bridge at each end
-	p.startDirX = -dirX;
-	p.startDirZ = -dirZ;
-	p.endDirX = dirX;
-	p.endDirZ = dirZ;
-
-	// Iterative approach length — matches BridgeApproachTool::CalculateOptimalApproachLength_
-	p.startApproachLength = CalculateOptimalApproachLength_(
-		terrain, startX, startZ, p.startDirX, p.startDirZ, height, grade);
-	p.endApproachLength = CalculateOptimalApproachLength_(
-		terrain, endX, endZ, p.endDirX, p.endDirZ, height, grade);
-
-	return p;
-}
-
 float BridgeApproachRenderer::SampleTerrainHeight_(
 	cISTETerrain* terrain, const float worldX, const float worldZ) {
 	if (!terrain) return 0.0f;
@@ -369,63 +288,4 @@ float BridgeApproachRenderer::CalculateApproachHeight_(
 	const float terrainHeight, const float bridgeHeight,
 	const float t, float approachLength) {
 	return terrainHeight + (bridgeHeight - terrainHeight) * t;
-}
-
-float BridgeApproachRenderer::CalculateOptimalApproachLength_(
-	cISTETerrain* terrain,
-	int32_t bridgeX, int32_t bridgeZ,
-	float dirX, float dirZ,
-	float bridgeHeight, float maxGrade) {
-	constexpr int kMaxIterations = 10;
-	constexpr float kConvergenceThreshold = 0.5f;
-	constexpr float kDamping = 0.3f;
-	constexpr float kNewWeight = 0.7f;
-	constexpr float kMinLength = 2.0f;
-
-	const uint32_t maxTileX = terrain->CellCountX() - 1;
-	const uint32_t maxTileZ = terrain->CellCountZ() - 1;
-
-	float currentLength = 3.0f;
-
-	for (int i = 0; i < kMaxIterations; ++i) {
-		int sampleX = bridgeX + static_cast<int>(dirX * currentLength);
-		int sampleZ = bridgeZ + static_cast<int>(dirZ * currentLength);
-		sampleX = std::clamp(sampleX, 0, static_cast<int>(maxTileX));
-		sampleZ = std::clamp(sampleZ, 0, static_cast<int>(maxTileZ));
-
-		const float terrainH = SampleTerrainHeight_(
-			terrain, (sampleX + 0.5f) * 16.0f, (sampleZ + 0.5f) * 16.0f);
-		const float requiredLength = CalculateApproachLength_(terrainH, bridgeHeight, maxGrade);
-
-		if (std::abs(requiredLength - currentLength) < kConvergenceThreshold) {
-			return requiredLength;
-		}
-
-		currentLength = std::max(
-			kMinLength,
-			kDamping * currentLength + kNewWeight * requiredLength);
-	}
-
-	return currentLength;
-}
-
-float BridgeApproachRenderer::CalculateApproachLength_(
-	const float terrainHeight, const float bridgeHeight, const float maxGrade) {
-	const float heightDiff = std::abs(bridgeHeight - terrainHeight);
-	const float rawLength = (heightDiff * 100.0f / maxGrade) / 16.0f;
-	constexpr auto kSafetyMargin = 1.2f;
-	constexpr auto kMinLength = 2.0f;
-	return std::max(kMinLength, std::ceil(rawLength * kSafetyMargin));
-}
-
-int BridgeApproachRenderer::GetEffectiveWidthTiles_(const float width) {
-	return std::max(1, static_cast<int>(std::round(width)));
-}
-
-void BridgeApproachRenderer::GetWidthOffsetBounds_(
-	const int effectiveWidthTiles,
-	int& negativeOffset,
-	int& positiveOffset) {
-	negativeOffset = (effectiveWidthTiles - 1) / 2;
-	positiveOffset = effectiveWidthTiles / 2;
 }

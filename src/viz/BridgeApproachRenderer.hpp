@@ -5,9 +5,9 @@
 #include <vector>
 
 #include "cISTETerrain.h"
+#include "tools/bridge/BridgeApproachGeometry.hpp"
 #include "OverlayRenderer.hpp"
 
-struct BridgeToolSettings;
 static constexpr uint32_t kApproachColor = 0xA000FF00; // Green, semi-transparent
 static constexpr uint32_t kInvalidColor = 0xA0FF0000; // Red, semi-transparent
 static constexpr uint32_t kGridColor = 0x30FFFFFF; // White, very transparent
@@ -26,11 +26,8 @@ public:
 
     void Update(
         cISTETerrain* terrain,
-        int32_t startX,
-        int32_t startZ,
-        int32_t endX,
-        int32_t endZ,
-        const BridgeToolSettings& settings,
+        const BridgeApproachGeometry::ApproachParams& geometry,
+        bool showHeightMarkers,
         bool isValid
     );
 
@@ -39,17 +36,13 @@ public:
 private:
     void BuildApproachLayer_(
         cISTETerrain* terrain,
-        int32_t startX, int32_t startZ,
-        int32_t endX, int32_t endZ,
-        float height, float grade, float width,
+        const BridgeApproachGeometry::ApproachParams& geometry,
         bool isValid
     );
 
     void BuildHeightMarkerLayer_(
         cISTETerrain* terrain,
-        int32_t startX, int32_t startZ,
-        int32_t endX, int32_t endZ,
-        float height, float grade, float width
+        const BridgeApproachGeometry::ApproachParams& geometry
     );
 
     // Single-approach helpers — called twice (start side, end side)
@@ -73,24 +66,6 @@ private:
         float approachLength
     );
 
-    struct ApproachParams {
-        float bridgeStartWorldX, bridgeStartWorldZ;
-        float bridgeEndWorldX, bridgeEndWorldZ;
-        float startDirX, startDirZ;
-        float endDirX, endDirZ;
-        float perpX, perpZ;
-        float startApproachLength;
-        float endApproachLength;
-        bool isHorizontal;
-    };
-
-    static ApproachParams ComputeApproachParams_(
-        cISTETerrain* terrain,
-        int32_t startX, int32_t startZ,
-        int32_t endX, int32_t endZ,
-        float height, float grade, float width
-    );
-
     static float SampleTerrainHeight_(
         cISTETerrain* terrain,
         float worldX, float worldZ
@@ -106,22 +81,6 @@ private:
         float terrainHeight, float bridgeHeight,
         float t, float approachLength
     );
-
-    static float CalculateOptimalApproachLength_(
-        cISTETerrain* terrain,
-        int32_t bridgeX, int32_t bridgeZ,
-        float dirX, float dirZ,
-        float bridgeHeight, float maxGrade
-    );
-
-    static float CalculateApproachLength_(
-        float terrainHeight, float bridgeHeight,
-        float maxGrade
-    );
-
-    static int GetEffectiveWidthTiles_(float width);
-
-    static void GetWidthOffsetBounds_(int effectiveWidthTiles, int& negativeOffset, int& positiveOffset);;
 
 private:
     static constexpr DWORD kSkeletonColor = 0xD0FFFFFF;

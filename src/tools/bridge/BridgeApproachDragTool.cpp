@@ -3,7 +3,7 @@
 #include <utils/Logger.h>
 
 #include "cISC4City.h"
-#include "IBridgeDragContext.hpp"
+#include "BridgeDragState.hpp"
 #include "controls/InactiveState.hpp"
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "public/cIGZImGuiService.h"
@@ -19,7 +19,7 @@ void ViewInputControlReleaser::operator()(StatefulDragViewInputControl* control)
 	}
 }
 
-class BridgeDragViewInputControl final : public StatefulDragViewInputControl, public IBridgeDragContext {
+class BridgeDragViewInputControl final : public StatefulDragViewInputControl {
 public:
 	BridgeDragViewInputControl(
 		cISTETerrain* terrain,
@@ -28,14 +28,13 @@ public:
 		BridgeToolSettings& settings,
 		BridgeApproachRenderer& renderer)
 		: StatefulDragViewInputControl(kControlId, kCursorId, terrain, window, view3D)
-		, IBridgeDragContext()
 		, settings_(settings)
 		, renderer_(renderer)
 	{
 		RegisterState(std::make_unique<InactiveState>());
-		RegisterState(std::make_unique<BridgeHoveringState>(settings, renderer, *this));
-		RegisterState(std::make_unique<BridgeSelectingState>(settings, renderer, *this));
-		RegisterState(std::make_unique<BridgeExecutingState>(settings, *this));
+		RegisterState(std::make_unique<BridgeHoveringState>(settings, renderer, dragState_));
+		RegisterState(std::make_unique<BridgeSelectingState>(settings, renderer, dragState_));
+		RegisterState(std::make_unique<BridgeExecutingState>(settings, dragState_));
 
 		TransitionTo(ControlStateId::Inactive);
 	}
@@ -51,38 +50,13 @@ public:
 	BridgeToolSettings& GetSettings() const { return settings_; }
 	BridgeApproachRenderer& GetRenderer() const { return renderer_; }
 
-	int32_t GetDragStartX()   const noexcept override { return dragStartX_; }
-	int32_t GetDragStartZ()   const noexcept override { return dragStartZ_; }
-	int32_t GetDragCurrentX() const noexcept override { return dragCurrentX_; }
-	int32_t GetDragCurrentZ() const noexcept override { return dragCurrentZ_; }
-
-	void SetDragStart(const int32_t x, const int32_t z) noexcept override {
-		dragStartX_ = x;
-		dragStartZ_ = z;
-	}
-	void SetDragCurrent(const int32_t x, const int32_t z) noexcept override {
-		dragCurrentX_ = x;
-		dragCurrentZ_ = z;
-	}
-
-	std::optional<BridgePlacement> ComputePlacement() const override {
-		return ComputeBridgePlacement(
-			dragStartX_, dragStartZ_,
-			dragCurrentX_, dragCurrentZ_
-		);
-	}
-
 private:
 	static constexpr auto kControlId{0xA20FD559u};
 	static constexpr auto kCursorId{0xD9B4FFAAu};
 
 	BridgeToolSettings& settings_;
 	BridgeApproachRenderer& renderer_;
-
-	int32_t dragStartX_{0};
-	int32_t dragStartZ_{0};
-	int32_t dragCurrentX_{0};
-	int32_t dragCurrentZ_{0};
+	BridgeDragState dragState_{};
 };
 
 BridgeApproachDragTool::BridgeApproachDragTool()

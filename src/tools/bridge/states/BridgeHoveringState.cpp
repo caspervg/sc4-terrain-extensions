@@ -5,16 +5,15 @@
 #include "cRZBaseString.h"
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "tools/bridge/BridgeToolSettings.hpp"
-#include "tools/bridge/IBridgeDragContext.hpp"
 #include "viz/BridgeApproachRenderer.hpp"
 
 BridgeHoveringState::BridgeHoveringState(
 	BridgeToolSettings& settings,
 	BridgeApproachRenderer& renderer,
-	IBridgeDragContext& context)
+	BridgeDragState& dragState)
 	: settings_(settings)
 	, renderer_(renderer)
-	, context_(context)
+	, dragState_(dragState)
 {
 }
 
@@ -39,8 +38,10 @@ bool BridgeHoveringState::OnMouseDownL(StatefulDragViewInputControl& ctrl, int32
 	int32_t tileX, tileZ;
 	if (!ctrl.ScreenToTile(x, z, tileX, tileZ)) return false;
 
-	context_.SetDragStart(tileX, tileZ);
-	context_.SetDragCurrent(tileX, tileZ);
+	dragState_.startX = tileX;
+	dragState_.startZ = tileZ;
+	dragState_.currentX = tileX;
+	dragState_.currentZ = tileZ;
 
 	ctrl.TransitionTo(ControlStateId::Selecting);
 	return true;

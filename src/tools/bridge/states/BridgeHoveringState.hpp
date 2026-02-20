@@ -2,8 +2,8 @@
 
 #include "controls/IControlState.hpp"
 #include "controls/ControlStateId.hpp"
+#include "tools/bridge/BridgeDragState.hpp"
 
-class IBridgeDragContext;
 struct BridgeToolSettings;
 class BridgeApproachRenderer;
 
@@ -11,7 +11,7 @@ class BridgeHoveringState final : public IControlState {
 public:
     BridgeHoveringState(BridgeToolSettings& settings,
                         BridgeApproachRenderer& renderer,
-                        IBridgeDragContext& context);
+                        BridgeDragState& dragState);
 
     ControlStateId GetStateId() const override { return ControlStateId::Hovering; }
     const char* GetName() const override { return "Hovering"; }
@@ -29,5 +29,5 @@ private:
 
     BridgeToolSettings& settings_;
     BridgeApproachRenderer& renderer_;
-    IBridgeDragContext& context_;
+    BridgeDragState& dragState_;
 };

@@ -1,18 +1,23 @@
 #include "BridgeExecutingState.hpp"
 
 #include "tools/bridge/BridgeApproachDragTool.hpp"
+#include "tools/bridge/BridgePlacement.hpp"
 #include "tools/bridge/BridgeToolSettings.hpp"
-#include "tools/bridge/IBridgeDragContext.hpp"
 #include "utils/Logger.h"
 #include "../BridgeApproachTool.hpp"
 #include "controls/StatefulDragViewInputControl.hpp"
 
-BridgeExecutingState::BridgeExecutingState(BridgeToolSettings& settings, IBridgeDragContext& context)
+BridgeExecutingState::BridgeExecutingState(BridgeToolSettings& settings, BridgeDragState& dragState)
 	: settings_(settings)
-	, context_(context) {}
+	, dragState_(dragState) {}
 
 void BridgeExecutingState::OnEnter(StatefulDragViewInputControl& ctrl) {
-	const auto placement = context_.ComputePlacement();
+	const auto placement = ComputeBridgePlacement(
+		dragState_.startX,
+		dragState_.startZ,
+		dragState_.currentX,
+		dragState_.currentZ
+	);
 
 	if (!placement.has_value() || !placement->IsValid()) {
 		LOG_ERROR("BridgeExecutingState::OnEnter - invalid bridge placement on enter!");

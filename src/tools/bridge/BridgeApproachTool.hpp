@@ -17,6 +17,8 @@ public:
     );
 
 private:
+    static float SampleTileHeight_(void* context, int tileX, int tileZ);
+
     void CreateSingleApproach_(
         int startTileX, int startTileZ,
         int endTileX, int endTileZ,
@@ -25,19 +27,6 @@ private:
         float widthTiles,
         const char* label,
         bool useTapering = false
-    );
-
-    float CalculateOptimalApproachLength_(
-        int bridgeX, int bridgeZ,
-        float dirX, float dirZ,
-        float bridgeHeight,
-        float maxGrade
-    );
-
-    float CalculateRequiredApproachLength_(
-        float terrainHeight,
-        float bridgeHeight,
-        float maxGrade
     );
 
     void ApplyGradeToTileWidth_(
@@ -56,7 +45,4 @@ private:
         bool slopeInX,
         float heightStep
     );
-
-    int GetEffectiveWidthTiles_(float widthTiles) const;
-    void GetWidthOffsetBounds_(int effectiveWidthTiles, int& negativeOffset, int& positiveOffset) const;
 };

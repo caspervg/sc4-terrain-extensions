@@ -1,4 +1,6 @@
 #include "BridgeApproachTool.hpp"
+#include "BridgeApproachGeometry.hpp"
+#include "BridgePlacement.hpp"
 #include "SC4Rect.h"
 #include "utils/Logger.h"
 
@@ -6,6 +8,11 @@
 #include <cmath>
 
 BridgeApproachTool::BridgeApproachTool(cISTETerrain* terrain) : TerrainOperator(terrain) {}
+
+float BridgeApproachTool::SampleTileHeight_(void* context, const int tileX, const int tileZ) {
+	auto* tool = static_cast<BridgeApproachTool*>(context);
+	return BridgeApproachGeometry::SampleTileAverageHeight(tool->terrain_, tileX, tileZ);
+}
 
 
 void BridgeApproachTool::CreateBridgeApproaches(
@@ -16,59 +23,56 @@ void BridgeApproachTool::CreateBridgeApproaches(
 	float maxGrade,
 	float widthTiles,
 	bool useTapering) {
-	const int bridgeDx = endTileX - startTileX;
-	const int bridgeDz = endTileZ - startTileZ;
-	const float bridgeLength = std::sqrt(
-		static_cast<float>(bridgeDx * bridgeDx + bridgeDz * bridgeDz));
-
-	if (bridgeLength == 0.0f) {
+	const auto placement = ComputeBridgePlacement(
+		startTileX, startTileZ,
+		endTileX, endTileZ
+	);
+	if (!placement.has_value()) {
 		LOG_DEBUG("BridgeApproachTool: start and end are the same point");
 		return;
 	}
 
-	// Unit direction vector along the bridge span
-	const float dirX = bridgeDx / bridgeLength;
-	const float dirZ = bridgeDz / bridgeLength;
+	const int maxTileX = static_cast<int>(terrain_->CellCountX()) - 1;
+	const int maxTileZ = static_cast<int>(terrain_->CellCountZ()) - 1;
 
-	// Each approach extends *away* from the bridge
-	const float startDirX = -dirX;
-	const float startDirZ = -dirZ;
-	const float endDirX = dirX;
-	const float endDirZ = dirZ;
+	const auto geometry = BridgeApproachGeometry::BuildApproachParams(
+		*placement,
+		bridgeHeight,
+		maxGrade,
+		widthTiles,
+		maxTileX,
+		maxTileZ,
+		&BridgeApproachTool::SampleTileHeight_,
+		this
+	);
 
-	LOG_DEBUG("BridgeApproachTool: span ({},{}) -> ({},{}) "
-	          "length={:.2f} dir=({:.3f},{:.3f})",
-	          startTileX, startTileZ, endTileX, endTileZ,
-	          bridgeLength, dirX, dirZ);
-
-	const uint32_t maxX = terrain_->CellCountX() - 1;
-	const uint32_t maxZ = terrain_->CellCountZ() - 1;
+	LOG_DEBUG("BridgeApproachTool: span ({},{}) -> ({},{}) length={:.2f} dir=({:.3f},{:.3f})",
+	          placement->bridgeStartX, placement->bridgeStartZ,
+	          placement->bridgeEndX, placement->bridgeEndZ,
+	          placement->length, geometry.endDirX, geometry.endDirZ);
 
 	// Start approach
 	{
-		float len = approachLength;
-		if (len < 0.0f) {
-			len = CalculateOptimalApproachLength_(
-				startTileX, startTileZ,
-				startDirX, startDirZ,
-				bridgeHeight, maxGrade);
-		}
+		const float len = (approachLength < 0.0f)
+			? geometry.startApproachLength
+			: approachLength;
 
 		const int endX = std::clamp(
-			static_cast<int>(startTileX + startDirX * len),
-			0, static_cast<int>(maxX));
+			static_cast<int>(placement->bridgeStartX + geometry.startDirX * len),
+			0, maxTileX);
 		const int endZ = std::clamp(
-			static_cast<int>(startTileZ + startDirZ * len),
-			0, static_cast<int>(maxZ));
+			static_cast<int>(placement->bridgeStartZ + geometry.startDirZ * len),
+			0, maxTileZ);
 
-		const float groundHeight = GetTileAverageHeight(endX, endZ);
+		const float groundHeight = BridgeApproachGeometry::SampleTileAverageHeight(
+			terrain_, endX, endZ);
 
 		LOG_DEBUG("BridgeApproachTool: start approach -> ({},{}) "
 		          "groundHeight={:.2f} length={:.1f}",
 		          endX, endZ, groundHeight, len);
 
 		CreateSingleApproach_(
-			startTileX, startTileZ,
+			placement->bridgeStartX, placement->bridgeStartZ,
 			endX, endZ,
 			bridgeHeight, groundHeight,
 			widthTiles, "start",
@@ -77,29 +81,26 @@ void BridgeApproachTool::CreateBridgeApproaches(
 
 	// End approach
 	{
-		float len = approachLength;
-		if (len < 0.0f) {
-			len = CalculateOptimalApproachLength_(
-				endTileX, endTileZ,
-				endDirX, endDirZ,
-				bridgeHeight, maxGrade);
-		}
+		const float len = (approachLength < 0.0f)
+			? geometry.endApproachLength
+			: approachLength;
 
 		const int endX = std::clamp(
-			static_cast<int>(endTileX + endDirX * len),
-			0, static_cast<int>(maxX));
+			static_cast<int>(placement->bridgeEndX + geometry.endDirX * len),
+			0, maxTileX);
 		const int endZ = std::clamp(
-			static_cast<int>(endTileZ + endDirZ * len),
-			0, static_cast<int>(maxZ));
+			static_cast<int>(placement->bridgeEndZ + geometry.endDirZ * len),
+			0, maxTileZ);
 
-		const float groundHeight = GetTileAverageHeight(endX, endZ);
+		const float groundHeight = BridgeApproachGeometry::SampleTileAverageHeight(
+			terrain_, endX, endZ);
 
 		LOG_DEBUG("BridgeApproachTool: end approach -> ({},{}) "
 		          "groundHeight={:.2f} length={:.1f}",
 		          endX, endZ, groundHeight, len);
 
 		CreateSingleApproach_(
-			endTileX, endTileZ,
+			placement->bridgeEndX, placement->bridgeEndZ,
 			endX, endZ,
 			bridgeHeight, groundHeight,
 			widthTiles, "end",
@@ -139,16 +140,16 @@ void BridgeApproachTool::CreateSingleApproach_(
 	int minTileZ = std::min(startTileZ, endTileZ);
 	int maxTileZ = std::max(startTileZ, endTileZ);
 
-	int negOffset = 0, posOffset = 0;
-	GetWidthOffsetBounds_(GetEffectiveWidthTiles_(widthTiles), negOffset, posOffset);
+	const auto widthOffsets = BridgeApproachGeometry::GetWidthOffsetBounds(
+		BridgeApproachGeometry::GetEffectiveWidthTiles(widthTiles));
 
 	if (slopeInX) {
-		minTileZ -= negOffset;
-		maxTileZ += posOffset;
+		minTileZ -= widthOffsets.negativeOffset;
+		maxTileZ += widthOffsets.positiveOffset;
 	}
 	else {
-		minTileX -= negOffset;
-		maxTileX += posOffset;
+		minTileX -= widthOffsets.negativeOffset;
+		maxTileX += widthOffsets.positiveOffset;
 	}
 
 	// Grade each tile along the path
@@ -178,57 +179,6 @@ void BridgeApproachTool::CreateSingleApproach_(
 	));
 }
 
-float BridgeApproachTool::CalculateOptimalApproachLength_(
-	int bridgeX, int bridgeZ,
-	float dirX, float dirZ,
-	float bridgeHeight,
-	float maxGrade) {
-	constexpr int kMaxIterations = 10;
-	constexpr float kConvergenceThreshold = 0.5f;
-	constexpr float kDamping = 0.3f; // weight on current estimate
-	constexpr float kNewWeight = 0.7f; // weight on new estimate
-	constexpr float kMinLength = 2.0f;
-
-	float currentLength = 3.0f;
-
-	for (int i = 0; i < kMaxIterations; ++i) {
-		int sampleX = bridgeX + static_cast<int>(dirX * currentLength);
-		int sampleZ = bridgeZ + static_cast<int>(dirZ * currentLength);
-		ClampToTerrainBounds(sampleX, sampleZ);
-
-		const float terrainHeight = GetTileAverageHeight(sampleX, sampleZ);
-		const float requiredLength = CalculateRequiredApproachLength_(terrainHeight, bridgeHeight, maxGrade);
-
-		if (std::abs(requiredLength - currentLength) < kConvergenceThreshold) {
-			LOG_DEBUG("BridgeApproachTool: approach length converged to "
-			          "{:.1f} tiles after {} iterations",
-			          requiredLength, i + 1);
-			return requiredLength;
-		}
-
-		currentLength = std::max(
-			kMinLength,
-			kDamping * currentLength + kNewWeight * requiredLength);
-	}
-
-	LOG_WARN("BridgeApproachTool: approach length did not converge, "
-	         "using {:.1f} tiles", currentLength);
-	return currentLength;
-}
-
-float BridgeApproachTool::CalculateRequiredApproachLength_(
-	float terrainHeight,
-	float bridgeHeight,
-	float maxGrade) {
-	constexpr float kMetresPerTile = 16.0f;
-	constexpr float kSafetyMargin = 1.2f;
-	constexpr float kMinLength = 2.0f;
-
-	const float heightDiff = std::abs(bridgeHeight - terrainHeight);
-	const float rawTileLength = (heightDiff * 100.0f / maxGrade) / kMetresPerTile;
-	return std::max(kMinLength, std::ceil(rawTileLength * kSafetyMargin));
-}
-
 void BridgeApproachTool::ApplyGradeToTileWidth_(
 	int centerTileX, int centerTileZ,
 	float baseHeight,
@@ -239,15 +189,14 @@ void BridgeApproachTool::ApplyGradeToTileWidth_(
 	const int perpDx = slopeInX ? 0 : 1;
 	const int perpDz = slopeInX ? 1 : 0;
 
-	const int effectiveWidth = GetEffectiveWidthTiles_(widthTiles);
-	int negOffset = 0, posOffset = 0;
-	GetWidthOffsetBounds_(effectiveWidth, negOffset, posOffset);
+	const int effectiveWidth = BridgeApproachGeometry::GetEffectiveWidthTiles(widthTiles);
+	const auto widthOffsets = BridgeApproachGeometry::GetWidthOffsetBounds(effectiveWidth);
 
 	const float halfWidth = static_cast<float>(effectiveWidth) / 2.0f;
 	const float taperDenominator = static_cast<float>(
-		std::max(negOffset, posOffset));
+		std::max(widthOffsets.negativeOffset, widthOffsets.positiveOffset));
 
-	for (int offset = -negOffset; offset <= posOffset; ++offset) {
+	for (int offset = -widthOffsets.negativeOffset; offset <= widthOffsets.positiveOffset; ++offset) {
 		const float distFromCenter = static_cast<float>(std::abs(offset));
 		if (distFromCenter > halfWidth) continue;
 
@@ -305,16 +254,4 @@ auto BridgeApproachTool::ApplyBuildableGradeToTile_(
 			Lerp(corners[i].height, target[i].height, influence)
 		);
 	}
-}
-
-int BridgeApproachTool::GetEffectiveWidthTiles_(const float widthTiles) const {
-	return std::max(1, static_cast<int>(std::round(widthTiles)));
-}
-
-void BridgeApproachTool::GetWidthOffsetBounds_(
-	const int effectiveWidthTiles,
-	int& negativeOffset,
-	int& positiveOffset) const {
-	negativeOffset = (effectiveWidthTiles - 1) / 2;
-	positiveOffset = effectiveWidthTiles / 2;
 }

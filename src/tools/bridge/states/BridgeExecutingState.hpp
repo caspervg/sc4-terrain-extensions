@@ -2,15 +2,15 @@
 
 #include "controls/IControlState.hpp"
 #include "controls/ControlStateId.hpp"
+#include "tools/bridge/BridgeDragState.hpp"
 
-class IBridgeDragContext;
 struct BridgeToolSettings;
 class BridgeApproachRenderer;
 
 class BridgeExecutingState final : public IControlState {
 public:
     explicit BridgeExecutingState(BridgeToolSettings& settings,
-                                  IBridgeDragContext& context);
+                                  BridgeDragState& dragState);
 
     ControlStateId GetStateId() const override { return ControlStateId::Executing; }
     const char* GetName() const override { return "Executing"; }
@@ -19,5 +19,5 @@ public:
 
 private:
     BridgeToolSettings& settings_;
-    IBridgeDragContext& context_;
+    BridgeDragState& dragState_;
 };
