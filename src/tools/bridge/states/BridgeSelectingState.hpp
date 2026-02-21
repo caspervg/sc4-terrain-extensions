@@ -1,11 +1,14 @@
 #pragma once
 
+#include <optional>
+
 #include "controls/IControlState.hpp"
 #include "controls/ControlStateId.hpp"
 #include "tools/bridge/BridgeDragState.hpp"
 
 struct BridgeToolSettings;
 class BridgeApproachRenderer;
+struct BridgePlacement;
 
 class BridgeSelectingState final : public IControlState {
 public:
@@ -26,7 +29,8 @@ public:
     bool OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t vk, uint32_t mod) override;
 
 private:
-    void RebuildPreview_(StatefulDragViewInputControl& ctrl) const;
+    void RebuildPreview_(StatefulDragViewInputControl& ctrl);
+    std::optional<BridgePlacement> ResolvePlacementFromDrag_() const;
 
     BridgeToolSettings& settings_;
     BridgeApproachRenderer& renderer_;

@@ -9,8 +9,4 @@ BridgeToolSettings::BridgeToolSettings() {
 		"Grade", "%",
 		{.alt = true, .shift = true, .ctrl = false}
 	));
-	parameters.Add(widthTiles.Describe(
-		"Width", " tiles",
-		{.alt = true, .shift = false, .ctrl = true}
-	));
 }

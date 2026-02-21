@@ -1,5 +1,8 @@
 #include "BridgeSelectingState.hpp"
 
+#include <algorithm>
+#include <cstdlib>
+
 #include "cRZBaseString.h"
 #include "cISTETerrain.h"
 #include "controls/StatefulDragViewInputControl.hpp"
@@ -48,6 +51,7 @@ BridgeSelectingState::BridgeSelectingState(BridgeToolSettings& settings,
 
 void BridgeSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
 	ctrl.BeginCapture();
+	settings_.widthTiles.value = settings_.widthTiles.minValue;
 
 	const auto sel = ctrl.MarkSelected(dragState_.startX, dragState_.startZ,
 	                  dragState_.currentX, dragState_.currentZ,
@@ -59,7 +63,7 @@ void BridgeSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
 		LOG_WARN("BridgeSelectingState::OnEnter - failed to mark selection");
 	}
 
-	const cRZBaseString body("Drag to set bridge span | Right-click to cancel");
+	const cRZBaseString body("Drag to set bridge span and width (max 10) | Right-click to cancel");
 	const cRZBaseString title("Bridge approach tool");
 	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryTextSlot, body, title);
 }
@@ -91,12 +95,7 @@ bool BridgeSelectingState::OnMouseUpL(StatefulDragViewInputControl& ctrl, int32_
 	dragState_.currentX = tileX;
 	dragState_.currentZ = tileZ;
 
-	const auto placement = ComputeBridgePlacement(
-		dragState_.startX,
-		dragState_.startZ,
-		dragState_.currentX,
-		dragState_.currentZ
-	);
+	const auto placement = ResolvePlacementFromDrag_();
 	if (!placement.has_value() || !placement->IsValid()) {
 		ctrl.TransitionTo(ControlStateId::Hovering);
 		return true;
@@ -106,21 +105,54 @@ bool BridgeSelectingState::OnMouseUpL(StatefulDragViewInputControl& ctrl, int32_
 	return true;
 }
 
-void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) const {
-	const auto placement = ComputeBridgePlacement(
-		dragState_.startX,
-		dragState_.startZ,
-		dragState_.currentX,
-		dragState_.currentZ
-	);
+void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) {
+	const int deltaX = dragState_.currentX - dragState_.startX;
+	const int deltaZ = dragState_.currentZ - dragState_.startZ;
+	const bool hasDrag = (deltaX != 0 || deltaZ != 0);
+	const bool isHorizontal = std::abs(deltaX) >= std::abs(deltaZ);
+	const int dragWidthTiles = isHorizontal
+		? (std::abs(deltaZ) + 1)
+		: (std::abs(deltaX) + 1);
+	const bool widthTooWide = hasDrag && (dragWidthTiles > settings_.widthTiles.maxValue);
+
+	const auto placement = ResolvePlacementFromDrag_();
 	const bool isValid = placement.has_value() && placement->IsValid();
 
-	const auto sel = ctrl.MarkSelected(
-		dragState_.startX, dragState_.startZ,
-		dragState_.currentX, dragState_.currentZ,
-		isValid ? cISTETerrain::eHilightColorType::Green : cISTETerrain::eHilightColorType::Red,
-		true
-	);
+	bool sel = false;
+	if (placement.has_value()) {
+		int minTileX = std::min(placement->bridgeStartX, placement->bridgeEndX);
+		int maxTileX = std::max(placement->bridgeStartX, placement->bridgeEndX);
+		int minTileZ = std::min(placement->bridgeStartZ, placement->bridgeEndZ);
+		int maxTileZ = std::max(placement->bridgeStartZ, placement->bridgeEndZ);
+
+		const auto widthOffsets = BridgeApproachGeometry::GetWidthOffsetBounds(
+			settings_.widthTiles.value);
+		if (placement->isHorizontal) {
+			minTileZ -= widthOffsets.negativeOffset;
+			maxTileZ += widthOffsets.positiveOffset;
+		} else {
+			minTileX -= widthOffsets.negativeOffset;
+			maxTileX += widthOffsets.positiveOffset;
+		}
+
+		sel = ctrl.MarkSelected(
+			minTileX,
+			minTileZ,
+			maxTileX,
+			maxTileZ,
+			isValid ? cISTETerrain::eHilightColorType::Green : cISTETerrain::eHilightColorType::Red,
+			true
+		);
+	} else {
+		sel = ctrl.MarkSelected(
+			dragState_.startX,
+			dragState_.startZ,
+			dragState_.currentX,
+			dragState_.currentZ,
+			cISTETerrain::eHilightColorType::Red,
+			true
+		);
+	}
 
 	if (!sel) {
 		LOG_WARN("BridgeSelectingState::RebuildPreview_ - failed to mark selection");
@@ -143,12 +175,57 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) c
 		renderer_.ClearAll();
 	}
 
-	const std::string statusText =  isValid
+	const std::string statusText = isValid
 		? "Release to place | Right-click to cancel"
-		: "Too short — drag further | Right-click to cancel";
+		: (widthTooWide
+			? "Too wide - max 10 tiles | Right-click to cancel"
+			: "Too short - drag further | Right-click to cancel");
 
 	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryTextSlot, statusText, "Bridge approach tool");
 	ctrl.SetCursorText(StatefulDragViewInputControl::kSecondaryTextSlot, settings_.parameters.BuildHintText(0).c_str(), "");
+}
+
+std::optional<BridgePlacement> BridgeSelectingState::ResolvePlacementFromDrag_() const {
+	const int deltaX = dragState_.currentX - dragState_.startX;
+	const int deltaZ = dragState_.currentZ - dragState_.startZ;
+
+	if (deltaX == 0 && deltaZ == 0) {
+		return std::nullopt;
+	}
+
+	const bool isHorizontal = std::abs(deltaX) >= std::abs(deltaZ);
+	const int dragWidthTiles = isHorizontal
+		? (std::abs(deltaZ) + 1)
+		: (std::abs(deltaX) + 1);
+
+	if (dragWidthTiles > settings_.widthTiles.maxValue) {
+		settings_.widthTiles.value = settings_.widthTiles.maxValue;
+		return std::nullopt;
+	}
+
+	settings_.widthTiles.value = std::max(
+		dragWidthTiles,
+		settings_.widthTiles.minValue);
+
+	const auto widthOffsets = BridgeApproachGeometry::GetWidthOffsetBounds(
+		settings_.widthTiles.value);
+	if (isHorizontal) {
+		const int minZ = std::min(dragState_.startZ, dragState_.currentZ);
+		const int centerZ = minZ + widthOffsets.negativeOffset;
+		return ComputeBridgePlacement(
+			dragState_.startX,
+			centerZ,
+			dragState_.currentX,
+			centerZ);
+	}
+
+	const int minX = std::min(dragState_.startX, dragState_.currentX);
+	const int centerX = minX + widthOffsets.negativeOffset;
+	return ComputeBridgePlacement(
+		centerX,
+		dragState_.startZ,
+		centerX,
+		dragState_.currentZ);
 }
 
 void BridgeSelectingState::OnExit(StatefulDragViewInputControl& ctrl) {
