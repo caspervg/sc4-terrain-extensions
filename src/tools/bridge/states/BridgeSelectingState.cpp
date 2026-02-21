@@ -63,9 +63,9 @@ void BridgeSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
 		LOG_WARN("BridgeSelectingState::OnEnter - failed to mark selection");
 	}
 
-	const cRZBaseString body("Drag to set bridge span and width (max 10) | Right-click to cancel");
-	const cRZBaseString title("Bridge approach tool");
-	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryTextSlot, body, title);
+	const cRZBaseString body("Drag to set bridge span and width | Right-click to cancel");
+	const cRZBaseString title("Bridge builder");
+	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, title, body);
 }
 
 bool BridgeSelectingState::OnMouseMove(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod) {
@@ -180,9 +180,9 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) {
 		: (widthTooWide
 			? "Too wide - max 10 tiles | Right-click to cancel"
 			: "Too short - drag further | Right-click to cancel");
+	const std::string body = std::format("{}\n{}", statusText, settings_.parameters.BuildHintText(0));
 
-	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryTextSlot, statusText, "Bridge approach tool");
-	ctrl.SetCursorText(StatefulDragViewInputControl::kSecondaryTextSlot, settings_.parameters.BuildHintText(0).c_str(), "");
+	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, "Bridge builder", body);
 }
 
 std::optional<BridgePlacement> BridgeSelectingState::ResolvePlacementFromDrag_() const {
@@ -232,8 +232,7 @@ void BridgeSelectingState::OnExit(StatefulDragViewInputControl& ctrl) {
 	ctrl.EndCapture();
 	ctrl.ClearSelections();
 	renderer_.ClearAll();
-	ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryTextSlot);
-	ctrl.ClearCursorText(StatefulDragViewInputControl::kSecondaryTextSlot);
+	ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
 }
 
 bool BridgeSelectingState::OnMouseWheel(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod, int32_t delta) {

@@ -122,8 +122,7 @@ void BridgeApproachDragTool::Activate(
 void BridgeApproachDragTool::Deactivate() {
 	if (control_) {
 		control_->ClearSelections();
-		control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryTextSlot);
-		control_->ClearCursorText(StatefulDragViewInputControl::kSecondaryTextSlot);
+		control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
 	}
 
 	if (control_ && view3d_) {

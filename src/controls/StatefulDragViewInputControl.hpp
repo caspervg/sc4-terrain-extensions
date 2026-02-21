@@ -30,7 +30,7 @@ public:
                       cISTETerrain::eHilightColorType color, bool clearOthers = true) const;
     void ClearSelections() const;
 
-    void SetCursorText(uint32_t slot, const cRZBaseString& body, const cRZBaseString& title) const;
+    void SetCursorText(uint32_t slot, const cRZBaseString& title, const cRZBaseString& body) const;
     void ClearCursorText(uint32_t slot) const;
 
     bool BeginCapture() { return SetCapture(); }
@@ -49,8 +49,8 @@ public:
     bool OnKeyUp(int32_t vkCode, uint32_t modifiers) override;
 
 public:
-    static constexpr uint32_t kPrimaryTextSlot = 0;
-    static constexpr uint32_t kSecondaryTextSlot = 1;
+    static constexpr uint32_t kPrimaryCursorSlot = 0x234FE82Bu;
+    static constexpr uint32_t kPrimaryCursorPrio = 0;
 
 private:
     std::unordered_map<ControlStateId, std::unique_ptr<IControlState>> states_;

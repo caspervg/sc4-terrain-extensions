@@ -89,7 +89,6 @@ void BridgeExecutingState::OnEnter(StatefulDragViewInputControl& ctrl) {
 	);
 
 	ctrl.ClearSelections();
-	ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryTextSlot);
-	ctrl.ClearCursorText(StatefulDragViewInputControl::kSecondaryTextSlot);
+	ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
 	ctrl.TransitionTo(ControlStateId::Hovering);
 }

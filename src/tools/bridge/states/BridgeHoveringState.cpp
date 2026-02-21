@@ -26,7 +26,7 @@ void BridgeHoveringState::OnEnter(StatefulDragViewInputControl& ctrl) {
 }
 
 void BridgeHoveringState::OnExit(StatefulDragViewInputControl& ctrl) {
-	ctrl.ClearCursorText(StatefulDragViewInputControl::kSecondaryTextSlot);
+	ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
 }
 
 bool BridgeHoveringState::OnMouseMove(StatefulDragViewInputControl& ctrl, const int32_t x, const int32_t z, const uint32_t mod) {
@@ -68,6 +68,6 @@ bool BridgeHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t 
 void BridgeHoveringState::UpdateHintText_(StatefulDragViewInputControl& ctrl, uint32_t modifiers) const {
 	const std::string hint = settings_.parameters.BuildHintText(modifiers);
 	const cRZBaseString body(hint.c_str());
-	const cRZBaseString title("Bridge approach tool");
-	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryTextSlot, body, title);
+	const cRZBaseString title("Bridge builder");
+	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, title, body);
 }

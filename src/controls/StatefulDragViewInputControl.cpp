@@ -126,14 +126,14 @@ void StatefulDragViewInputControl::ClearSelections() const {
 
 void StatefulDragViewInputControl::SetCursorText(
 	const uint32_t slot,
-	const cRZBaseString& body,
-	const cRZBaseString& title) const {
+	const cRZBaseString& title,
+	const cRZBaseString& body) const {
 	if (view3D_) {
-		view3D_->SetCursorText(slot, 0, &body, &title, 0);
+		view3D_->SetCursorText(slot, kPrimaryCursorPrio, &title, &body, 0);
 	}
 }
 
-void StatefulDragViewInputControl::ClearCursorText(uint32_t slot) const {
+void StatefulDragViewInputControl::ClearCursorText(const uint32_t slot) const {
 	if (view3D_) {
 		view3D_->ClearCursorText(slot);
 	}
