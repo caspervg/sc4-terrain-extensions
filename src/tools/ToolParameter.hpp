@@ -38,7 +38,7 @@ struct ParameterDescriptor {
     std::function<float()> GetAsFloat;
     std::function<void(int32_t)> AdjustByDelta;
 
-    std::string HintText(bool isActive = false) const {
+    [[nodiscard]] std::string HintText(const bool isActive = false) const {
         std::string text = scrollBinding.ToString()
             + ": " + name
             + " (" + FormatValue_() + unit + ")";
@@ -49,7 +49,7 @@ struct ParameterDescriptor {
     }
 
 private:
-    std::string FormatValue_() const {
+    [[nodiscard]] std::string FormatValue_() const {
         const float v = GetAsFloat();
         // Show as integer if the value has no fractional part
         if (v == static_cast<float>(static_cast<int>(v))) {
@@ -111,7 +111,7 @@ public:
         return std::nullopt;
     }
 
-    std::optional<const ParameterDescriptor> FindByModifiers(const uint32_t modifiers) const {
+    [[nodiscard]] std::optional<const ParameterDescriptor> FindByModifiers(const uint32_t modifiers) const {
         for (const auto& desc : descriptors_) {
             if (desc.scrollBinding.Matches(modifiers)) {
                 return desc;
@@ -120,24 +120,24 @@ public:
         return std::nullopt;
     }
 
-    std::string BuildHintText(const uint32_t modifiers) const {
+    [[nodiscard]] std::string BuildHintText(const uint32_t modifiers) const {
         std::string result;
         for (const auto& desc : descriptors_) {
             if (!result.empty()) {
-                result += " | ";
+                result += "\n";
             }
             result += desc.HintText(desc.scrollBinding.Matches(modifiers));
         }
         return result;
     }
 
-    const std::vector<ParameterDescriptor>& Descriptors() const noexcept { return descriptors_; }
+    [[nodiscard]] const std::vector<ParameterDescriptor>& Descriptors() const noexcept { return descriptors_; }
 
-    bool IsEmpty() const noexcept { return descriptors_.empty(); }
+    [[nodiscard]] bool IsEmpty() const noexcept { return descriptors_.empty(); }
 
     void Clear() noexcept { descriptors_.clear(); }
 
-    size_t Count() const noexcept { return descriptors_.size(); }
+    [[nodiscard]] size_t Count() const noexcept { return descriptors_.size(); }
 
 private:
     std::vector<ParameterDescriptor> descriptors_;

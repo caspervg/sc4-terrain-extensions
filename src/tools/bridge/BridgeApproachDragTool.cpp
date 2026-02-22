@@ -107,6 +107,7 @@ void BridgeApproachDragTool::Deactivate() {
 	if (control_) {
 		control_->ClearSelections();
 		control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
+		control_->Deactivate();
 	}
 
 	if (control_ && view3d_) {
