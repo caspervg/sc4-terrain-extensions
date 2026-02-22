@@ -35,6 +35,7 @@ private:
         float widthTiles,
         bool slopeInX,
         float heightStep,
+        bool reverseGradient,
         bool useTapering = false
     );
 
@@ -43,6 +44,7 @@ private:
         float baseHeight,
         float influence,
         bool slopeInX,
-        float heightStep
+        float heightStep,
+        bool reverseGradient
     );
 };

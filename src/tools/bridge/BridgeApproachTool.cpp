@@ -134,6 +134,10 @@ void BridgeApproachTool::CreateSingleApproach_(
 	const float stepZ = static_cast<float>(tileDz) / pathLength;
 	const float heightStep = (endHeight - startHeight) / pathLength;
 
+	// Determine if gradient direction matches tile iteration direction
+	// When going in -X or -Z, the gradient within each tile needs to be reversed
+	const bool reverseGradient = slopeInX ? (tileDx < 0) : (tileDz < 0);
+
 	// Compute refresh bounds
 	int minTileX = std::min(startTileX, endTileX);
 	int maxTileX = std::max(startTileX, endTileX);
@@ -167,7 +171,7 @@ void BridgeApproachTool::CreateSingleApproach_(
 		ApplyGradeToTileWidth_(
 			tileX, tileZ, height,
 			widthTiles, slopeInX,
-			internalStep, useTapering);
+			internalStep, reverseGradient, useTapering);
 	}
 
 	// Refresh the modified region
@@ -185,6 +189,7 @@ void BridgeApproachTool::ApplyGradeToTileWidth_(
 	float widthTiles,
 	bool slopeInX,
 	float heightStep,
+	bool reverseGradient,
 	bool useTapering) {
 	const int perpDx = slopeInX ? 0 : 1;
 	const int perpDz = slopeInX ? 1 : 0;
@@ -210,7 +215,7 @@ void BridgeApproachTool::ApplyGradeToTileWidth_(
 		ApplyBuildableGradeToTile_(
 			centerTileX + perpDx * offset,
 			centerTileZ + perpDz * offset,
-			baseHeight, influence, slopeInX, heightStep);
+			baseHeight, influence, slopeInX, heightStep, reverseGradient);
 	}
 }
 
@@ -219,7 +224,8 @@ auto BridgeApproachTool::ApplyBuildableGradeToTile_(
 	const float baseHeight,
 	const float influence,
 	const bool slopeInX,
-	const float heightStep) -> void {
+	const float heightStep,
+	const bool reverseGradient) -> void {
 	if (!IsValidTile(tileX, tileZ)) return;
 
 	Vector3 corners[4];
@@ -230,8 +236,8 @@ auto BridgeApproachTool::ApplyBuildableGradeToTile_(
 	if (slopeInX) {
 		// Slope along X — left and right edges differ in height,
 		// top and bottom edges of the tile are level with each other
-		const float leftH = baseHeight;
-		const float rightH = baseHeight + heightStep;
+		const float leftH = reverseGradient ? (baseHeight + heightStep) : baseHeight;
+		const float rightH = reverseGradient ? baseHeight : (baseHeight + heightStep);
 		target[0] = Vector3(tileX, tileZ, leftH);
 		target[1] = Vector3(tileX + 1, tileZ, rightH);
 		target[2] = Vector3(tileX, tileZ + 1, leftH);
@@ -239,8 +245,8 @@ auto BridgeApproachTool::ApplyBuildableGradeToTile_(
 	}
 	else {
 		// Slope along Z — bottom and top edges differ in height
-		const float bottomH = baseHeight;
-		const float topH = baseHeight + heightStep;
+		const float bottomH = reverseGradient ? (baseHeight + heightStep) : baseHeight;
+		const float topH = reverseGradient ? baseHeight : (baseHeight + heightStep);
 		target[0] = Vector3(tileX, tileZ, bottomH);
 		target[1] = Vector3(tileX + 1, tileZ, bottomH);
 		target[2] = Vector3(tileX, tileZ + 1, topH);
