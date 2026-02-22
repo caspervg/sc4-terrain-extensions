@@ -26,29 +26,24 @@ public:
     TerrainExtensionsDllDirector();
     ~TerrainExtensionsDllDirector() override;
 
-    uint32_t GetDirectorID() const override;
+    [[nodiscard]] uint32_t GetDirectorID() const override;
     bool     OnStart(cIGZCOM* pCOM) override;
     bool     DoMessage(cIGZMessage2* pMsg) override;
     bool     PostAppInit() override;
 
 private:
-    // ── Message handlers ──────────────────────────────────────────────────────
     void PostCityInit_    (const cIGZMessage2Standard* pMsg);
     void PreCityShutdown_ (cIGZMessage2Standard* pMsg);
     void ProcessCheat_    (cIGZMessage2Standard* pMsg);
 
-    // ── Setup ─────────────────────────────────────────────────────────────────
     void SetUpCommandTools_(cISC4City* pCity, cISTETerrain* pTerrain);
     void SetUpDragTools_   (cISC4City* pCity, cISC4View3DWin* pView3D);
 
-    // ── Draw callback ─────────────────────────────────────────────────────────
     static void DrawOverlayCallback_(DrawServicePass pass, bool begin, void* pThis);
 
-    // ── Utilities ─────────────────────────────────────────────────────────────
     void ShowMessageBox_(const std::string& title, const std::string& message) const;
     std::vector<std::string> SplitString_(const std::string& input);
 
-    // ── Service pointers — non-owning ─────────────────────────────────────────
     cIGZCheatCodeManager*  cheatCodeManager_;
     cISC4View3DWin*        view3d_;
     cISC4City*             city_;
@@ -59,7 +54,6 @@ private:
     cIGZDrawService*       drawService_;
     uint32_t               drawCallbackToken_;
 
-    // ── Plugin subsystems ─────────────────────────────────────────────────────
     TerrainToolRegistry toolRegistry_;
     DragToolManager     dragToolManager_;
     OverlayDrawManager  overlayDrawManager_;

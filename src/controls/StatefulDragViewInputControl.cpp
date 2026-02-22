@@ -9,16 +9,15 @@
 #include "utils/Logger.h"
 
 StatefulDragViewInputControl::StatefulDragViewInputControl(
-	uint32_t controlId,
-	uint32_t cursorId,
+	const uint32_t controlId,
+	const uint32_t cursorId,
 	cISTETerrain* terrain,
 	cIGZWin* window,
 	cISC4View3DWin* view3D)
-	: cSC4BaseViewInputControl(controlId)
+	  : cSC4BaseViewInputControl(controlId)
 	  , terrain_(terrain, cRZAutoRefCount<cISTETerrain>::kAddRef)
 	  , window_(window, cRZAutoRefCount<cIGZWin>::kAddRef)
-	  , view3D_(view3D, cRZAutoRefCount<cISC4View3DWin>::kAddRef)
-	  , currentState_(nullptr) {
+	  , view3D_(view3D, cRZAutoRefCount<cISC4View3DWin>::kAddRef) {
 	this->cursorID = cursorId;
 }
 
@@ -187,4 +186,17 @@ bool StatefulDragViewInputControl::OnKeyDown(const int32_t vk, const uint32_t mo
 bool StatefulDragViewInputControl::OnKeyUp(const int32_t vkCode, const uint32_t modifiers) {
 	if (!IsOnTop() || !currentState_) return false;
 	return currentState_->OnKeyUp(*this, vkCode, modifiers);
+}
+
+void StatefulDragViewInputControl::Activate() {
+	cSC4BaseViewInputControl::Activate();
+}
+
+void StatefulDragViewInputControl::Deactivate() {
+	cSC4BaseViewInputControl::Deactivate();
+	TransitionTo(ControlStateId::Inactive);
+
+	if (onDeactivate_) {
+		onDeactivate_();
+	}
 }

@@ -15,6 +15,7 @@ static constexpr uint32_t kHeightMarkerColor = 0x80FFFF00; // Yellow, semi-trans
 static constexpr uint32_t kGradeOkColor = 0xA000FF00; // Green
 static constexpr uint32_t kGradeWarningColor = 0xA0FFAA00; // Orange
 static constexpr uint32_t kGradeErrorColor = 0xA0FF0000; // Red
+static constexpr uint32_t kSkeletonColor = 0xD0FFFFFF;
 
 class BridgeApproachRenderer : public OverlayRenderer {
 public:
@@ -81,9 +82,4 @@ private:
         float terrainHeight, float bridgeHeight,
         float t, float approachLength
     );
-
-private:
-    static constexpr DWORD kSkeletonColor = 0xD0FFFFFF;
-    static constexpr DWORD kInvalidColor = 0xA0FF0000;
-    static constexpr DWORD kHeightMarkerColor = 0x80FFFF00;
 };

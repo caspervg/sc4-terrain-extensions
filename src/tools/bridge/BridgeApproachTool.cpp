@@ -10,7 +10,7 @@
 BridgeApproachTool::BridgeApproachTool(cISTETerrain* terrain) : TerrainOperator(terrain) {}
 
 float BridgeApproachTool::SampleTileHeight_(void* context, const int tileX, const int tileZ) {
-	auto* tool = static_cast<BridgeApproachTool*>(context);
+	const auto* tool = static_cast<BridgeApproachTool*>(context);
 	return BridgeApproachGeometry::SampleTileAverageHeight(tool->terrain_, tileX, tileZ);
 }
 

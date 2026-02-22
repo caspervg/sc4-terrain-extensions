@@ -17,7 +17,7 @@ struct BridgePlacement {
 
     static constexpr auto kMinLength = 3.0f;
 
-    bool IsValid() const noexcept {
+    [[nodiscard]] bool IsValid() const noexcept {
         return length >= kMinLength;
     }
 };

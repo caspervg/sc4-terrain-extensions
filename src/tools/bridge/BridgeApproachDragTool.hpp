@@ -4,7 +4,6 @@
 #include "BridgeToolSettings.hpp"
 #include "core/IDragTool.hpp"
 #include "viz/BridgeApproachRenderer.hpp"
-#include "viz/BridgeToolPanel.hpp"
 #include "cRZAutoRefCount.h"
 #include "public/cIGZImGuiService.h"
 
@@ -17,22 +16,22 @@ public:
     BridgeApproachDragTool();
     ~BridgeApproachDragTool() override;
 
-    const char* GetCheatName() const override { return "bridgebuilder"; }
-    const uint32_t GetCheatId() const override { return kCheatId; }
+    [[nodiscard]] const char* GetCheatName() const override { return "bridgebuilder"; }
+    [[nodiscard]] const uint32_t GetCheatId() const override { return kCheatId; }
 
     void Activate(cISC4City* city, cISC4View3DWin*, cIGZWinMgr*, cIGZImGuiService*, OverlayDrawManager&) override;
     void Deactivate() override;
 
     StatefulDragViewInputControl* GetInputControl() override;
-    const BridgeToolSettings& GetSettings() const;
+    [[nodiscard]] const BridgeToolSettings& GetSettings() const;
 
 private:
     static constexpr auto kCheatId{0x9773F4CDu};
 
     BridgeToolSettings settings_;
+
     std::unique_ptr<BridgeApproachRenderer> renderer_;
     std::unique_ptr<StatefulDragViewInputControl, ViewInputControlReleaser> control_;
-    std::unique_ptr<BridgeToolPanel> panel_;
     cRZAutoRefCount<cIGZImGuiService> imguiService_;
     OverlayDrawManager* drawMgr_{nullptr};
     cISC4View3DWin* view3d_{nullptr};

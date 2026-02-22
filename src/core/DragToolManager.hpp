@@ -22,7 +22,7 @@ public:
 
 private:
     void DeactivateCurrent_(cISC4View3DWin* view3d);
-    std::optional<IDragTool*> GetActiveTool_();
+    std::optional<IDragTool*> GetActiveTool_() const;
 
 private:
     std::vector<std::unique_ptr<IDragTool>> tools_{};

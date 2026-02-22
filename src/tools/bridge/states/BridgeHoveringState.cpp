@@ -48,7 +48,7 @@ bool BridgeHoveringState::OnMouseDownL(StatefulDragViewInputControl& ctrl, int32
 }
 
 bool BridgeHoveringState::OnMouseWheel(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod, int32_t delta) {
-	auto param = settings_.parameters.FindByModifiers(mod);
+	const auto param = settings_.parameters.FindByModifiers(mod);
 	if (!param.has_value()) return false;
 	param->AdjustByDelta(delta);
 	UpdateHintText_(ctrl, mod);

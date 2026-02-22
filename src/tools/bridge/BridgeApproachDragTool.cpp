@@ -6,8 +6,6 @@
 #include "BridgeDragState.hpp"
 #include "controls/InactiveState.hpp"
 #include "controls/StatefulDragViewInputControl.hpp"
-#include "public/cIGZImGuiService.h"
-#include "public/ImGuiPanelAdapter.h"
 #include "states/BridgeExecutingState.hpp"
 #include "states/BridgeHoveringState.hpp"
 #include "states/BridgeSelectingState.hpp"
@@ -47,8 +45,8 @@ public:
 		TransitionTo(ControlStateId::Hovering);
 	}
 
-	BridgeToolSettings& GetSettings() const { return settings_; }
-	BridgeApproachRenderer& GetRenderer() const { return renderer_; }
+	[[nodiscard]] BridgeToolSettings& GetSettings() const { return settings_; }
+	[[nodiscard]] BridgeApproachRenderer& GetRenderer() const { return renderer_; }
 
 private:
 	static constexpr auto kControlId{0xA20FD559u};
@@ -100,20 +98,6 @@ void BridgeApproachDragTool::Activate(
 	drawMgr_ = &drawMgr;
 	drawMgr.Register(renderer_.get());
 
-	if (imguiService) {
-		imguiService_ = imguiService;
-
-		panel_ = std::make_unique<BridgeToolPanel>(settings_);
-		const ImGuiPanelDesc desc = ImGuiPanelAdapter<BridgeToolPanel>::MakeDesc(
-			panel_.get(), kBridgeToolPanelId, 100, false
-		);
-		if (imguiService_->RegisterPanel(desc)) {
-			panelRegistered_ = true;
-			panel_->SetOpen(true);
-			LOG_INFO("BridgeApproachDragTool: ImGui panel registered");
-		}
-	}
-
 	view3d->SetCurrentViewInputControl(control_.get(), cISC4View3DWin::ViewInputControlStackOperation_None);
 
 	LOG_INFO("BridgeApproachDragTool: Activated");
@@ -140,18 +124,11 @@ void BridgeApproachDragTool::Deactivate() {
 		}
 	}
 
-	if (panelRegistered_ && panel_) {
-		if (imguiService_) {
-			imguiService_->UnregisterPanel(kBridgeToolPanelId);
-		}
-		panelRegistered_ = false;
-	}
-
-	panel_.reset();
 	if (control_) {
 		control_->Shutdown();
 	}
 	control_.reset();
+
 	view3d_ = nullptr;
 }
 

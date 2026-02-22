@@ -42,6 +42,12 @@ bool DragToolManager::TryActivate(
 	activeToolIdx_ = candidateIdx;
 	view3d_ = view3d;
 
+	if (auto* control = candidate->GetInputControl()) {
+		control->SetDeactivateCallback([this]() {
+			activeToolIdx_ = -1;
+		});
+	}
+
 	return true;
 }
 
@@ -71,7 +77,7 @@ void DragToolManager::DeactivateCurrent_(cISC4View3DWin* view3d) {
 	activeToolIdx_ = -1;
 }
 
-std::optional<IDragTool*> DragToolManager::GetActiveTool_() {
+std::optional<IDragTool*> DragToolManager::GetActiveTool_() const {
 	if (activeToolIdx_ < 0) return std::nullopt;
 	return tools_[activeToolIdx_].get();
 }
