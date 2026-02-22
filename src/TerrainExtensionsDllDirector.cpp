@@ -27,13 +27,18 @@
 
 #include "tools/bridge/BridgeApproachDragTool.hpp"
 
+#include "snapshot/SnapshotDragTool.hpp"
+#include "snapshot/SnapshotPanel.hpp"
+
 #include "public/cIGZImGuiService.h"
+#include "public/ImGuiPanelAdapter.h"
 #include "public/ImGuiServiceIds.h"
 #include "public/S3DCameraServiceIds.h"
 
 #include <sstream>
 #include <windows.h>
 
+#include "controls/StatefulDragViewInputControl.hpp"
 #include "public/cIGZDrawService.h"
 
 
@@ -42,6 +47,8 @@ static constexpr uint32_t kTerrainExtensionsCheatID        = 0x1234ABCD; // your
 static constexpr uint32_t kTerrainExtensionsBridgeCheatID  = 0x9773F4CD; // your actual ID
 static constexpr std::string_view kTerrainExtensionsCheatString = "earthbender";
 static constexpr std::string_view kTerrainExtensionsBridgeCheatString = "bridgebuilder";
+static constexpr uint32_t kTerrainExtensionsSnapshotCheatID = 0x7E5A9B00;
+static constexpr std::string_view kTerrainExtensionsSnapshotCheatString = "terrainsnap";
 static constexpr uint32_t kSC4MessageCheatIssued = 0x230E27AC;
 static constexpr uint32_t kSC4MessagePostCityInit = 0x26D31EC1;
 static constexpr uint32_t kSC4MessagePreCityShutdown = 0x26D31EC2;
@@ -160,6 +167,10 @@ void TerrainExtensionsDllDirector::PostCityInit_(
             kTerrainExtensionsBridgeCheatID,
             cRZBaseString(kTerrainExtensionsBridgeCheatString.data(),
                           kTerrainExtensionsBridgeCheatString.size()));
+        cheatCodeManager_->RegisterCheatCode(
+            kTerrainExtensionsSnapshotCheatID,
+            cRZBaseString(kTerrainExtensionsSnapshotCheatString.data(),
+                          kTerrainExtensionsSnapshotCheatString.size()));
     } else {
         LOG_ERROR("PostCityInit: cheat code manager not initialized");
     }
@@ -203,6 +214,32 @@ void TerrainExtensionsDllDirector::PostCityInit_(
     // Build tool subsystems
     SetUpCommandTools_(city_, pTerrain);
     SetUpDragTools_(city_, view3d_);
+
+    // Set up snapshot panel
+    if (imguiService_ && pTerrain) {
+        // Register the snapshot renderer permanently so preview works from the panel
+        overlayDrawManager_.Register(&snapshotRenderer_);
+
+        snapshotPanel_ = std::make_unique<SnapshotPanel>(
+            snapshotManager_, pTerrain, snapshotRenderer_,
+            [this](int snapshotIndex) {
+                // Partial restore callback: activate drag tool
+                if (!snapshotDragTool_ || !city_ || !view3d_ || !winMgr_) return;
+                snapshotDragTool_->SetRestoreIndex(snapshotIndex);
+                snapshotDragTool_->ActivateDirect(city_, view3d_, winMgr_, overlayDrawManager_);
+            });
+
+        const auto desc = ImGuiPanelAdapter<SnapshotPanel>::MakeDesc(
+            snapshotPanel_.get(), SnapshotPanel::kPanelId, 100, false);
+
+        if (imguiService_->RegisterPanel(desc)) {
+            snapshotPanelRegistered_ = true;
+            snapshotPanelVisible_ = false;
+            LOG_INFO("Registered snapshot panel");
+        } else {
+            LOG_WARN("Failed to register snapshot panel");
+        }
+    }
 }
 
 
@@ -227,9 +264,12 @@ void TerrainExtensionsDllDirector::SetUpDragTools_(
 {
     LOG_DEBUG("Setting up drag tools...");
 
-    // Register drag tools here. Director never touches concrete types again.
+    // Register drag tools here.
     dragToolManager_.Register(std::make_unique<BridgeApproachDragTool>());
-    // future: dragToolManager_.Register(std::make_unique<FlattenDragTool>());
+
+    auto snapshotTool = std::make_unique<SnapshotDragTool>(snapshotManager_, snapshotRenderer_);
+    snapshotDragTool_ = snapshotTool.get();
+    dragToolManager_.Register(std::move(snapshotTool));
 
     LOG_DEBUG("Drag tools setup complete.");
 }
@@ -238,6 +278,18 @@ void TerrainExtensionsDllDirector::PreCityShutdown_(
     cIGZMessage2Standard* pStandardMsg)
 {
     dragToolManager_.DeactivateAll();
+
+    // Clean up snapshot system
+    if (imguiService_ && snapshotPanelRegistered_) {
+        imguiService_->UnregisterPanel(SnapshotPanel::kPanelId);
+        snapshotPanelRegistered_ = false;
+        snapshotPanelVisible_ = false;
+    }
+    snapshotPanel_.reset();
+    snapshotManager_.Clear();
+    snapshotRenderer_.ClearAll();
+    overlayDrawManager_.Unregister(&snapshotRenderer_);
+    snapshotDragTool_ = nullptr;
 
     if (drawService_ && drawCallbackToken_) {
         drawService_->UnregisterDrawPassCallback(drawCallbackToken_);
@@ -255,6 +307,20 @@ void TerrainExtensionsDllDirector::ProcessCheat_(
     cIGZMessage2Standard* pStandardMsg)
 {
     const auto cheatID = static_cast<uint32_t>(pStandardMsg->GetData1());
+
+    // Handle snapshot panel toggle
+    if (cheatID == kTerrainExtensionsSnapshotCheatID) {
+        if (imguiService_ && snapshotPanelRegistered_) {
+            // Auto-capture initial snapshot on first activation
+            if (snapshotManager_.Count() == 0 && city_) {
+                snapshotManager_.Capture(city_->GetTerrain(), "Initial terrain");
+            }
+            snapshotPanelVisible_ = !snapshotPanelVisible_;
+            imguiService_->SetPanelVisible(SnapshotPanel::kPanelId, snapshotPanelVisible_);
+            LOG_INFO("Snapshot panel {}", snapshotPanelVisible_ ? "shown" : "hidden");
+        }
+        return;
+    }
 
     // Try drag tools first — each tool knows its own cheat ID
     if (dragToolManager_.TryActivate(

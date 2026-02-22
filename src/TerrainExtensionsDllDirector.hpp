@@ -5,6 +5,8 @@
 #include "tools/TerrainToolRegistry.hpp"
 #include "core/DragToolManager.hpp"
 #include "viz/OverlayDrawManager.hpp"
+#include "snapshot/SnapshotManager.hpp"
+#include "snapshot/SnapshotPreviewRenderer.hpp"
 
 #include <cstdint>
 #include <string>
@@ -19,6 +21,8 @@ class cIGZDrawService;
 class cISC4City;
 class cISC4View3DWin;
 class cIGZWinMgr;
+class SnapshotPanel;
+class SnapshotDragTool;
 struct IDirect3DDevice7;
 
 class TerrainExtensionsDllDirector final : public cRZMessage2COMDirector {
@@ -57,4 +61,11 @@ private:
     TerrainToolRegistry toolRegistry_;
     DragToolManager     dragToolManager_;
     OverlayDrawManager  overlayDrawManager_;
+
+    SnapshotManager        snapshotManager_;
+    SnapshotPreviewRenderer snapshotRenderer_;
+    std::unique_ptr<SnapshotPanel> snapshotPanel_;
+    SnapshotDragTool*      snapshotDragTool_{nullptr}; // Owned by dragToolManager_
+    bool                   snapshotPanelRegistered_{false};
+    bool                   snapshotPanelVisible_{false};
 };
