@@ -5,6 +5,7 @@
 #include "tools/TerrainToolRegistry.hpp"
 #include "core/DragToolManager.hpp"
 #include "viz/OverlayDrawManager.hpp"
+#include "viz/TerrainContourRenderer.hpp"
 #include "snapshot/SnapshotManager.hpp"
 #include "snapshot/SnapshotPreviewRenderer.hpp"
 
@@ -61,6 +62,7 @@ private:
     TerrainToolRegistry toolRegistry_;
     DragToolManager     dragToolManager_;
     OverlayDrawManager  overlayDrawManager_;
+    TerrainContourRenderer contourRenderer_;
 
     SnapshotManager        snapshotManager_;
     SnapshotPreviewRenderer snapshotRenderer_;

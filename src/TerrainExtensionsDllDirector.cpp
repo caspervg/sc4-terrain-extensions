@@ -24,6 +24,7 @@
 #include "tools/BlueprintCaptureTool.cpp"
 #include "tools/BlueprintExportTool.cpp"
 #include "tools/BlueprintStampTool.cpp"
+#include "tools/ContourMapTool.hpp"
 
 #include "tools/bridge/BridgeApproachDragTool.hpp"
 
@@ -31,10 +32,16 @@
 #include "snapshot/SnapshotPanel.hpp"
 
 #include "public/cIGZImGuiService.h"
+#include "public/cIGZS3DCameraService.h"
 #include "public/ImGuiPanelAdapter.h"
 #include "public/ImGuiServiceIds.h"
 #include "public/S3DCameraServiceIds.h"
 
+#include <imgui.h>
+
+#include <algorithm>
+#include <cfloat>
+#include <new>
 #include <sstream>
 #include <windows.h>
 
@@ -49,9 +56,75 @@ static constexpr std::string_view kTerrainExtensionsCheatString = "earthbender";
 static constexpr std::string_view kTerrainExtensionsBridgeCheatString = "bridgebuilder";
 static constexpr uint32_t kTerrainExtensionsSnapshotCheatID = 0x7E5A9B00;
 static constexpr std::string_view kTerrainExtensionsSnapshotCheatString = "terrainsnap";
+static constexpr uint32_t kTerrainExtensionsContourCheatID = 0x7E5A9B10;
+static constexpr std::string_view kTerrainExtensionsContourCheatString = "contourmap";
 static constexpr uint32_t kSC4MessageCheatIssued = 0x230E27AC;
 static constexpr uint32_t kSC4MessagePostCityInit = 0x26D31EC1;
 static constexpr uint32_t kSC4MessagePreCityShutdown = 0x26D31EC2;
+
+namespace {
+struct ContourLabelRenderPayload {
+    cIGZS3DCameraService* cameraService{};
+    std::vector<TerrainContourRenderer::LabelAnchor> labels{};
+};
+
+void CleanupContourLabelsImGui(void* data) {
+    auto* payload = static_cast<ContourLabelRenderPayload*>(data);
+    if (!payload) return;
+    delete payload;
+}
+
+void RenderContourLabelsImGui(void* data) {
+    auto* payload = static_cast<ContourLabelRenderPayload*>(data);
+    if (!payload || !payload->cameraService || payload->labels.empty()) {
+        return;
+    }
+
+    const S3DCameraHandle cameraHandle = payload->cameraService->WrapActiveRendererCamera();
+    if (!cameraHandle.ptr) return;
+
+    ImDrawList* drawList = ImGui::GetBackgroundDrawList();
+    if (!drawList) {
+        payload->cameraService->DestroyCamera(cameraHandle);
+        return;
+    }
+
+    constexpr ImU32 kOutlineColor = IM_COL32(0, 0, 0, 190);
+    constexpr uint8_t kBaseAlpha = 230;
+    constexpr float kLabelFontScale = 1.15f;
+
+    for (const auto& label : payload->labels) {
+        float screenX = 0.0f;
+        float screenY = 0.0f;
+        float depth = 0.0f;
+        if (!payload->cameraService->WorldToScreen(
+            cameraHandle,
+            label.worldX, label.worldY, label.worldZ,
+            screenX, screenY, &depth)) {
+            continue;
+        }
+
+        const float fade = std::clamp(1.0f / (1.0f + depth * 0.0015f), 0.35f, 1.0f);
+        const uint8_t alpha = static_cast<uint8_t>(std::clamp(fade * kBaseAlpha, 40.0f, 255.0f));
+        const ImU32 textColor = IM_COL32(248, 248, 248, alpha);
+
+        ImFont* font = ImGui::GetFont();
+        const float fontSize = ImGui::GetFontSize() * kLabelFontScale;
+        const ImVec2 size = font
+            ? font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, label.text.c_str())
+            : ImGui::CalcTextSize(label.text.c_str());
+        const ImVec2 pos(screenX - size.x * 0.5f, screenY - size.y * 0.5f);
+
+        drawList->AddText(font, fontSize, ImVec2(pos.x + 1.0f, pos.y), kOutlineColor, label.text.c_str());
+        drawList->AddText(font, fontSize, ImVec2(pos.x - 1.0f, pos.y), kOutlineColor, label.text.c_str());
+        drawList->AddText(font, fontSize, ImVec2(pos.x, pos.y + 1.0f), kOutlineColor, label.text.c_str());
+        drawList->AddText(font, fontSize, ImVec2(pos.x, pos.y - 1.0f), kOutlineColor, label.text.c_str());
+        drawList->AddText(font, fontSize, pos, textColor, label.text.c_str());
+    }
+
+    payload->cameraService->DestroyCamera(cameraHandle);
+}
+}
 
 TerrainExtensionsDllDirector::TerrainExtensionsDllDirector()
     : cheatCodeManager_(nullptr)
@@ -171,6 +244,10 @@ void TerrainExtensionsDllDirector::PostCityInit_(
             kTerrainExtensionsSnapshotCheatID,
             cRZBaseString(kTerrainExtensionsSnapshotCheatString.data(),
                           kTerrainExtensionsSnapshotCheatString.size()));
+        cheatCodeManager_->RegisterCheatCode(
+            kTerrainExtensionsContourCheatID,
+            cRZBaseString(kTerrainExtensionsContourCheatString.data(),
+                          kTerrainExtensionsContourCheatString.size()));
     } else {
         LOG_ERROR("PostCityInit: cheat code manager not initialized");
     }
@@ -215,6 +292,9 @@ void TerrainExtensionsDllDirector::PostCityInit_(
     SetUpCommandTools_(city_, pTerrain);
     SetUpDragTools_(city_, view3d_);
 
+    // Register independent contour renderer (not tied to snapshot panel)
+    overlayDrawManager_.Register(&contourRenderer_);
+
     // Set up snapshot panel
     if (imguiService_ && pTerrain) {
         // Register the snapshot renderer permanently so preview works from the panel
@@ -254,6 +334,7 @@ void TerrainExtensionsDllDirector::SetUpCommandTools_(
     toolRegistry_.RegisterTool(std::make_unique<BlueprintCaptureTool>(pTerrain, pCity));
     toolRegistry_.RegisterTool(std::make_unique<BlueprintExportTool>(pTerrain));
     toolRegistry_.RegisterTool(std::make_unique<BlueprintStampTool>(pTerrain, pCity));
+    toolRegistry_.RegisterTool(std::make_unique<ContourMapTool>(pTerrain, contourRenderer_));
 
     toolRegistry_.ListTools();
     LOG_DEBUG("Command tools setup complete.");
@@ -288,7 +369,9 @@ void TerrainExtensionsDllDirector::PreCityShutdown_(
     snapshotPanel_.reset();
     snapshotManager_.Clear();
     snapshotRenderer_.ClearAll();
+    contourRenderer_.SetEnabled(false, nullptr);
     overlayDrawManager_.Unregister(&snapshotRenderer_);
+    overlayDrawManager_.Unregister(&contourRenderer_);
     snapshotDragTool_ = nullptr;
 
     if (drawService_ && drawCallbackToken_) {
@@ -319,6 +402,14 @@ void TerrainExtensionsDllDirector::ProcessCheat_(
             imguiService_->SetPanelVisible(SnapshotPanel::kPanelId, snapshotPanelVisible_);
             LOG_INFO("Snapshot panel {}", snapshotPanelVisible_ ? "shown" : "hidden");
         }
+        return;
+    }
+
+    // Handle full-map contour overlay toggle
+    if (cheatID == kTerrainExtensionsContourCheatID) {
+        const bool enableContours = !contourRenderer_.IsEnabled();
+        contourRenderer_.SetEnabled(enableContours, city_ ? city_->GetTerrain() : nullptr);
+        LOG_INFO("Contour map {}", enableContours ? "enabled" : "disabled");
         return;
     }
 
@@ -388,6 +479,28 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
         pDirector->overlayDrawManager_.DrawAll(device);
         device->Release();
         dd->Release();
+    }
+
+    if (pDirector->imguiService_
+        && pDirector->cameraService_
+        && pDirector->contourRenderer_.IsEnabled())
+    {
+        const auto& labels = pDirector->contourRenderer_.GetLabelAnchors();
+        if (!labels.empty()) {
+            auto* payload = new (std::nothrow) ContourLabelRenderPayload();
+            if (payload) {
+                payload->cameraService = pDirector->cameraService_;
+                payload->labels = labels; // Snapshot to avoid cross-frame mutations.
+
+                if (!pDirector->imguiService_->QueueRender(
+                    &RenderContourLabelsImGui,
+                    payload,
+                    &CleanupContourLabelsImGui))
+                {
+                    CleanupContourLabelsImGui(payload);
+                }
+            }
+        }
     }
 }
 
