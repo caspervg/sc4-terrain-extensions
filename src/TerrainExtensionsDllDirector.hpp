@@ -36,6 +36,8 @@ public:
     bool     DoMessage(cIGZMessage2* pMsg) override;
     bool     PostAppInit() override;
 
+    bool HandleCustomTerrainCatalogItem(uint32_t itemId, cISC4View3DWin* sourceView3D, bool activateTool);
+
 private:
     void PostCityInit_    (const cIGZMessage2Standard* pMsg);
     void PreCityShutdown_ (cIGZMessage2Standard* pMsg);

@@ -36,6 +36,7 @@
 #include "public/ImGuiPanelAdapter.h"
 #include "public/ImGuiServiceIds.h"
 #include "public/S3DCameraServiceIds.h"
+#include "ui/TerrainCatalogHook.hpp"
 
 #include <imgui.h>
 
@@ -141,7 +142,9 @@ TerrainExtensionsDllDirector::TerrainExtensionsDllDirector()
     LOG_INFO("SC4TerrainExtensions v{}", PLUGIN_VERSION_STR);
 }
 
-TerrainExtensionsDllDirector::~TerrainExtensionsDllDirector() = default;
+TerrainExtensionsDllDirector::~TerrainExtensionsDllDirector() {
+    TerrainCatalogHook::Remove();
+}
 
 uint32_t TerrainExtensionsDllDirector::GetDirectorID() const {
     return kTerrainExtensionsDirectorID;
@@ -149,6 +152,7 @@ uint32_t TerrainExtensionsDllDirector::GetDirectorID() const {
 
 bool TerrainExtensionsDllDirector::OnStart(cIGZCOM* pCOM) {
     mpFrameWork->AddHook(this);
+    TerrainCatalogHook::Install(*this);
     return true;
 }
 
@@ -461,6 +465,43 @@ void TerrainExtensionsDllDirector::ProcessCheat_(
         ShowMessageBox_("Earthbender validation error",
             std::string("Validation error: ") + e.what() + "\n\n" + parser.Help());
         LOG_DEBUG("Validation error: {}", e.what());
+    }
+}
+
+bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
+    const uint32_t itemId,
+    cISC4View3DWin* sourceView3D,
+    const bool activateTool)
+{
+    view3d_ = sourceView3D ? sourceView3D : view3d_;
+
+    switch (itemId) {
+    case TerrainCatalogHook::ItemId::BridgeApproach:
+        LOG_INFO("Terrain catalog item 0x{:08X}: activating bridge approach tool", itemId);
+        return dragToolManager_.TryActivate(
+            kTerrainExtensionsBridgeCheatID,
+            city_,
+            view3d_,
+            winMgr_,
+            imguiService_,
+            overlayDrawManager_);
+
+    case TerrainCatalogHook::ItemId::Flatten:
+    case TerrainCatalogHook::ItemId::ConstantGrade:
+    case TerrainCatalogHook::ItemId::BlueprintCapture:
+    case TerrainCatalogHook::ItemId::BlueprintExport:
+    case TerrainCatalogHook::ItemId::BlueprintStamp:
+        LOG_INFO(
+            "Terrain catalog item 0x{:08X} clicked (activateTool={}) but no menu activation bridge exists yet",
+            itemId,
+            activateTool);
+        ShowMessageBox_(
+            "Terrain Extensions",
+            "The selected terrain catalog item is hooked correctly, but this tool is not wired to a menu activation flow yet.");
+        return true;
+
+    default:
+        return false;
     }
 }
 
