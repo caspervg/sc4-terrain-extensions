@@ -13,12 +13,6 @@
 #include "viz/OverlayDrawManager.hpp"
 #include "utils/Logger.h"
 
-void SnapshotInputControlReleaser::operator()(StatefulDragViewInputControl* control) const noexcept {
-	if (control) {
-		control->Release();
-	}
-}
-
 class SnapshotRestoreInputControl final : public StatefulDragViewInputControl {
 public:
 	SnapshotRestoreInputControl(
@@ -112,7 +106,9 @@ void SnapshotDragTool::ActivateDirect(
 		view3d_ = nullptr;
 	});
 
-	view3d->SetCurrentViewInputControl(control_.get(), cISC4View3DWin::ViewInputControlStackOperation_None);
+	view3d->SetCurrentViewInputControl(
+		control_.get(),
+		cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl);
 	control_->Activate();
 
 	LOG_INFO("SnapshotDragTool: Activated for snapshot index {}", dragState_.restoreIndex);

@@ -1,16 +1,13 @@
 #pragma once
 #include <memory>
 
+#include "controls/ViewInputControlReleaser.hpp"
 #include "core/IDragTool.hpp"
 #include "SnapshotDragState.hpp"
 #include "SnapshotPreviewRenderer.hpp"
 #include "cRZAutoRefCount.h"
 
 class SnapshotManager;
-
-struct SnapshotInputControlReleaser {
-    void operator()(StatefulDragViewInputControl* control) const noexcept;
-};
 
 class SnapshotDragTool final : public IDragTool {
 public:
@@ -38,7 +35,7 @@ private:
     SnapshotPreviewRenderer& renderer_;
     SnapshotDragState dragState_;
 
-    std::unique_ptr<StatefulDragViewInputControl, SnapshotInputControlReleaser> control_;
+    std::unique_ptr<StatefulDragViewInputControl, ViewInputControlReleaser> control_;
     OverlayDrawManager* drawMgr_{nullptr};
     cISC4View3DWin* view3d_{nullptr};
 };

@@ -2,14 +2,11 @@
 #include <memory>
 
 #include "BridgeToolSettings.hpp"
+#include "controls/ViewInputControlReleaser.hpp"
 #include "core/IDragTool.hpp"
 #include "viz/BridgeApproachRenderer.hpp"
 #include "cRZAutoRefCount.h"
 #include "public/cIGZImGuiService.h"
-
-struct ViewInputControlReleaser {
-    void operator()(StatefulDragViewInputControl* control) const noexcept;
-};
 
 class BridgeApproachDragTool final : public IDragTool {
 public:

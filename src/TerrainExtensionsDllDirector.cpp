@@ -21,6 +21,7 @@
 #include "tools/ConstantGradeTool.cpp"
 #include "tools/FlattenTool.cpp"
 #include "tools/bridge/BridgeApproachCommand.hpp"
+#include "tools/flatten/FlattenInteractiveTool.hpp"
 #include "tools/BlueprintCaptureTool.cpp"
 #include "tools/BlueprintExportTool.cpp"
 #include "tools/BlueprintStampTool.cpp"
@@ -350,6 +351,7 @@ void TerrainExtensionsDllDirector::SetUpDragTools_(
     LOG_DEBUG("Setting up drag tools...");
 
     // Register drag tools here.
+    dragToolManager_.Register(std::make_unique<FlattenInteractiveTool>());
     dragToolManager_.Register(std::make_unique<BridgeApproachDragTool>());
 
     auto snapshotTool = std::make_unique<SnapshotDragTool>(snapshotManager_, snapshotRenderer_);
@@ -476,6 +478,16 @@ bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
     view3d_ = sourceView3D ? sourceView3D : view3d_;
 
     switch (itemId) {
+    case TerrainCatalogHook::ItemId::Flatten:
+        LOG_INFO("Terrain catalog item 0x{:08X}: activating flatten tool", itemId);
+        return dragToolManager_.TryActivate(
+            TerrainCatalogHook::ItemId::Flatten,
+            city_,
+            view3d_,
+            winMgr_,
+            imguiService_,
+            overlayDrawManager_);
+
     case TerrainCatalogHook::ItemId::BridgeApproach:
         LOG_INFO("Terrain catalog item 0x{:08X}: activating bridge approach tool", itemId);
         return dragToolManager_.TryActivate(
@@ -485,8 +497,6 @@ bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
             winMgr_,
             imguiService_,
             overlayDrawManager_);
-
-    case TerrainCatalogHook::ItemId::Flatten:
     case TerrainCatalogHook::ItemId::ConstantGrade:
     case TerrainCatalogHook::ItemId::BlueprintCapture:
     case TerrainCatalogHook::ItemId::BlueprintExport:

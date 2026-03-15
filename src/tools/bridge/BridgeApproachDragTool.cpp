@@ -11,12 +11,6 @@
 #include "states/BridgeSelectingState.hpp"
 #include "viz/OverlayDrawManager.hpp"
 
-void ViewInputControlReleaser::operator()(StatefulDragViewInputControl* control) const noexcept {
-	if (control) {
-		control->Release();
-	}
-}
-
 class BridgeDragViewInputControl final : public StatefulDragViewInputControl {
 public:
 	BridgeDragViewInputControl(
@@ -98,7 +92,9 @@ void BridgeApproachDragTool::Activate(
 	drawMgr_ = &drawMgr;
 	drawMgr.Register(renderer_.get());
 
-	view3d->SetCurrentViewInputControl(control_.get(), cISC4View3DWin::ViewInputControlStackOperation_None);
+	view3d->SetCurrentViewInputControl(
+		control_.get(),
+		cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl);
 
 	LOG_INFO("BridgeApproachDragTool: Activated");
 }
