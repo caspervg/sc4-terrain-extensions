@@ -10,7 +10,8 @@
             "binaryDir": "${sourceDir}/cmake-build-debug-visual-studio",
             "cacheVariables": {
                 "CMAKE_GENERATOR_PLATFORM": "Win32",
-                "CMAKE_BUILD_TYPE": "Debug"
+                "CMAKE_BUILD_TYPE": "Debug",
+                "SC4_BUILD_RENDER_SERVICES": true
             }
         },
         {
@@ -22,7 +23,8 @@
             "binaryDir": "${sourceDir}/cmake-build-release-visual-studio",
             "cacheVariables": {
                 "CMAKE_GENERATOR_PLATFORM": "Win32",
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Release",
+                "SC4_BUILD_RENDER_SERVICES": true
             }
         }
     ],

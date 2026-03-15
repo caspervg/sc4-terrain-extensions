@@ -11,10 +11,10 @@ if(NOT WIN32)
     return()
 endif()
 
-set(IMGUI_SERVICE_ROOT "${CMAKE_SOURCE_DIR}/vendor/sc4-custom-services" CACHE PATH "Path to sc4-custom-services")
-set(IMGUI_PUBLIC_DIR "${IMGUI_SERVICE_ROOT}/src")
-set(IMGUI_INCLUDE_DIR "${IMGUI_SERVICE_ROOT}/vendor/d3d7imgui/ImGui")
-set(IMGUI_LIB_DIR "${IMGUI_SERVICE_ROOT}" CACHE PATH "Path containing imgui.lib from sc4-custom-services build")
+set(SC4_RENDER_SERVICES_ROOT "${CMAKE_SOURCE_DIR}/vendor/sc4-render-services" CACHE PATH "Path to sc4-render-services")
+set(IMGUI_PUBLIC_DIR "${SC4_RENDER_SERVICES_ROOT}/src")
+set(IMGUI_INCLUDE_DIR "${SC4_RENDER_SERVICES_ROOT}/vendor/d3d7imgui/ImGui")
+set(IMGUI_LIB_DIR "${SC4_RENDER_SERVICES_ROOT}" CACHE PATH "Path containing imgui.lib from sc4-render-services build")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -35,9 +35,9 @@ add_subdirectory(vendor/spdlog)
 add_subdirectory(vendor/args)
 add_subdirectory(vendor/mINI)
 
-option(SC4_BUILD_CUSTOM_SERVICES "Build vendor/sc4-custom-services targets (imgui.dll + samples)" OFF)
-if(SC4_BUILD_CUSTOM_SERVICES)
-    add_subdirectory(vendor/sc4-custom-services EXCLUDE_FROM_ALL)
+option(SC4_BUILD_RENDER_SERVICES "Build vendor/sc4-render-services targets (imgui.dll + samples)" OFF)
+if(SC4_BUILD_RENDER_SERVICES)
+    add_subdirectory(vendor/sc4-render-services EXCLUDE_FROM_ALL)
 endif()
 
 include(FetchContent)
@@ -85,9 +85,9 @@ add_library(sc4_dll_basics STATIC ${SC4_DLL_BASICS_SOURCES} ${SC4_DLL_BASICS_HEA
 target_include_directories(sc4_dll_basics PUBLIC "${SC4_DLL_BASICS_DIR}/include")
 target_link_libraries(sc4_dll_basics PUBLIC WIL::WIL)
 
-# Public API from sc4-custom-services (headers only).
-add_library(sc4_custom_services_api INTERFACE)
-target_include_directories(sc4_custom_services_api INTERFACE
+# Public API from sc4-render-services (headers only).
+add_library(sc4_render_services_api INTERFACE)
+target_include_directories(sc4_render_services_api INTERFACE
     "${IMGUI_PUBLIC_DIR}"
     "${IMGUI_INCLUDE_DIR}"
 )
@@ -95,7 +95,7 @@ target_include_directories(sc4_custom_services_api INTERFACE
 set(SC4_IMGUI_LINK_TARGET "")
 if(TARGET imgui)
     set(SC4_IMGUI_LINK_TARGET imgui)
-    message(STATUS "Using in-tree imgui target from vendor/sc4-custom-services")
+    message(STATUS "Using in-tree imgui target from vendor/sc4-render-services")
 else()
     find_library(IMGUI_LIB NAMES imgui
         PATHS
@@ -110,14 +110,14 @@ else()
     )
 
     if(IMGUI_LIB)
-        add_library(sc4_custom_services_imgui UNKNOWN IMPORTED GLOBAL)
-        set_target_properties(sc4_custom_services_imgui PROPERTIES
+        add_library(sc4_render_services_imgui UNKNOWN IMPORTED GLOBAL)
+        set_target_properties(sc4_render_services_imgui PROPERTIES
             IMPORTED_LOCATION "${IMGUI_LIB}"
         )
-        set(SC4_IMGUI_LINK_TARGET sc4_custom_services_imgui)
+        set(SC4_IMGUI_LINK_TARGET sc4_render_services_imgui)
         message(STATUS "Using external imgui.lib: ${IMGUI_LIB}")
     else()
-        message(WARNING "imgui.lib not found in sc4-custom-services build locations. Build may fail if imgui symbols are referenced.")
+        message(WARNING "imgui.lib not found in sc4-render-services build locations. Build may fail if imgui symbols are referenced.")
     endif()
 endif()
 
@@ -152,7 +152,7 @@ set(SC4_DLL_LINK_LIBS
     nlohmann_json
     terrain_gzcom2
     sc4_dll_basics
-    sc4_custom_services_api
+    sc4_render_services_api
 )
 
 if(SC4_IMGUI_LINK_TARGET)
@@ -185,6 +185,7 @@ if(WIN32)
         "C:/Program Files (x86)/Steam/steamapps/common/SimCity 4 Deluxe"
         "C:/Program Files/Steam/steamapps/common/SimCity 4 Deluxe"
         "C:/Program Files (x86)/GOG Galaxy/Games/SimCity 4 Deluxe Edition"
+        "C:/GOG Games/SimCity 4 Deluxe Edition"
     )
 
     foreach(SC4_PATH ${SC4_INSTALL_PATHS})
