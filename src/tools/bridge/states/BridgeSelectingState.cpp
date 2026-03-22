@@ -140,7 +140,7 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) {
 			minTileZ,
 			maxTileX,
 			maxTileZ,
-			isValid ? cISTETerrain::eHilightColorType::Green : cISTETerrain::eHilightColorType::Red,
+			isValid ? cISTETerrain::eHilightColorType::Yellow : cISTETerrain::eHilightColorType::Red,
 			true
 		);
 	} else {

@@ -25,6 +25,7 @@ public:
 
 private:
     void UpdateHintText_(StatefulDragViewInputControl& ctrl, uint32_t modifiers) const;
+    void UpdateHoverSelection_(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z) const;
     bool HandleAdjustment_(StatefulDragViewInputControl& ctrl, uint32_t modifiers, int32_t delta) const;
 
 private:

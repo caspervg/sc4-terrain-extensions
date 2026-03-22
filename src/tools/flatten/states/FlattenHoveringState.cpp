@@ -23,10 +23,12 @@ void FlattenHoveringState::OnEnter(StatefulDragViewInputControl& ctrl) {
 }
 
 void FlattenHoveringState::OnExit(StatefulDragViewInputControl& ctrl) {
+    ctrl.ClearSelections();
     ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
 }
 
-bool FlattenHoveringState::OnMouseMove(StatefulDragViewInputControl& ctrl, int32_t, int32_t, uint32_t mod) {
+bool FlattenHoveringState::OnMouseMove(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod) {
+    UpdateHoverSelection_(ctrl, x, z);
     UpdateHintText_(ctrl, mod);
     return true;
 }
@@ -73,6 +75,26 @@ void FlattenHoveringState::UpdateHintText_(StatefulDragViewInputControl& ctrl, c
     const cRZBaseString title("Flatten terrain");
     const cRZBaseString text(body.str().c_str());
     ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, title, text);
+}
+
+void FlattenHoveringState::UpdateHoverSelection_(
+    StatefulDragViewInputControl& ctrl,
+    const int32_t x,
+    const int32_t z) const {
+    int32_t tileX = 0;
+    int32_t tileZ = 0;
+    if (!ctrl.ScreenToTile(x, z, tileX, tileZ)) {
+        ctrl.ClearSelections();
+        return;
+    }
+
+    (void)ctrl.MarkSelected(
+        tileX,
+        tileZ,
+        tileX,
+        tileZ,
+        cISTETerrain::eHilightColorType::Blue,
+        true);
 }
 
 bool FlattenHoveringState::HandleAdjustment_(

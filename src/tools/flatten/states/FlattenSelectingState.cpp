@@ -98,7 +98,7 @@ bool FlattenSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl, 
         preview->minTileZ,
         preview->maxTileX,
         preview->maxTileZ,
-        cISTETerrain::eHilightColorType::Blue,
+        cISTETerrain::eHilightColorType::Yellow,
         true);
     if (!selected) {
         LOG_WARN("FlattenSelectingState: failed to mark current flatten selection");
