@@ -62,6 +62,13 @@ void DragToolManager::DeactivateAll() {
 	DeactivateCurrent_(view3d_);
 }
 
+void DragToolManager::Clear() {
+	DeactivateAll();
+	tools_.clear();
+	activeToolIdx_ = -1;
+	view3d_ = nullptr;
+}
+
 void DragToolManager::DeactivateCurrent_(cISC4View3DWin* view3d) {
 	if (activeToolIdx_ < 0) return;
 

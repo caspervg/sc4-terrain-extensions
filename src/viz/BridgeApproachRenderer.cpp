@@ -5,7 +5,9 @@
 
 namespace {
 constexpr float kGroundHeightOffset = 0.05f;
+constexpr float kHoverHeightOffset = 0.09f;
 constexpr float kOverlayHeightOffset = 0.20f;
+constexpr float kHoverThickness = 1.0f;
 constexpr float kMarkerThickness = 0.65f;
 constexpr float kOutlineThickness = 1.25f;
 constexpr float kRailThickness = 0.50f;
@@ -14,7 +16,8 @@ constexpr float kNodeCrossSize = 1.55f;
 constexpr float kRungThickness = 0.90f;
 constexpr float kSideStrutThickness = 0.50f;
 constexpr float kOutsideTileOffset = 16.0f;
-constexpr DWORD kGroundColor = 0x66D8D8D8u;
+constexpr DWORD kGroundColor = 0x4A9A9A9Au;
+constexpr DWORD kHoverColor = 0xD0101010u;
 constexpr DWORD kInvalidColor = 0xD0C84A4Au;
 
 DWORD ColorForDelta(const float delta) {
@@ -62,6 +65,7 @@ void BridgeApproachRenderer::Update(
         return;
     }
 
+    ClearLayer(kLayerHover);
     ClearLayer(kLayerFill);
     ClearLayer(kLayerOutline);
     ClearLayer(kLayerGround);
@@ -74,11 +78,33 @@ void BridgeApproachRenderer::Update(
     }
 }
 
+void BridgeApproachRenderer::ShowHoverTile(cISTETerrain* terrain, const int tileX, const int tileZ) {
+    ClearLayer(kLayerHover);
+    if (!terrain) {
+        return;
+    }
+
+    const OverlayVertex a{tileX * 16.0f, terrain->GetAltitudeAtVertex(tileX, tileZ) + kHoverHeightOffset, tileZ * 16.0f, kHoverColor};
+    const OverlayVertex b{(tileX + 1) * 16.0f, terrain->GetAltitudeAtVertex(tileX + 1, tileZ) + kHoverHeightOffset, tileZ * 16.0f, kHoverColor};
+    const OverlayVertex c{(tileX + 1) * 16.0f, terrain->GetAltitudeAtVertex(tileX + 1, tileZ + 1) + kHoverHeightOffset, (tileZ + 1) * 16.0f, kHoverColor};
+    const OverlayVertex d{tileX * 16.0f, terrain->GetAltitudeAtVertex(tileX, tileZ + 1) + kHoverHeightOffset, (tileZ + 1) * 16.0f, kHoverColor};
+
+    EmitLine(a, b, kHoverThickness, kHoverColor, kLayerHover);
+    EmitLine(b, c, kHoverThickness, kHoverColor, kLayerHover);
+    EmitLine(c, d, kHoverThickness, kHoverColor, kLayerHover);
+    EmitLine(d, a, kHoverThickness, kHoverColor, kLayerHover);
+}
+
+void BridgeApproachRenderer::ClearHoverTile() {
+    ClearLayer(kLayerHover);
+}
+
 void BridgeApproachRenderer::ClearAll() {
     ClearLayer(kLayerGround);
     ClearLayer(kLayerFill);
     ClearLayer(kLayerOutline);
     ClearLayer(kLayerMarkers);
+    ClearLayer(kLayerHover);
 }
 
 void BridgeApproachRenderer::BuildGroundLayer_(

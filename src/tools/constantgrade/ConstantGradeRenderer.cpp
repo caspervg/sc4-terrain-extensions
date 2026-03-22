@@ -6,12 +6,15 @@ namespace {
 
 constexpr float kTileSize = 16.0f;
 constexpr float kGroundHeightOffset = 0.05f;
+constexpr float kHoverHeightOffset = 0.09f;
 constexpr float kOverlayHeightOffset = 0.20f;
+constexpr float kHoverThickness = 1.0f;
 constexpr float kMarkerThickness = 0.65f;
 constexpr float kOutlineThickness = 1.25f;
 constexpr float kRailThickness = 0.50f;
 constexpr float kCrossSize = 1.55f;
-constexpr DWORD kGroundColor = 0x66D8D8D8u;
+constexpr DWORD kGroundColor = 0x4A9A9A9Au;
+constexpr DWORD kHoverColor = 0xD0101010u;
 
 float WorldXFromVertex(const int vertexX) {
     return static_cast<float>(vertexX) * kTileSize;
@@ -62,6 +65,7 @@ void ConstantGradeRenderer::Update(cISTETerrain* terrain, const ConstantGradePre
         return;
     }
 
+    ClearLayer(kLayerHover);
     const float delta = preview.endHeight - preview.startHeight;
     const DWORD color = ColorForDelta(delta);
 
@@ -72,11 +76,33 @@ void ConstantGradeRenderer::Update(cISTETerrain* terrain, const ConstantGradePre
     BuildMarkers_(preview);
 }
 
+void ConstantGradeRenderer::ShowHoverTile(cISTETerrain* terrain, const int tileX, const int tileZ) {
+    ClearLayer(kLayerHover);
+    if (!terrain) {
+        return;
+    }
+
+    const OverlayVertex a{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ) + kHoverHeightOffset, WorldZFromVertex(tileZ), kHoverColor};
+    const OverlayVertex b{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ) + kHoverHeightOffset, WorldZFromVertex(tileZ), kHoverColor};
+    const OverlayVertex c{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), kHoverColor};
+    const OverlayVertex d{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), kHoverColor};
+
+    EmitLine(a, b, kHoverThickness, kHoverColor, kLayerHover);
+    EmitLine(b, c, kHoverThickness, kHoverColor, kLayerHover);
+    EmitLine(c, d, kHoverThickness, kHoverColor, kLayerHover);
+    EmitLine(d, a, kHoverThickness, kHoverColor, kLayerHover);
+}
+
+void ConstantGradeRenderer::ClearHoverTile() {
+    ClearLayer(kLayerHover);
+}
+
 void ConstantGradeRenderer::ClearAll() {
     ClearLayer(kLayerGround);
     ClearLayer(kLayerFill);
     ClearLayer(kLayerOutline);
     ClearLayer(kLayerMarkers);
+    ClearLayer(kLayerHover);
 }
 
 void ConstantGradeRenderer::BuildGround_(const ConstantGradePreview& preview) {

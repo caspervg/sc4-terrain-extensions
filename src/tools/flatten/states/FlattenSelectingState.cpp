@@ -93,6 +93,7 @@ bool FlattenSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl, 
 
     ctrl.ClearSelections();
     renderer_.Update(ctrl.GetTerrain(), *preview);
+    renderer_.ShowHoverTile(ctrl.GetTerrain(), dragState_.currentX, dragState_.currentZ);
     UpdateCursor_(ctrl, *preview, modifiers);
     return true;
 }

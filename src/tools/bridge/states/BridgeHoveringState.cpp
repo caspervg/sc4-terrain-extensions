@@ -82,6 +82,7 @@ void BridgeHoveringState::UpdateHoverSelection_(
 	int32_t tileZ = 0;
 	if (!ctrl.ScreenToTile(x, z, tileX, tileZ)) {
 		ctrl.ClearSelections();
+		renderer_.ClearHoverTile();
 		return;
 	}
 
@@ -92,4 +93,5 @@ void BridgeHoveringState::UpdateHoverSelection_(
 		tileZ,
 		cISTETerrain::eHilightColorType::Blue,
 		true);
+	renderer_.ShowHoverTile(ctrl.GetTerrain(), tileX, tileZ);
 }

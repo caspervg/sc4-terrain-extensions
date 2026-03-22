@@ -12,6 +12,7 @@ public:
     static constexpr auto kLayerFill = 1u;
     static constexpr auto kLayerOutline = 2u;
     static constexpr auto kLayerMarkers = 3u;
+    static constexpr auto kLayerHover = 4u;
 
     BridgeApproachRenderer() = default;
 
@@ -23,6 +24,8 @@ public:
         BridgeApproachGeometry::ApproachSideMode sideMode
     );
 
+    void ShowHoverTile(cISTETerrain* terrain, int tileX, int tileZ);
+    void ClearHoverTile();
     void ClearAll();
 
 private:

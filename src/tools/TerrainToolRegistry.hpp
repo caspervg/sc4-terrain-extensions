@@ -33,4 +33,8 @@ public:
 			LOG_DEBUG("Tool {} -> {}", tool->GetName(), tool->GetDescription());
 		}
 	}
+
+	void Clear() {
+		tools.clear();
+	}
 };

@@ -17,6 +17,7 @@ public:
     bool TryActivate(uint32_t cheatId, cISC4City*, cISC4View3DWin*, cIGZWinMgr*, cIGZImGuiService*, OverlayDrawManager&);
 
     void DeactivateAll();
+    void Clear();
 
     bool HasActiveTool() const noexcept { return activeToolIdx_ >= 0; }
 

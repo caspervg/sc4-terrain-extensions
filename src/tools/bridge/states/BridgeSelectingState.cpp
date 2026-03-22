@@ -128,6 +128,8 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl, c
 		renderer_.ClearAll();
 	}
 
+	renderer_.ShowHoverTile(ctrl.GetTerrain(), dragState_.currentX, dragState_.currentZ);
+
 	const std::string statusText = isValid
 		? "Release to place | Right-click to cancel"
 		: (widthTooWide

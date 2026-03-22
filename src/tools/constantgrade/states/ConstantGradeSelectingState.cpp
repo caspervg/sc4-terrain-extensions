@@ -121,6 +121,7 @@ bool ConstantGradeSelectingState::RebuildPreview_(
 
     ctrl.ClearSelections();
     renderer_.Update(ctrl.GetTerrain(), *preview);
+    renderer_.ShowHoverTile(ctrl.GetTerrain(), dragState_.currentX, dragState_.currentZ);
 
     const std::string body = std::format(
         "Release to apply\nlength {} tiles | width {} tiles | start {:.1f}m | end {:.1f}m\n{}",

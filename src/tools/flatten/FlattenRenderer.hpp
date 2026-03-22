@@ -11,8 +11,11 @@ public:
     static constexpr uint32_t kLayerFill = 1;
     static constexpr uint32_t kLayerOutline = 2;
     static constexpr uint32_t kLayerMarkers = 3;
+    static constexpr uint32_t kLayerHover = 4;
 
     void Update(cISTETerrain* terrain, const FlattenPreview& preview);
+    void ShowHoverTile(cISTETerrain* terrain, int tileX, int tileZ);
+    void ClearHoverTile();
     void ClearAll();
 
 private:

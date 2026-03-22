@@ -369,6 +369,8 @@ void TerrainExtensionsDllDirector::PreCityShutdown_(
     cIGZMessage2Standard* pStandardMsg)
 {
     dragToolManager_.DeactivateAll();
+    dragToolManager_.Clear();
+    toolRegistry_.Clear();
 
     // Clean up snapshot system
     if (imguiService_ && snapshotPanelRegistered_) {
@@ -391,6 +393,7 @@ void TerrainExtensionsDllDirector::PreCityShutdown_(
 
     cISC4View3DWin* localView3D = view3d_;
     view3d_ = nullptr;
+    city_ = nullptr;
     if (localView3D) {
         localView3D->Release();
     }
@@ -480,6 +483,16 @@ bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
     const bool activateTool)
 {
     view3d_ = sourceView3D ? sourceView3D : view3d_;
+
+    if (!city_ || !view3d_ || !winMgr_) {
+        LOG_WARN(
+            "Terrain catalog item 0x{:08X} ignored because tool context is incomplete (city={}, view3d={}, winMgr={})",
+            itemId,
+            static_cast<const void*>(city_),
+            static_cast<const void*>(view3d_),
+            static_cast<const void*>(winMgr_));
+        return true;
+    }
 
     switch (itemId) {
     case TerrainCatalogHook::ItemId::Flatten:

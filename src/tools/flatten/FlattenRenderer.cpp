@@ -7,12 +7,15 @@
 namespace {
 constexpr float kTileSize = 16.0f;
 constexpr float kGroundHeightOffset = 0.05f;
+constexpr float kHoverHeightOffset = 0.09f;
 constexpr float kOverlayHeightOffset = 0.20f;
+constexpr float kHoverThickness = 1.0f;
 constexpr float kMarkerThickness = 0.65f;
 constexpr float kOutlineThickness = 1.25f;
 constexpr float kRailThickness = 0.50f;
 constexpr float kNodeCrossSize = 1.55f;
-constexpr DWORD kGroundColor = 0x66D8D8D8u;
+constexpr DWORD kGroundColor = 0x4A9A9A9Au;
+constexpr DWORD kHoverColor = 0xD0101010u;
 
 DWORD ColorForDelta(const float delta) {
     if (delta > 0.25f) {
@@ -62,6 +65,7 @@ void FlattenRenderer::Update(cISTETerrain* terrain, const FlattenPreview& previe
         return;
     }
 
+    ClearLayer(kLayerHover);
     const float delta = preview.targetHeight - preview.averageHeight;
     const DWORD color = ColorForDelta(delta);
 
@@ -72,11 +76,33 @@ void FlattenRenderer::Update(cISTETerrain* terrain, const FlattenPreview& previe
     BuildMarkers_(terrain, preview, color);
 }
 
+void FlattenRenderer::ShowHoverTile(cISTETerrain* terrain, const int tileX, const int tileZ) {
+    ClearLayer(kLayerHover);
+    if (!terrain) {
+        return;
+    }
+
+    const OverlayVertex a{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ) + kHoverHeightOffset, WorldZFromVertex(tileZ), kHoverColor};
+    const OverlayVertex b{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ) + kHoverHeightOffset, WorldZFromVertex(tileZ), kHoverColor};
+    const OverlayVertex c{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), kHoverColor};
+    const OverlayVertex d{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), kHoverColor};
+
+    EmitLine(a, b, kHoverThickness, kHoverColor, kLayerHover);
+    EmitLine(b, c, kHoverThickness, kHoverColor, kLayerHover);
+    EmitLine(c, d, kHoverThickness, kHoverColor, kLayerHover);
+    EmitLine(d, a, kHoverThickness, kHoverColor, kLayerHover);
+}
+
+void FlattenRenderer::ClearHoverTile() {
+    ClearLayer(kLayerHover);
+}
+
 void FlattenRenderer::ClearAll() {
     ClearLayer(kLayerGround);
     ClearLayer(kLayerFill);
     ClearLayer(kLayerOutline);
     ClearLayer(kLayerMarkers);
+    ClearLayer(kLayerHover);
 }
 
 void FlattenRenderer::BuildGround_(const FlattenPreview& preview) {
