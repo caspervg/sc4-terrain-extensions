@@ -8,6 +8,13 @@ class cISTETerrain;
 
 namespace BridgeApproachGeometry {
 
+enum class ApproachSideMode {
+    Both = 0,
+    Start,
+    End,
+    None,
+};
+
 struct WidthOffsetBounds {
     int negativeOffset;
     int positiveOffset;
@@ -53,6 +60,12 @@ float CalculateOptimalApproachLength(
 int GetEffectiveWidthTiles(float widthTiles);
 
 WidthOffsetBounds GetWidthOffsetBounds(int effectiveWidthTiles);
+
+const char* GetApproachSideModeName(ApproachSideMode sideMode);
+
+bool IncludesStartApproach(ApproachSideMode sideMode);
+
+bool IncludesEndApproach(ApproachSideMode sideMode);
 
 ApproachParams BuildApproachParams(
     const BridgePlacement& placement,

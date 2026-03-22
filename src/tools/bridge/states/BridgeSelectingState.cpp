@@ -169,7 +169,8 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) {
 			ctrl.GetTerrain(),
 			*geometry,
 			settings_.showHeightMarkers,
-			isValid
+			isValid,
+			settings_.sideMode
 		);
 	} else {
 		renderer_.ClearAll();

@@ -26,10 +26,12 @@ void BridgeHoveringState::OnEnter(StatefulDragViewInputControl& ctrl) {
 }
 
 void BridgeHoveringState::OnExit(StatefulDragViewInputControl& ctrl) {
+	ctrl.ClearSelections();
 	ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
 }
 
 bool BridgeHoveringState::OnMouseMove(StatefulDragViewInputControl& ctrl, const int32_t x, const int32_t z, const uint32_t mod) {
+	UpdateHoverSelection_(ctrl, x, z);
 	UpdateHintText_(ctrl, mod);
 	return true;
 }
@@ -70,4 +72,24 @@ void BridgeHoveringState::UpdateHintText_(StatefulDragViewInputControl& ctrl, ui
 	const cRZBaseString body(hint.c_str());
 	const cRZBaseString title("Bridge builder");
 	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, title, body);
+}
+
+void BridgeHoveringState::UpdateHoverSelection_(
+	StatefulDragViewInputControl& ctrl,
+	const int32_t x,
+	const int32_t z) const {
+	int32_t tileX = 0;
+	int32_t tileZ = 0;
+	if (!ctrl.ScreenToTile(x, z, tileX, tileZ)) {
+		ctrl.ClearSelections();
+		return;
+	}
+
+	(void)ctrl.MarkSelected(
+		tileX,
+		tileZ,
+		tileX,
+		tileZ,
+		cISTETerrain::eHilightColorType::Blue,
+		true);
 }

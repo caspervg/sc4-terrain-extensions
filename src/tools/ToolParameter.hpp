@@ -36,12 +36,17 @@ struct ParameterDescriptor {
     ModifierCombo scrollBinding;
 
     std::function<float()> GetAsFloat;
+    std::function<std::string()> GetDisplayValue;
     std::function<void(int32_t)> AdjustByDelta;
 
     [[nodiscard]] std::string HintText(const bool isActive = false) const {
         std::string text = scrollBinding.ToString()
             + ": " + name
-            + " (" + FormatValue_() + unit + ")";
+            + " (" + FormatValue_();
+        if (unit) {
+            text += unit;
+        }
+        text += ")";
         if (isActive) {
             return "[" + text + "]";
         }
@@ -50,6 +55,10 @@ struct ParameterDescriptor {
 
 private:
     [[nodiscard]] std::string FormatValue_() const {
+        if (GetDisplayValue) {
+            return GetDisplayValue();
+        }
+
         const float v = GetAsFloat();
         // Show as integer if the value has no fractional part
         if (v == static_cast<float>(static_cast<int>(v))) {

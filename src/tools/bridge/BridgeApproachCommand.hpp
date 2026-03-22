@@ -1,4 +1,6 @@
 #pragma once
+#include <string>
+
 #include "BridgeApproachTool.hpp"
 #include "tools/TerrainTool.hpp"
 
@@ -28,5 +30,6 @@ private:
     std::unique_ptr<args::ValueFlag<float>> mApproachLength;
     std::unique_ptr<args::ValueFlag<float>> mMaxGrade;
     std::unique_ptr<args::ValueFlag<float>> mWidthTiles;
+    std::unique_ptr<args::ValueFlag<std::string>> mSide;
     std::unique_ptr<args::Flag> mTaper;
 };

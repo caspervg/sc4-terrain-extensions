@@ -29,7 +29,8 @@ public:
         cISTETerrain* terrain,
         const BridgeApproachGeometry::ApproachParams& geometry,
         bool showHeightMarkers,
-        bool isValid
+        bool isValid,
+        BridgeApproachGeometry::ApproachSideMode sideMode
     );
 
     void ClearAll();
@@ -38,12 +39,14 @@ private:
     void BuildApproachLayer_(
         cISTETerrain* terrain,
         const BridgeApproachGeometry::ApproachParams& geometry,
-        bool isValid
+        bool isValid,
+        BridgeApproachGeometry::ApproachSideMode sideMode
     );
 
     void BuildHeightMarkerLayer_(
         cISTETerrain* terrain,
-        const BridgeApproachGeometry::ApproachParams& geometry
+        const BridgeApproachGeometry::ApproachParams& geometry,
+        BridgeApproachGeometry::ApproachSideMode sideMode
     );
 
     // Single-approach helpers — called twice (start side, end side)

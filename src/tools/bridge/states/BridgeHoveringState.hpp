@@ -26,6 +26,7 @@ public:
 
 private:
     void UpdateHintText_(StatefulDragViewInputControl& ctrl, uint32_t modifiers) const;
+    void UpdateHoverSelection_(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z) const;
 
     BridgeToolSettings& settings_;
     BridgeApproachRenderer& renderer_;

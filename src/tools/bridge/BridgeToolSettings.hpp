@@ -1,5 +1,6 @@
 #pragma once
 #include "tools/ToolParameter.hpp"
+#include "BridgeApproachGeometry.hpp"
 
 struct BridgeToolSettings {
     BridgeToolSettings();
@@ -28,6 +29,9 @@ struct BridgeToolSettings {
     };
 
     bool showHeightMarkers = true;
+    BridgeApproachGeometry::ApproachSideMode sideMode = BridgeApproachGeometry::ApproachSideMode::Both;
 
     ToolParameterSet parameters;
+
+    void CycleSideMode(int32_t delta);
 };

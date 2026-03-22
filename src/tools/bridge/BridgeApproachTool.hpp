@@ -1,5 +1,6 @@
 #pragma once
 #include "../TerrainTool.hpp"
+#include "BridgeApproachGeometry.hpp"
 
 class BridgeApproachTool : public TerrainOperator {
 public:
@@ -13,11 +14,22 @@ public:
         float approachLength,
         float maxGrade,
         float widthTiles,
-        bool useTapering = false
+        bool useTapering = false,
+        BridgeApproachGeometry::ApproachSideMode sideMode = BridgeApproachGeometry::ApproachSideMode::Both
     );
 
 private:
     static float SampleTileHeight_(void* context, int tileX, int tileZ);
+
+    void EqualizeSingleTile_(
+        int bridgeTileX,
+        int bridgeTileZ,
+        float dirX,
+        float dirZ,
+        float bridgeHeight,
+        float widthTiles,
+        bool useTapering
+    );
 
     void CreateSingleApproach_(
         int startTileX, int startTileZ,

@@ -94,6 +94,31 @@ WidthOffsetBounds GetWidthOffsetBounds(const int effectiveWidthTiles) {
     };
 }
 
+const char* GetApproachSideModeName(const ApproachSideMode sideMode) {
+    switch (sideMode) {
+    case ApproachSideMode::Both:
+        return "Both";
+    case ApproachSideMode::Start:
+        return "Start";
+    case ApproachSideMode::End:
+        return "End";
+    case ApproachSideMode::None:
+        return "None";
+    }
+
+    return "Both";
+}
+
+bool IncludesStartApproach(const ApproachSideMode sideMode) {
+    return sideMode == ApproachSideMode::Both
+        || sideMode == ApproachSideMode::Start;
+}
+
+bool IncludesEndApproach(const ApproachSideMode sideMode) {
+    return sideMode == ApproachSideMode::Both
+        || sideMode == ApproachSideMode::End;
+}
+
 ApproachParams BuildApproachParams(
     const BridgePlacement& placement,
     const float bridgeHeight,

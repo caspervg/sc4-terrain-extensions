@@ -8,7 +8,8 @@ void BridgeApproachRenderer::Update(
 	cISTETerrain* terrain,
 	const BridgeApproachGeometry::ApproachParams& geometry,
 	const bool showHeightMarkers,
-	const bool isValid) {
+	const bool isValid,
+	const BridgeApproachGeometry::ApproachSideMode sideMode) {
 	if (!terrain) {
 		ClearAll();
 		return;
@@ -16,12 +17,12 @@ void BridgeApproachRenderer::Update(
 
 	// Always rebuild the approach layer
 	this->ClearLayer(kLayerApproach);
-	BuildApproachLayer_(terrain, geometry, isValid);
+	BuildApproachLayer_(terrain, geometry, isValid, sideMode);
 
 	// Height markers — rebuild only if toggled on, clear if off
 	this->ClearLayer(kLayerHeightMarkers);
 	if (showHeightMarkers) {
-		BuildHeightMarkerLayer_(terrain, geometry);
+		BuildHeightMarkerLayer_(terrain, geometry, sideMode);
 	}
 }
 
@@ -33,7 +34,8 @@ void BridgeApproachRenderer::ClearAll() {
 void BridgeApproachRenderer::BuildApproachLayer_(
 	cISTETerrain* terrain,
 	const BridgeApproachGeometry::ApproachParams& p,
-	bool isValid) {
+	const bool isValid,
+	const BridgeApproachGeometry::ApproachSideMode sideMode) {
 	const float halfWidth = static_cast<float>(p.effectiveWidthTiles) * 8.0f;
 	const DWORD color = isValid ? kSkeletonColor : kInvalidColor;
 
@@ -69,45 +71,52 @@ void BridgeApproachRenderer::BuildApproachLayer_(
 		this->EmitLine(v4, v1, kDeckThickness, color, kLayerApproach);
 	}
 
-	// Start-side approach
-	BuildSingleApproachGeometry_(
-		terrain,
-		p.bridgeStartWorldX, p.bridgeStartWorldZ,
-		p.startDirX, p.startDirZ,
-		p.perpX, p.perpZ,
-		p.bridgeHeight, halfWidth,
-		p.startApproachLength,
-		kLayerApproach, color
-	);
+	if (BridgeApproachGeometry::IncludesStartApproach(sideMode)) {
+		BuildSingleApproachGeometry_(
+			terrain,
+			p.bridgeStartWorldX, p.bridgeStartWorldZ,
+			p.startDirX, p.startDirZ,
+			p.perpX, p.perpZ,
+			p.bridgeHeight, halfWidth,
+			p.startApproachLength,
+			kLayerApproach, color
+		);
+	}
 
-	// End-side approach
-	BuildSingleApproachGeometry_(
-		terrain,
-		p.bridgeEndWorldX, p.bridgeEndWorldZ,
-		p.endDirX, p.endDirZ,
-		p.perpX, p.perpZ,
-		p.bridgeHeight, halfWidth,
-		p.endApproachLength,
-		kLayerApproach, color
-	);
+	if (BridgeApproachGeometry::IncludesEndApproach(sideMode)) {
+		BuildSingleApproachGeometry_(
+			terrain,
+			p.bridgeEndWorldX, p.bridgeEndWorldZ,
+			p.endDirX, p.endDirZ,
+			p.perpX, p.perpZ,
+			p.bridgeHeight, halfWidth,
+			p.endApproachLength,
+			kLayerApproach, color
+		);
+	}
 }
 
 void BridgeApproachRenderer::BuildHeightMarkerLayer_(
 	cISTETerrain* terrain,
-	const BridgeApproachGeometry::ApproachParams& p) {
-	BuildSingleHeightMarkers_(
-		terrain,
-		p.bridgeStartWorldX, p.bridgeStartWorldZ,
-		p.startDirX, p.startDirZ,
-		p.bridgeHeight, p.startApproachLength
-	);
+	const BridgeApproachGeometry::ApproachParams& p,
+	const BridgeApproachGeometry::ApproachSideMode sideMode) {
+	if (BridgeApproachGeometry::IncludesStartApproach(sideMode)) {
+		BuildSingleHeightMarkers_(
+			terrain,
+			p.bridgeStartWorldX, p.bridgeStartWorldZ,
+			p.startDirX, p.startDirZ,
+			p.bridgeHeight, p.startApproachLength
+		);
+	}
 
-	BuildSingleHeightMarkers_(
-		terrain,
-		p.bridgeEndWorldX, p.bridgeEndWorldZ,
-		p.endDirX, p.endDirZ,
-		p.bridgeHeight, p.endApproachLength
-	);
+	if (BridgeApproachGeometry::IncludesEndApproach(sideMode)) {
+		BuildSingleHeightMarkers_(
+			terrain,
+			p.bridgeEndWorldX, p.bridgeEndWorldZ,
+			p.endDirX, p.endDirZ,
+			p.bridgeHeight, p.endApproachLength
+		);
+	}
 }
 
 void BridgeApproachRenderer::BuildSingleApproachGeometry_(
@@ -182,43 +191,60 @@ void BridgeApproachRenderer::BuildSingleApproachGeometry_(
 		const float centerY0 = (leftY0 + rightY0) * 0.5f;
 		const float centerY1 = (leftY1 + rightY1) * 0.5f;
 
-		// Longitudinal rails
-		this->EmitLine({leftX0, leftY0, leftZ0},
-		                   {leftX1, leftY1, leftZ1},
-		                   kRailThickness, color, layerId);
-
-		this->EmitLine({rightX0, rightY0, rightZ0},
-		                   {rightX1, rightY1, rightZ1},
-		                   kRailThickness, color, layerId);
+		const bool showLeft = true;
+		const bool showRight = true;
 
 		this->EmitLine({x0, centerY0, z0},
 		                   {x1, centerY1, z1},
 		                   kSideRailThickness, color, layerId);
 
-		this->EmitLine({leftToeX0, leftToeY0, leftToeZ0},
-		                   {leftToeX1, leftToeY1, leftToeZ1},
-		                   kSideRailThickness, color, layerId);
-
-		this->EmitLine({rightToeX0, rightToeY0, rightToeZ0},
-		                   {rightToeX1, rightToeY1, rightToeZ1},
-		                   kSideRailThickness, color, layerId);
-
-		// Cross-ties at intervals
-		if ((i % 4) == 0 || i == (steps - 1)) {
+		if (showLeft) {
 			this->EmitLine({leftX0, leftY0, leftZ0},
-			                   {rightX0, rightY0, rightZ0},
-			                   kRungThickness, color, layerId);
+			                   {leftX1, leftY1, leftZ1},
+			                   kRailThickness, color, layerId);
+			this->EmitLine({leftToeX0, leftToeY0, leftToeZ0},
+			                   {leftToeX1, leftToeY1, leftToeZ1},
+			                   kSideRailThickness, color, layerId);
 		}
 
-		// Embankment struts at intervals
-		if ((i % 2) == 0 || i == (steps - 1)) {
-			this->EmitLine({leftX0, leftY0, leftZ0},
-			                   {leftToeX0, leftToeY0, leftToeZ0},
-			                   kSideStrutThickness, color, layerId);
-
+		if (showRight) {
 			this->EmitLine({rightX0, rightY0, rightZ0},
-			                   {rightToeX0, rightToeY0, rightToeZ0},
-			                   kSideStrutThickness, color, layerId);
+			                   {rightX1, rightY1, rightZ1},
+			                   kRailThickness, color, layerId);
+			this->EmitLine({rightToeX0, rightToeY0, rightToeZ0},
+			                   {rightToeX1, rightToeY1, rightToeZ1},
+			                   kSideRailThickness, color, layerId);
+		}
+
+		if ((i % 4) == 0 || i == (steps - 1)) {
+			if (showLeft && showRight) {
+				this->EmitLine({leftX0, leftY0, leftZ0},
+				                   {rightX0, rightY0, rightZ0},
+				                   kRungThickness, color, layerId);
+			}
+			else if (showLeft) {
+				this->EmitLine({leftX0, leftY0, leftZ0},
+				                   {x0, centerY0, z0},
+				                   kRungThickness, color, layerId);
+			}
+			else if (showRight) {
+				this->EmitLine({x0, centerY0, z0},
+				                   {rightX0, rightY0, rightZ0},
+				                   kRungThickness, color, layerId);
+			}
+		}
+
+		if ((i % 2) == 0 || i == (steps - 1)) {
+			if (showLeft) {
+				this->EmitLine({leftX0, leftY0, leftZ0},
+				                   {leftToeX0, leftToeY0, leftToeZ0},
+				                   kSideStrutThickness, color, layerId);
+			}
+			if (showRight) {
+				this->EmitLine({rightX0, rightY0, rightZ0},
+				                   {rightToeX0, rightToeY0, rightToeZ0},
+				                   kSideStrutThickness, color, layerId);
+			}
 		}
 	}
 }

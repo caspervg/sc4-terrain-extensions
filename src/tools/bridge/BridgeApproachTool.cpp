@@ -14,6 +14,36 @@ float BridgeApproachTool::SampleTileHeight_(void* context, const int tileX, cons
 	return BridgeApproachGeometry::SampleTileAverageHeight(tool->terrain_, tileX, tileZ);
 }
 
+void BridgeApproachTool::EqualizeSingleTile_(
+	const int bridgeTileX,
+	const int bridgeTileZ,
+	const float dirX,
+	const float dirZ,
+	const float bridgeHeight,
+	const float widthTiles,
+	const bool useTapering) {
+	const int maxTileX = static_cast<int>(terrain_->CellCountX()) - 1;
+	const int maxTileZ = static_cast<int>(terrain_->CellCountZ()) - 1;
+
+	const int endX = std::clamp(
+		bridgeTileX + static_cast<int>(std::round(dirX)),
+		0, maxTileX);
+	const int endZ = std::clamp(
+		bridgeTileZ + static_cast<int>(std::round(dirZ)),
+		0, maxTileZ);
+
+	CreateSingleApproach_(
+		bridgeTileX,
+		bridgeTileZ,
+		endX,
+		endZ,
+		bridgeHeight,
+		bridgeHeight,
+		widthTiles,
+		"equalize",
+		useTapering);
+}
+
 
 void BridgeApproachTool::CreateBridgeApproaches(
 	int startTileX, int startTileZ,
@@ -22,7 +52,8 @@ void BridgeApproachTool::CreateBridgeApproaches(
 	float approachLength,
 	float maxGrade,
 	float widthTiles,
-	bool useTapering) {
+	bool useTapering,
+	const BridgeApproachGeometry::ApproachSideMode sideMode) {
 	const auto placement = ComputeBridgePlacement(
 		startTileX, startTileZ,
 		endTileX, endTileZ
@@ -51,8 +82,27 @@ void BridgeApproachTool::CreateBridgeApproaches(
 	          placement->bridgeEndX, placement->bridgeEndZ,
 	          placement->length, geometry.endDirX, geometry.endDirZ);
 
-	// Start approach
-	{
+	if (sideMode == BridgeApproachGeometry::ApproachSideMode::None) {
+		EqualizeSingleTile_(
+			placement->bridgeStartX,
+			placement->bridgeStartZ,
+			geometry.startDirX,
+			geometry.startDirZ,
+			bridgeHeight,
+			widthTiles,
+			useTapering);
+		EqualizeSingleTile_(
+			placement->bridgeEndX,
+			placement->bridgeEndZ,
+			geometry.endDirX,
+			geometry.endDirZ,
+			bridgeHeight,
+			widthTiles,
+			useTapering);
+		return;
+	}
+
+	if (BridgeApproachGeometry::IncludesStartApproach(sideMode)) {
 		const float len = (approachLength < 0.0f)
 			? geometry.startApproachLength
 			: approachLength;
@@ -79,8 +129,7 @@ void BridgeApproachTool::CreateBridgeApproaches(
 			useTapering);
 	}
 
-	// End approach
-	{
+	if (BridgeApproachGeometry::IncludesEndApproach(sideMode)) {
 		const float len = (approachLength < 0.0f)
 			? geometry.endApproachLength
 			: approachLength;

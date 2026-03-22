@@ -1,6 +1,9 @@
 #include "BridgeApproachCommand.hpp"
 #include "utils/Logger.h"
 
+#include <algorithm>
+#include <cctype>
+
 BridgeApproachCommand::BridgeApproachCommand(cISTETerrain* terrain)
 	: TerrainTool(terrain)
 	  , mTool(terrain) {}
@@ -31,6 +34,9 @@ void BridgeApproachCommand::RegisterArguments(args::Group& commands) {
 	mWidthTiles = std::make_unique<args::ValueFlag<float>>(
 		*mCommand, "width", "Approach width in tiles",
 		args::Matcher{'w'}, 2.0f);
+	mSide = std::make_unique<args::ValueFlag<std::string>>(
+		*mCommand, "side", "Approach side mode: both, start, end, none",
+		args::Matcher{"side"}, "both");
 	mTaper = std::make_unique<args::Flag>(
 		*mCommand, "taper", "Enable width tapering",
 		args::Matcher{"taper"});
@@ -50,15 +56,31 @@ void BridgeApproachCommand::Execute(const args::ArgumentParser& parser) {
 	const float length = args::get(*mApproachLength);
 	const float grade = args::get(*mMaxGrade);
 	const float width = args::get(*mWidthTiles);
+	std::string side = args::get(*mSide);
 	const bool taper = mTaper && *mTaper;
 
+	std::transform(side.begin(), side.end(), side.begin(), [](const unsigned char c) {
+		return static_cast<char>(std::tolower(c));
+	});
+
+	auto sideMode = BridgeApproachGeometry::ApproachSideMode::Both;
+	if (side == "start") {
+		sideMode = BridgeApproachGeometry::ApproachSideMode::Start;
+	}
+	else if (side == "end") {
+		sideMode = BridgeApproachGeometry::ApproachSideMode::End;
+	}
+	else if (side == "none") {
+		sideMode = BridgeApproachGeometry::ApproachSideMode::None;
+	}
+
 	LOG_INFO("BridgeApproachCommand: ({},{}) -> ({},{}) "
-	         "height={:.2f} grade={:.1f}% width={:.1f} taper={}",
-	         startX, startZ, endX, endZ, height, grade, width, taper);
+	         "height={:.2f} grade={:.1f}% width={:.1f} side={} taper={}",
+	         startX, startZ, endX, endZ, height, grade, width, side, taper);
 
 	mTool.CreateBridgeApproaches(
 		startX, startZ, endX, endZ,
-		height, length, grade, width, taper);
+		height, length, grade, width, taper, sideMode);
 }
 
 const char* BridgeApproachCommand::GetName() const {
@@ -72,5 +94,5 @@ const char* BridgeApproachCommand::GetDescription() const {
 const char* BridgeApproachCommand::GetUsage() const {
 	return "bridgeapproach <startx> <startz> <endx> <endz> "
 		"--height=<m> [--length=<tiles>] [--grade=<%>] "
-		"[--width=<tiles>] [--taper]";
+		"[--width=<tiles>] [--side=<both|start|end|none>] [--taper]";
 }

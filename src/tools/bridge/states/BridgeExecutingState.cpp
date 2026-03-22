@@ -85,7 +85,7 @@ void BridgeExecutingState::OnEnter(StatefulDragViewInputControl& ctrl) {
 	tool.CreateBridgeApproaches(
 		placement->bridgeStartX, placement->bridgeStartZ,
 		placement->bridgeEndX, placement->bridgeEndZ,
-		height, -1.0f, grade, width
+		height, -1.0f, grade, width, false, settings_.sideMode
 	);
 
 	ctrl.ClearSelections();
