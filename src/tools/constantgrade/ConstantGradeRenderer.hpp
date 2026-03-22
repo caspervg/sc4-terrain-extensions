@@ -15,7 +15,7 @@ public:
     void ClearAll();
 
 private:
-    void BuildFill_(const ConstantGradePreview& preview);
-    void BuildOutline_(const ConstantGradePreview& preview);
+    void BuildFill_(const ConstantGradePreview& preview, DWORD color);
+    void BuildOutline_(const ConstantGradePreview& preview, DWORD color);
     void BuildMarkers_(const ConstantGradePreview& preview);
 };
