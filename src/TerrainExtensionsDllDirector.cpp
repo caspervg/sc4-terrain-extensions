@@ -46,6 +46,8 @@
 #include <cfloat>
 #include <new>
 #include <sstream>
+#include <d3d.h>
+#include <ddraw.h>
 #include <windows.h>
 
 #include "controls/StatefulDragViewInputControl.hpp"
