@@ -11,6 +11,7 @@ constexpr float kRailThickness = 0.50f;
 constexpr float kDeckThickness = 0.65f;
 constexpr float kNodeCrossSize = 1.55f;
 constexpr float kRungThickness = 0.90f;
+constexpr float kSideStrutThickness = 0.50f;
 constexpr float kOutsideTileOffset = 16.0f;
 constexpr DWORD kInvalidColor = 0xD0C84A4Au;
 
@@ -261,6 +262,22 @@ void BridgeApproachRenderer::BuildSingleApproachGeometry_(
             EmitLine({leftX0, leftY0 + kOverlayHeightOffset, leftZ0, rungColor},
                      {rightX0, rightY0 + kOverlayHeightOffset, rightZ0, rungColor},
                      kRungThickness, rungColor, layerId);
+        }
+
+        if ((i % 2) == 0 || i == (steps - 1)) {
+            const DWORD leftStrutColor = forceInvalid
+                ? kInvalidColor
+                : NodeColorForDelta(leftY0 - leftToeY0);
+            const DWORD rightStrutColor = forceInvalid
+                ? kInvalidColor
+                : NodeColorForDelta(rightY0 - rightToeY0);
+
+            EmitLine({leftX0, leftY0 + kOverlayHeightOffset, leftZ0, leftStrutColor},
+                     {leftToeX0, leftToeY0 + kOverlayHeightOffset, leftToeZ0, leftStrutColor},
+                     kSideStrutThickness, leftStrutColor, layerId);
+            EmitLine({rightX0, rightY0 + kOverlayHeightOffset, rightZ0, rightStrutColor},
+                     {rightToeX0, rightToeY0 + kOverlayHeightOffset, rightToeZ0, rightStrutColor},
+                     kSideStrutThickness, rightStrutColor, layerId);
         }
     }
 }

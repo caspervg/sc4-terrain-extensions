@@ -72,6 +72,10 @@ void BridgeApproachDragTool::Activate(
 		return;
 	}
 
+	if (control_) {
+		Deactivate();
+	}
+
 	cISTETerrain* terrain = city->GetTerrain();
 	cIGZWin* window = windowMgr->GetMainWindow();
 	if (!terrain || !window) {
@@ -86,11 +90,17 @@ void BridgeApproachDragTool::Activate(
 	control_.reset(newControl);
 
 	control_->Init();
-	control_->Activate();
 	view3d_ = view3d;
-
 	drawMgr_ = &drawMgr;
 	drawMgr.Register(renderer_.get());
+	control_->SetOwnerDeactivateCallback([this]() {
+		if (renderer_) {
+			renderer_->ClearAll();
+		}
+		drawMgr_ = nullptr;
+		view3d_ = nullptr;
+	});
+	control_->Activate();
 
 	view3d->SetCurrentViewInputControl(
 		control_.get(),
@@ -101,6 +111,8 @@ void BridgeApproachDragTool::Activate(
 
 void BridgeApproachDragTool::Deactivate() {
 	if (control_) {
+		control_->SetOwnerDeactivateCallback(nullptr);
+		control_->SetDeactivateCallback(nullptr);
 		control_->ClearSelections();
 		control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
 		control_->Deactivate();

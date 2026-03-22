@@ -89,11 +89,17 @@ void ConstantGradeInteractiveTool::Activate(
     control_.reset(newControl);
 
     control_->Init();
-    control_->Activate();
-
     view3d_ = view3d;
     drawMgr_ = &drawMgr;
     drawMgr_->Register(renderer_.get());
+    control_->SetOwnerDeactivateCallback([this]() {
+        if (renderer_) {
+            renderer_->ClearAll();
+        }
+        drawMgr_ = nullptr;
+        view3d_ = nullptr;
+    });
+    control_->Activate();
 
     view3d->SetCurrentViewInputControl(
         control_.get(),
@@ -104,6 +110,8 @@ void ConstantGradeInteractiveTool::Activate(
 
 void ConstantGradeInteractiveTool::Deactivate() {
     if (control_) {
+        control_->SetOwnerDeactivateCallback(nullptr);
+        control_->SetDeactivateCallback(nullptr);
         control_->ClearSelections();
         control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
         control_->Deactivate();

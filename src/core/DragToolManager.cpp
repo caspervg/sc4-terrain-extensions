@@ -39,13 +39,18 @@ bool DragToolManager::TryActivate(
 	}
 
 	candidate->Activate(city, view3d, winManager, imguiService, overlayManager);
-	activeToolIdx_ = candidateIdx;
-	view3d_ = view3d;
-
 	if (auto* control = candidate->GetInputControl()) {
+		activeToolIdx_ = candidateIdx;
+		view3d_ = view3d;
 		control->SetDeactivateCallback([this]() {
 			activeToolIdx_ = -1;
+			view3d_ = nullptr;
 		});
+	} else {
+		LOG_WARN("DragToolManager: activation of '{}' did not produce an input control", candidate->GetCheatName());
+		activeToolIdx_ = -1;
+		view3d_ = nullptr;
+		return false;
 	}
 
 	return true;

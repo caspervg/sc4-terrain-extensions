@@ -18,6 +18,7 @@ public:
                                  cISC4View3DWin* view3D);
 
     void SetDeactivateCallback(DeactivateCallback cb) { onDeactivate_ = std::move(cb); }
+    void SetOwnerDeactivateCallback(DeactivateCallback cb) { onOwnerDeactivate_ = std::move(cb); }
 
     void RegisterState(std::unique_ptr<IControlState> state);
     void TransitionTo(ControlStateId newId);
@@ -67,5 +68,6 @@ private:
     cRZAutoRefCount<cIGZWin> window_;
     cRZAutoRefCount<cISC4View3DWin> view3D_;
 
+    DeactivateCallback onOwnerDeactivate_;
     DeactivateCallback onDeactivate_;
 };
