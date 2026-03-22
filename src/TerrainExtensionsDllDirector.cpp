@@ -21,6 +21,7 @@
 #include "tools/ConstantGradeTool.cpp"
 #include "tools/FlattenTool.cpp"
 #include "tools/bridge/BridgeApproachCommand.hpp"
+#include "tools/constantgrade/ConstantGradeInteractiveTool.hpp"
 #include "tools/flatten/FlattenInteractiveTool.hpp"
 #include "tools/BlueprintCaptureTool.cpp"
 #include "tools/BlueprintExportTool.cpp"
@@ -352,6 +353,7 @@ void TerrainExtensionsDllDirector::SetUpDragTools_(
 
     // Register drag tools here.
     dragToolManager_.Register(std::make_unique<FlattenInteractiveTool>());
+    dragToolManager_.Register(std::make_unique<ConstantGradeInteractiveTool>());
     dragToolManager_.Register(std::make_unique<BridgeApproachDragTool>());
 
     auto snapshotTool = std::make_unique<SnapshotDragTool>(snapshotManager_, snapshotRenderer_);
@@ -498,6 +500,14 @@ bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
             imguiService_,
             overlayDrawManager_);
     case TerrainCatalogHook::ItemId::ConstantGrade:
+        LOG_INFO("Terrain catalog item 0x{:08X}: activating constant grade tool", itemId);
+        return dragToolManager_.TryActivate(
+            TerrainCatalogHook::ItemId::ConstantGrade,
+            city_,
+            view3d_,
+            winMgr_,
+            imguiService_,
+            overlayDrawManager_);
     case TerrainCatalogHook::ItemId::BlueprintCapture:
     case TerrainCatalogHook::ItemId::BlueprintExport:
     case TerrainCatalogHook::ItemId::BlueprintStamp:
