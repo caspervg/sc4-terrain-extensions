@@ -15,6 +15,7 @@ struct ConstantGradeRequest {
     std::optional<float> gradePercent{};
     std::optional<float> startHeight{};
     std::optional<float> endHeight{};
+    bool sideSmoothing{true};
 };
 
 struct ConstantGradePreview {

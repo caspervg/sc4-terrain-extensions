@@ -8,9 +8,10 @@
 
 class BridgeApproachRenderer : public OverlayRenderer {
 public:
-    static constexpr auto kLayerFill = 0u;
-    static constexpr auto kLayerOutline = 1u;
-    static constexpr auto kLayerMarkers = 2u;
+    static constexpr auto kLayerGround = 0u;
+    static constexpr auto kLayerFill = 1u;
+    static constexpr auto kLayerOutline = 2u;
+    static constexpr auto kLayerMarkers = 3u;
 
     BridgeApproachRenderer() = default;
 
@@ -25,6 +26,12 @@ public:
     void ClearAll();
 
 private:
+    void BuildGroundLayer_(
+        cISTETerrain* terrain,
+        const BridgeApproachGeometry::ApproachParams& geometry,
+        BridgeApproachGeometry::ApproachSideMode sideMode
+    );
+
     void BuildApproachLayer_(
         cISTETerrain* terrain,
         const BridgeApproachGeometry::ApproachParams& geometry,
@@ -39,6 +46,15 @@ private:
     );
 
     // Single-approach helpers — called twice (start side, end side)
+    void BuildSingleApproachGround_(
+        cISTETerrain* terrain,
+        float bridgeEndX, float bridgeEndZ,
+        float dirX, float dirZ,
+        float perpX, float perpZ,
+        float halfWidth,
+        float approachLength
+    );
+
     void BuildSingleApproachGeometry_(
         cISTETerrain* terrain,
         float bridgeEndX, float bridgeEndZ,

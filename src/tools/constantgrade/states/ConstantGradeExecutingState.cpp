@@ -49,6 +49,7 @@ void ConstantGradeExecutingState::OnEnter(StatefulDragViewInputControl& ctrl) {
     }
     request.widthTiles = static_cast<float>(effectiveWidthTiles);
     request.gradePercent = settings_.gradePercent.value;
+    request.sideSmoothing = settings_.IsSideSmoothingEnabled();
 
     if (!operation_.Apply(request)) {
         LOG_WARN("ConstantGradeExecutingState: grade apply failed");

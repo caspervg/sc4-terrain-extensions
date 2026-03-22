@@ -5,12 +5,10 @@
 #include <format>
 
 #include "cRZBaseString.h"
-#include "cISTETerrain.h"
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "tools/bridge/BridgeApproachGeometry.hpp"
 #include "../ConstantGradeRenderer.hpp"
 #include "../ConstantGradeSettings.hpp"
-#include "utils/Logger.h"
 
 ConstantGradeSelectingState::ConstantGradeSelectingState(
     ConstantGradeSettings& settings,
@@ -121,17 +119,7 @@ bool ConstantGradeSelectingState::RebuildPreview_(
         return false;
     }
 
-    const bool selected = ctrl.MarkSelected(
-        preview->minTileX,
-        preview->minTileZ,
-        preview->maxTileX,
-        preview->maxTileZ,
-        cISTETerrain::eHilightColorType::Yellow,
-        true);
-    if (!selected) {
-        LOG_WARN("ConstantGradeSelectingState: failed to mark current grade selection");
-    }
-
+    ctrl.ClearSelections();
     renderer_.Update(ctrl.GetTerrain(), *preview);
 
     const std::string body = std::format(
@@ -168,6 +156,7 @@ std::optional<ConstantGradeRequest> ConstantGradeSelectingState::BuildRequest_()
             .endTileZ = centerZ,
             .widthTiles = static_cast<float>(effectiveWidthTiles),
             .gradePercent = settings_.gradePercent.value,
+            .sideSmoothing = settings_.IsSideSmoothingEnabled(),
         };
     }
 
@@ -180,5 +169,6 @@ std::optional<ConstantGradeRequest> ConstantGradeSelectingState::BuildRequest_()
         .endTileZ = dragState_.currentZ,
         .widthTiles = static_cast<float>(effectiveWidthTiles),
         .gradePercent = settings_.gradePercent.value,
+        .sideSmoothing = settings_.IsSideSmoothingEnabled(),
     };
 }

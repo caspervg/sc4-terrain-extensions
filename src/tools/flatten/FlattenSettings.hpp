@@ -25,8 +25,8 @@ struct FlattenSettings {
     FlattenHeightMode mode{FlattenHeightMode::Explicit};
     ToolParameterSet parameters;
 
+    void AdjustPrimaryValue(int32_t delta) noexcept;
     void CycleMode(int32_t delta) noexcept;
-    void FlipDeltaSign() noexcept;
     [[nodiscard]] const char* ModeLabel() const noexcept;
     [[nodiscard]] std::string ValueLabel() const;
 };

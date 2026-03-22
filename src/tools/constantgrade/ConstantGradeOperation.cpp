@@ -7,13 +7,13 @@
 
 namespace {
 
-float ComputeInfluence(const int offset, const float widthTiles) noexcept {
+float ComputeInfluence(const int offset, const float widthTiles, const bool sideSmoothing) noexcept {
     const float distanceFromCenter = static_cast<float>(std::abs(offset));
     if (distanceFromCenter > widthTiles / 2.0f) {
         return -1.0f;
     }
 
-    if (widthTiles <= 1.0f) {
+    if (!sideSmoothing || widthTiles <= 1.0f) {
         return 1.0f;
     }
 
@@ -165,7 +165,7 @@ std::optional<ConstantGradePreview> ConstantGradeOperation::BuildPreview(
         const float currentHeight = path->startHeight + path->heightStep * static_cast<float>(step);
 
         for (int offset = -path->widthRadius; offset <= path->widthRadius; ++offset) {
-            const float influence = ComputeInfluence(offset, request.widthTiles);
+            const float influence = ComputeInfluence(offset, request.widthTiles, request.sideSmoothing);
             if (influence < 0.0f) {
                 continue;
             }
@@ -227,7 +227,7 @@ bool ConstantGradeOperation::Apply(const ConstantGradeRequest& request) {
         const float currentHeight = path->startHeight + path->heightStep * static_cast<float>(step);
 
         for (int offset = -path->widthRadius; offset <= path->widthRadius; ++offset) {
-            const float influence = ComputeInfluence(offset, request.widthTiles);
+            const float influence = ComputeInfluence(offset, request.widthTiles, request.sideSmoothing);
             if (influence < 0.0f) {
                 continue;
             }

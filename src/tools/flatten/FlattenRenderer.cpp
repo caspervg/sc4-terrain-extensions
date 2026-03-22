@@ -6,11 +6,13 @@
 
 namespace {
 constexpr float kTileSize = 16.0f;
+constexpr float kGroundHeightOffset = 0.05f;
 constexpr float kOverlayHeightOffset = 0.20f;
 constexpr float kMarkerThickness = 0.65f;
 constexpr float kOutlineThickness = 1.25f;
 constexpr float kRailThickness = 0.50f;
 constexpr float kNodeCrossSize = 1.55f;
+constexpr DWORD kGroundColor = 0x66D8D8D8u;
 
 DWORD ColorForDelta(const float delta) {
     if (delta > 0.25f) {
@@ -64,15 +66,38 @@ void FlattenRenderer::Update(cISTETerrain* terrain, const FlattenPreview& previe
     const DWORD color = ColorForDelta(delta);
 
     ClearAll();
+    BuildGround_(preview);
     BuildFill_(preview, color);
     BuildOutline_(preview, color);
     BuildMarkers_(terrain, preview, color);
 }
 
 void FlattenRenderer::ClearAll() {
+    ClearLayer(kLayerGround);
     ClearLayer(kLayerFill);
     ClearLayer(kLayerOutline);
     ClearLayer(kLayerMarkers);
+}
+
+void FlattenRenderer::BuildGround_(const FlattenPreview& preview) {
+    for (int tileZ = preview.affectedMinTileZ; tileZ <= preview.affectedMaxTileZ; ++tileZ) {
+        for (int tileX = preview.affectedMinTileX; tileX <= preview.affectedMaxTileX; ++tileX) {
+            const auto* v00 = preview.FindVertex(tileX, tileZ);
+            const auto* v10 = preview.FindVertex(tileX + 1, tileZ);
+            const auto* v01 = preview.FindVertex(tileX, tileZ + 1);
+            const auto* v11 = preview.FindVertex(tileX + 1, tileZ + 1);
+            if (!v00 || !v10 || !v01 || !v11) {
+                continue;
+            }
+
+            const OverlayVertex p00{WorldXFromVertex(v00->vertexX), v00->currentHeight + kGroundHeightOffset, WorldZFromVertex(v00->vertexZ), kGroundColor};
+            const OverlayVertex p10{WorldXFromVertex(v10->vertexX), v10->currentHeight + kGroundHeightOffset, WorldZFromVertex(v10->vertexZ), kGroundColor};
+            const OverlayVertex p01{WorldXFromVertex(v01->vertexX), v01->currentHeight + kGroundHeightOffset, WorldZFromVertex(v01->vertexZ), kGroundColor};
+            const OverlayVertex p11{WorldXFromVertex(v11->vertexX), v11->currentHeight + kGroundHeightOffset, WorldZFromVertex(v11->vertexZ), kGroundColor};
+
+            EmitQuad(p00, p10, p11, p01, kGroundColor, kLayerGround);
+        }
+    }
 }
 
 void FlattenRenderer::BuildFill_(const FlattenPreview& preview, const DWORD color) {

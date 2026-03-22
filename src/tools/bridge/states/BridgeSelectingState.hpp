@@ -29,7 +29,7 @@ public:
     bool OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t vk, uint32_t mod) override;
 
 private:
-    void RebuildPreview_(StatefulDragViewInputControl& ctrl);
+    void RebuildPreview_(StatefulDragViewInputControl& ctrl, uint32_t modifiers);
     std::optional<BridgePlacement> ResolvePlacementFromDrag_() const;
 
     BridgeToolSettings& settings_;

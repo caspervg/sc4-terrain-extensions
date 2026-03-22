@@ -2,10 +2,8 @@
 
 #include <sstream>
 
-#include "cISTETerrain.h"
 #include "cRZBaseString.h"
 #include "controls/StatefulDragViewInputControl.hpp"
-#include "utils/Logger.h"
 
 FlattenSelectingState::FlattenSelectingState(
     FlattenSettings& settings,
@@ -93,17 +91,7 @@ bool FlattenSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl, 
         return false;
     }
 
-    const bool selected = ctrl.MarkSelected(
-        preview->minTileX,
-        preview->minTileZ,
-        preview->maxTileX,
-        preview->maxTileZ,
-        cISTETerrain::eHilightColorType::Yellow,
-        true);
-    if (!selected) {
-        LOG_WARN("FlattenSelectingState: failed to mark current flatten selection");
-    }
-
+    ctrl.ClearSelections();
     renderer_.Update(ctrl.GetTerrain(), *preview);
     UpdateCursor_(ctrl, *preview, modifiers);
     return true;
@@ -124,7 +112,7 @@ FlattenRequest FlattenSelectingState::BuildRequest_() const {
 void FlattenSelectingState::UpdateCursor_(
     StatefulDragViewInputControl& ctrl,
     const FlattenPreview& preview,
-    const uint32_t) const {
+    const uint32_t modifiers) const {
     std::ostringstream body;
     body << "Release to apply\n";
     if (settings_.mode == FlattenHeightMode::Delta) {
@@ -132,6 +120,7 @@ void FlattenSelectingState::UpdateCursor_(
     } else {
         body << settings_.ModeLabel() << " | target " << preview.targetHeight << "m";
     }
+    body << "\n" << settings_.parameters.BuildHintText(modifiers);
 
     const cRZBaseString title("Flatten terrain");
     const cRZBaseString text(body.str().c_str());
@@ -142,16 +131,6 @@ bool FlattenSelectingState::HandleAdjustment_(
     StatefulDragViewInputControl& ctrl,
     const uint32_t modifiers,
     const int32_t delta) const {
-    if (ModifierCombo{.shift = true, .ctrl = true}.Matches(modifiers)) {
-        settings_.FlipDeltaSign();
-        return true;
-    }
-
-    if (ModifierCombo{.shift = true}.Matches(modifiers)) {
-        settings_.CycleMode(delta);
-        return true;
-    }
-
     const auto parameter = settings_.parameters.FindByModifiers(modifiers);
     if (!parameter.has_value()) {
         return false;

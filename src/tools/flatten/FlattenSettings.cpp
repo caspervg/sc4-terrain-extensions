@@ -3,14 +3,31 @@
 #include <sstream>
 
 FlattenSettings::FlattenSettings() {
-    parameters.Add(explicitHeight.Describe(
-        "Height", "m",
-        {.alt = true, .shift = false, .ctrl = false}
-    ));
-    parameters.Add(deltaHeight.Describe(
-        "Delta", "m",
-        {.alt = false, .shift = false, .ctrl = true}
-    ));
+    parameters.Add(ParameterDescriptor{
+        .name = "Value",
+        .unit = "",
+        .scrollBinding = {.alt = true, .shift = false, .ctrl = false},
+        .GetAsFloat = []() { return 0.0f; },
+        .GetDisplayValue = [this]() { return ValueLabel(); },
+        .AdjustByDelta = [this](const int32_t delta) { AdjustPrimaryValue(delta); }
+    });
+    parameters.Add(ParameterDescriptor{
+        .name = "Mode",
+        .unit = "",
+        .scrollBinding = {.alt = false, .shift = false, .ctrl = true},
+        .GetAsFloat = []() { return 0.0f; },
+        .GetDisplayValue = [this]() { return std::string(ModeLabel()); },
+        .AdjustByDelta = [this](const int32_t delta) { CycleMode(delta); }
+    });
+}
+
+void FlattenSettings::AdjustPrimaryValue(const int32_t delta) noexcept {
+    if (mode == FlattenHeightMode::Delta) {
+        deltaHeight.Adjust(delta);
+        return;
+    }
+
+    explicitHeight.Adjust(delta);
 }
 
 void FlattenSettings::CycleMode(const int32_t delta) noexcept {
@@ -25,11 +42,6 @@ void FlattenSettings::CycleMode(const int32_t delta) noexcept {
     }
 
     mode = static_cast<FlattenHeightMode>(modeIndex);
-}
-
-void FlattenSettings::FlipDeltaSign() noexcept {
-    deltaHeight.value = -deltaHeight.value;
-    deltaHeight.Validate();
 }
 
 const char* FlattenSettings::ModeLabel() const noexcept {

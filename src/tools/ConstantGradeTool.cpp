@@ -9,6 +9,7 @@ private:
 	std::unique_ptr<args::Positional<int>> mStartTileX, mStartTileZ, mEndTileX, mEndTileZ;
 	std::unique_ptr<args::ValueFlag<float>> mWidthTiles, mGradePercent, mStartHeight, mEndHeight;
 	std::unique_ptr<args::ValueFlag<bool>> mAutoHeight;
+	std::unique_ptr<args::Flag> mHardEdges;
 public:
 	ConstantGradeTool(cISTETerrain* terrain) : TerrainTool(terrain) {
 	}
@@ -39,6 +40,9 @@ public:
 		mAutoHeight = std::make_unique<args::ValueFlag<bool>>(*mCommand, "auto",
 			"Auto-detect heights",
 			args::Matcher{ 'a' }, false);
+		mHardEdges = std::make_unique<args::Flag>(*mCommand, "hard-edges",
+			"Disable side smoothing across the tool width",
+			args::Matcher{"hard-edges"});
 	}
 
 	bool ShouldExecute(const args::ArgumentParser& parser) const override {
@@ -56,12 +60,13 @@ public:
 		float startHeight = args::get(*mStartHeight);
 		float endHeight = args::get(*mEndHeight);
 		bool autoHeight = args::get(*mAutoHeight);
+		const bool sideSmoothing = !static_cast<bool>(*mHardEdges);
 
 		LOG_INFO("Creating constant grade path from tile ({},{}) to ({},{}), width: {:.1f} tiles",
 			startTileX, startTileZ, endTileX, endTileZ, widthTiles);
 
 		CreateConstantGradePath(startTileX, startTileZ, endTileX, endTileZ,
-			widthTiles, gradePercent, startHeight, endHeight, autoHeight);
+			widthTiles, gradePercent, startHeight, endHeight, autoHeight, sideSmoothing);
 	}
 
 	const char* GetName() const override {
@@ -74,10 +79,10 @@ public:
 
 	const char* GetUsage() const override {
 		return "constantgrade <startx> <startz> <endx> <endz> [--width=<tiles>] [--grade=<percent>] "
-			"[--start=<height>] [--end=<height>] [--auto]";
+			"[--start=<height>] [--end=<height>] [--auto] [--hard-edges]";
 	}
 private:
-	void CreateConstantGradePath(int startTileX, int startTileZ, int endTileX, int endTileZ, float widthTiles, float gradePercent, float startH, float endH, bool autoHeight) const {
+	void CreateConstantGradePath(int startTileX, int startTileZ, int endTileX, int endTileZ, float widthTiles, float gradePercent, float startH, float endH, bool autoHeight, bool sideSmoothing) const {
 		ConstantGradeOperation operation(terrain_);
 		const ConstantGradeRequest request{
 			.startTileX = startTileX,
@@ -88,6 +93,7 @@ private:
 			.gradePercent = gradePercent > -999.0f ? std::optional<float>(gradePercent) : std::nullopt,
 			.startHeight = (!autoHeight && startH > -999.0f) ? std::optional<float>(startH) : std::nullopt,
 			.endHeight = (!autoHeight && gradePercent <= -999.0f && endH > -999.0f) ? std::optional<float>(endH) : std::nullopt,
+			.sideSmoothing = sideSmoothing,
 		};
 
 		if (!operation.Apply(request)) {

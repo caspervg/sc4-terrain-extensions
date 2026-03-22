@@ -70,7 +70,8 @@ bool FlattenHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t
 void FlattenHoveringState::UpdateHintText_(StatefulDragViewInputControl& ctrl, const uint32_t modifiers) const {
     std::ostringstream body;
     body << "Drag to flatten\n";
-    body << settings_.ModeLabel() << " | " << settings_.ValueLabel();
+    body << settings_.ModeLabel() << " | " << settings_.ValueLabel() << "\n";
+    body << settings_.parameters.BuildHintText(modifiers);
 
     const cRZBaseString title("Flatten terrain");
     const cRZBaseString text(body.str().c_str());
@@ -101,18 +102,6 @@ bool FlattenHoveringState::HandleAdjustment_(
     StatefulDragViewInputControl& ctrl,
     const uint32_t modifiers,
     const int32_t delta) const {
-    if (ModifierCombo{.shift = true, .ctrl = true}.Matches(modifiers)) {
-        settings_.FlipDeltaSign();
-        UpdateHintText_(ctrl, modifiers);
-        return true;
-    }
-
-    if (ModifierCombo{.shift = true}.Matches(modifiers)) {
-        settings_.CycleMode(delta);
-        UpdateHintText_(ctrl, modifiers);
-        return true;
-    }
-
     const auto parameter = settings_.parameters.FindByModifiers(modifiers);
     if (!parameter.has_value()) {
         return false;

@@ -13,7 +13,7 @@ BridgeToolSettings::BridgeToolSettings() {
 	));
 	parameters.Add(grade.Describe(
 		"Grade", "%",
-		{.alt = true, .shift = true, .ctrl = false}
+		{.alt = false, .shift = true, .ctrl = false}
 	));
 	parameters.Add(ParameterDescriptor{
 		.name = "Side",

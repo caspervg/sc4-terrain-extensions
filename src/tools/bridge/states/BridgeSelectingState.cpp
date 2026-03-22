@@ -2,14 +2,13 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <format>
 
 #include "cRZBaseString.h"
-#include "cISTETerrain.h"
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "tools/bridge/BridgeApproachGeometry.hpp"
 #include "tools/bridge/BridgePlacement.hpp"
 #include "tools/bridge/BridgeToolSettings.hpp"
-#include "utils/Logger.h"
 #include "viz/BridgeApproachRenderer.hpp"
 
 namespace {
@@ -53,19 +52,11 @@ void BridgeSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
 	ctrl.BeginCapture();
 	settings_.widthTiles.value = settings_.widthTiles.minValue;
 
-	const auto sel = ctrl.MarkSelected(dragState_.startX, dragState_.startZ,
-	                  dragState_.currentX, dragState_.currentZ,
-	                  cISTETerrain::eHilightColorType::Blue,
-	                  true
-	);
-
-	if (!sel) {
-		LOG_WARN("BridgeSelectingState::OnEnter - failed to mark selection");
-	}
-
-	const cRZBaseString body("Drag to set bridge span and width | Right-click to cancel");
+	const std::string body = std::format(
+		"Drag to set bridge span and width | Right-click to cancel\n{}",
+		settings_.parameters.BuildHintText(0));
 	const cRZBaseString title("Bridge builder");
-	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, title, body);
+	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, title, body.c_str());
 }
 
 bool BridgeSelectingState::OnMouseMove(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod) {
@@ -76,7 +67,7 @@ bool BridgeSelectingState::OnMouseMove(StatefulDragViewInputControl& ctrl, int32
 
 	dragState_.currentX = tileX;
 	dragState_.currentZ = tileZ;
-	RebuildPreview_(ctrl);
+	RebuildPreview_(ctrl, mod);
 	return true;
 }
 
@@ -105,7 +96,7 @@ bool BridgeSelectingState::OnMouseUpL(StatefulDragViewInputControl& ctrl, int32_
 	return true;
 }
 
-void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) {
+void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl, const uint32_t modifiers) {
 	const int deltaX = dragState_.currentX - dragState_.startX;
 	const int deltaZ = dragState_.currentZ - dragState_.startZ;
 	const bool hasDrag = (deltaX != 0 || deltaZ != 0);
@@ -117,46 +108,7 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) {
 
 	const auto placement = ResolvePlacementFromDrag_();
 	const bool isValid = placement.has_value() && placement->IsValid();
-
-	bool sel = false;
-	if (placement.has_value()) {
-		int minTileX = std::min(placement->bridgeStartX, placement->bridgeEndX);
-		int maxTileX = std::max(placement->bridgeStartX, placement->bridgeEndX);
-		int minTileZ = std::min(placement->bridgeStartZ, placement->bridgeEndZ);
-		int maxTileZ = std::max(placement->bridgeStartZ, placement->bridgeEndZ);
-
-		const auto widthOffsets = BridgeApproachGeometry::GetWidthOffsetBounds(
-			settings_.widthTiles.value);
-		if (placement->isHorizontal) {
-			minTileZ -= widthOffsets.negativeOffset;
-			maxTileZ += widthOffsets.positiveOffset;
-		} else {
-			minTileX -= widthOffsets.negativeOffset;
-			maxTileX += widthOffsets.positiveOffset;
-		}
-
-		sel = ctrl.MarkSelected(
-			minTileX,
-			minTileZ,
-			maxTileX,
-			maxTileZ,
-			isValid ? cISTETerrain::eHilightColorType::Yellow : cISTETerrain::eHilightColorType::Red,
-			true
-		);
-	} else {
-		sel = ctrl.MarkSelected(
-			dragState_.startX,
-			dragState_.startZ,
-			dragState_.currentX,
-			dragState_.currentZ,
-			cISTETerrain::eHilightColorType::Red,
-			true
-		);
-	}
-
-	if (!sel) {
-		LOG_WARN("BridgeSelectingState::RebuildPreview_ - failed to mark selection");
-	}
+	ctrl.ClearSelections();
 
 	if (placement.has_value()) {
 		const auto geometry = BuildPreviewGeometry(ctrl.GetTerrain(), *placement, settings_);
@@ -181,7 +133,7 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl) {
 		: (widthTooWide
 			? "Too wide - max 10 tiles | Right-click to cancel"
 			: "Too short - drag further | Right-click to cancel");
-	const std::string body = std::format("{}\n{}", statusText, settings_.parameters.BuildHintText(0));
+	const std::string body = std::format("{}\n{}", statusText, settings_.parameters.BuildHintText(modifiers));
 
 	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, "Bridge builder", body);
 }
@@ -240,7 +192,7 @@ bool BridgeSelectingState::OnMouseWheel(StatefulDragViewInputControl& ctrl, int3
 	const auto param = settings_.parameters.FindByModifiers(mod);
 	if (!param.has_value()) return false;
 	param->AdjustByDelta(delta);
-	RebuildPreview_(ctrl);
+	RebuildPreview_(ctrl, mod);
 	return true;
 }
 
@@ -250,6 +202,6 @@ bool BridgeSelectingState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t
 		return true;
 	}
 
-	RebuildPreview_(ctrl);
+	RebuildPreview_(ctrl, mod);
 	return false;
 }

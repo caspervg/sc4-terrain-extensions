@@ -4,6 +4,7 @@
 #include <cmath>
 
 namespace {
+constexpr float kGroundHeightOffset = 0.05f;
 constexpr float kOverlayHeightOffset = 0.20f;
 constexpr float kMarkerThickness = 0.65f;
 constexpr float kOutlineThickness = 1.25f;
@@ -13,6 +14,7 @@ constexpr float kNodeCrossSize = 1.55f;
 constexpr float kRungThickness = 0.90f;
 constexpr float kSideStrutThickness = 0.50f;
 constexpr float kOutsideTileOffset = 16.0f;
+constexpr DWORD kGroundColor = 0x66D8D8D8u;
 constexpr DWORD kInvalidColor = 0xD0C84A4Au;
 
 DWORD ColorForDelta(const float delta) {
@@ -62,6 +64,8 @@ void BridgeApproachRenderer::Update(
 
     ClearLayer(kLayerFill);
     ClearLayer(kLayerOutline);
+    ClearLayer(kLayerGround);
+    BuildGroundLayer_(terrain, geometry, sideMode);
     BuildApproachLayer_(terrain, geometry, isValid, sideMode);
 
     ClearLayer(kLayerMarkers);
@@ -71,9 +75,69 @@ void BridgeApproachRenderer::Update(
 }
 
 void BridgeApproachRenderer::ClearAll() {
+    ClearLayer(kLayerGround);
     ClearLayer(kLayerFill);
     ClearLayer(kLayerOutline);
     ClearLayer(kLayerMarkers);
+}
+
+void BridgeApproachRenderer::BuildGroundLayer_(
+    cISTETerrain* terrain,
+    const BridgeApproachGeometry::ApproachParams& p,
+    const BridgeApproachGeometry::ApproachSideMode sideMode) {
+    const float halfWidth = static_cast<float>(p.effectiveWidthTiles) * 8.0f;
+
+    const float leftStartTerrain = SampleBoundaryTerrainHeight_(terrain, p.bridgeStartWorldX - p.perpX * halfWidth, p.bridgeStartWorldZ - p.perpZ * halfWidth, -p.perpX, -p.perpZ);
+    const float rightStartTerrain = SampleBoundaryTerrainHeight_(terrain, p.bridgeStartWorldX + p.perpX * halfWidth, p.bridgeStartWorldZ + p.perpZ * halfWidth, p.perpX, p.perpZ);
+    const float leftEndTerrain = SampleBoundaryTerrainHeight_(terrain, p.bridgeEndWorldX - p.perpX * halfWidth, p.bridgeEndWorldZ - p.perpZ * halfWidth, -p.perpX, -p.perpZ);
+    const float rightEndTerrain = SampleBoundaryTerrainHeight_(terrain, p.bridgeEndWorldX + p.perpX * halfWidth, p.bridgeEndWorldZ + p.perpZ * halfWidth, p.perpX, p.perpZ);
+
+    const OverlayVertex v1 = {
+        p.bridgeStartWorldX - p.perpX * halfWidth,
+        leftStartTerrain + kGroundHeightOffset,
+        p.bridgeStartWorldZ - p.perpZ * halfWidth,
+        kGroundColor
+    };
+    const OverlayVertex v2 = {
+        p.bridgeStartWorldX + p.perpX * halfWidth,
+        rightStartTerrain + kGroundHeightOffset,
+        p.bridgeStartWorldZ + p.perpZ * halfWidth,
+        kGroundColor
+    };
+    const OverlayVertex v3 = {
+        p.bridgeEndWorldX + p.perpX * halfWidth,
+        rightEndTerrain + kGroundHeightOffset,
+        p.bridgeEndWorldZ + p.perpZ * halfWidth,
+        kGroundColor
+    };
+    const OverlayVertex v4 = {
+        p.bridgeEndWorldX - p.perpX * halfWidth,
+        leftEndTerrain + kGroundHeightOffset,
+        p.bridgeEndWorldZ - p.perpZ * halfWidth,
+        kGroundColor
+    };
+
+    EmitQuad(v1, v2, v3, v4, kGroundColor, kLayerGround);
+
+    if (BridgeApproachGeometry::IncludesStartApproach(sideMode)) {
+        BuildSingleApproachGround_(
+            terrain,
+            p.bridgeStartWorldX, p.bridgeStartWorldZ,
+            p.startDirX, p.startDirZ,
+            p.perpX, p.perpZ,
+            halfWidth,
+            p.startApproachLength);
+    }
+
+    if (BridgeApproachGeometry::IncludesEndApproach(sideMode)) {
+        BuildSingleApproachGround_(
+            terrain,
+            p.bridgeEndWorldX, p.bridgeEndWorldZ,
+            p.endDirX, p.endDirZ,
+            p.perpX, p.perpZ,
+            halfWidth,
+            p.endApproachLength);
+    }
 }
 
 void BridgeApproachRenderer::BuildApproachLayer_(
@@ -161,6 +225,83 @@ void BridgeApproachRenderer::BuildHeightMarkerLayer_(
             p.bridgeEndWorldX, p.bridgeEndWorldZ,
             p.endDirX, p.endDirZ,
             p.bridgeHeight, p.endApproachLength);
+    }
+}
+
+void BridgeApproachRenderer::BuildSingleApproachGround_(
+    cISTETerrain* terrain,
+    const float bridgeEndX, const float bridgeEndZ,
+    const float dirX, const float dirZ,
+    const float perpX, const float perpZ,
+    const float halfWidth,
+    const float approachLength) {
+    const int steps = static_cast<int>(approachLength * 4);
+    if (steps <= 0) return;
+
+    for (int i = 0; i < steps; ++i) {
+        const float t0 = static_cast<float>(i) / static_cast<float>(steps);
+        const float t1 = static_cast<float>(i + 1) / static_cast<float>(steps);
+
+        const float dist0 = approachLength * t0 * 16.0f;
+        const float dist1 = approachLength * t1 * 16.0f;
+
+        const float x0 = bridgeEndX + dirX * dist0;
+        const float z0 = bridgeEndZ + dirZ * dist0;
+        const float x1 = bridgeEndX + dirX * dist1;
+        const float z1 = bridgeEndZ + dirZ * dist1;
+
+        const float leftX0 = x0 - perpX * halfWidth;
+        const float leftZ0 = z0 - perpZ * halfWidth;
+        const float rightX0 = x0 + perpX * halfWidth;
+        const float rightZ0 = z0 + perpZ * halfWidth;
+        const float leftX1 = x1 - perpX * halfWidth;
+        const float leftZ1 = z1 - perpZ * halfWidth;
+        const float rightX1 = x1 + perpX * halfWidth;
+        const float rightZ1 = z1 + perpZ * halfWidth;
+
+        const float leftToeX0 = leftX0 - perpX * kOutsideTileOffset;
+        const float leftToeZ0 = leftZ0 - perpZ * kOutsideTileOffset;
+        const float rightToeX0 = rightX0 + perpX * kOutsideTileOffset;
+        const float rightToeZ0 = rightZ0 + perpZ * kOutsideTileOffset;
+        const float leftToeX1 = leftX1 - perpX * kOutsideTileOffset;
+        const float leftToeZ1 = leftZ1 - perpZ * kOutsideTileOffset;
+        const float rightToeX1 = rightX1 + perpX * kOutsideTileOffset;
+        const float rightToeZ1 = rightZ1 + perpZ * kOutsideTileOffset;
+
+        const float leftTerrain0 = SampleBoundaryTerrainHeight_(terrain, leftX0, leftZ0, -perpX, -perpZ);
+        const float rightTerrain0 = SampleBoundaryTerrainHeight_(terrain, rightX0, rightZ0, perpX, perpZ);
+        const float leftTerrain1 = SampleBoundaryTerrainHeight_(terrain, leftX1, leftZ1, -perpX, -perpZ);
+        const float rightTerrain1 = SampleBoundaryTerrainHeight_(terrain, rightX1, rightZ1, perpX, perpZ);
+        const float centerTerrain0 = SampleTerrainHeight_(terrain, x0, z0);
+        const float centerTerrain1 = SampleTerrainHeight_(terrain, x1, z1);
+        const float leftToeY0 = SampleTerrainHeight_(terrain, leftToeX0, leftToeZ0);
+        const float rightToeY0 = SampleTerrainHeight_(terrain, rightToeX0, rightToeZ0);
+        const float leftToeY1 = SampleTerrainHeight_(terrain, leftToeX1, leftToeZ1);
+        const float rightToeY1 = SampleTerrainHeight_(terrain, rightToeX1, rightToeZ1);
+
+        EmitQuad(
+            {leftX0, leftTerrain0 + kGroundHeightOffset, leftZ0, kGroundColor},
+            {rightX0, rightTerrain0 + kGroundHeightOffset, rightZ0, kGroundColor},
+            {rightX1, rightTerrain1 + kGroundHeightOffset, rightZ1, kGroundColor},
+            {leftX1, leftTerrain1 + kGroundHeightOffset, leftZ1, kGroundColor},
+            kGroundColor,
+            kLayerGround);
+
+        EmitQuad(
+            {leftToeX0, leftToeY0 + kGroundHeightOffset, leftToeZ0, kGroundColor},
+            {leftX0, leftTerrain0 + kGroundHeightOffset, leftZ0, kGroundColor},
+            {leftX1, leftTerrain1 + kGroundHeightOffset, leftZ1, kGroundColor},
+            {leftToeX1, leftToeY1 + kGroundHeightOffset, leftToeZ1, kGroundColor},
+            kGroundColor,
+            kLayerGround);
+
+        EmitQuad(
+            {rightX0, rightTerrain0 + kGroundHeightOffset, rightZ0, kGroundColor},
+            {rightToeX0, rightToeY0 + kGroundHeightOffset, rightToeZ0, kGroundColor},
+            {rightToeX1, rightToeY1 + kGroundHeightOffset, rightToeZ1, kGroundColor},
+            {rightX1, rightTerrain1 + kGroundHeightOffset, rightZ1, kGroundColor},
+            kGroundColor,
+            kLayerGround);
     }
 }
 
