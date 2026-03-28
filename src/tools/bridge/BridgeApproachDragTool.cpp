@@ -97,7 +97,6 @@ void BridgeApproachDragTool::Activate(
 		if (renderer_) {
 			renderer_->ClearAll();
 		}
-		drawMgr_ = nullptr;
 		view3d_ = nullptr;
 	});
 	control_->Activate();

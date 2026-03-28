@@ -3,7 +3,7 @@
 #include <algorithm>
 
 void OverlayDrawManager::Register(OverlayRenderer* renderer) {
-	if (renderer) {
+	if (renderer && std::find(renderers_.begin(), renderers_.end(), renderer) == renderers_.end()) {
 		renderers_.push_back(renderer);
 	}
 }
