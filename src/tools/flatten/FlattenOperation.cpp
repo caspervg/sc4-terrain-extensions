@@ -11,12 +11,20 @@ std::optional<FlattenPreview> FlattenOperation::BuildPreview(const FlattenReques
     const int minZ = std::min(request.z1, request.z2);
     const int maxX = std::max(request.x1, request.x2);
     const int maxZ = std::max(request.z1, request.z2);
+    const int referenceTileX = IsInBounds_(request.referenceTileX, request.referenceTileZ)
+        ? request.referenceTileX
+        : request.x1;
+    const int referenceTileZ = IsInBounds_(request.referenceTileX, request.referenceTileZ)
+        ? request.referenceTileZ
+        : request.z1;
 
     if (!IsInBounds_(minX, minZ) || !IsInBounds_(maxX, maxZ)) {
         return std::nullopt;
     }
 
     FlattenPreview preview = SamplePreview_(minX, minZ, maxX, maxZ);
+    preview.referenceTileX = referenceTileX;
+    preview.referenceTileZ = referenceTileZ;
 
     switch (request.mode) {
     case FlattenHeightMode::Explicit:
@@ -24,6 +32,9 @@ std::optional<FlattenPreview> FlattenOperation::BuildPreview(const FlattenReques
         break;
     case FlattenHeightMode::Average:
         preview.targetHeight = preview.averageHeight;
+        break;
+    case FlattenHeightMode::ReferenceTileAverage:
+        preview.targetHeight = GetTileAverageHeight(referenceTileX, referenceTileZ);
         break;
     case FlattenHeightMode::Minimum:
         preview.targetHeight = preview.minimumHeight;
@@ -76,6 +87,8 @@ const char* FlattenOperation::ModeName(const FlattenHeightMode mode) noexcept {
         return "explicit";
     case FlattenHeightMode::Average:
         return "average";
+    case FlattenHeightMode::ReferenceTileAverage:
+        return "reference avg";
     case FlattenHeightMode::Minimum:
         return "minimum";
     case FlattenHeightMode::Maximum:

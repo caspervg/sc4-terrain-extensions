@@ -22,7 +22,7 @@ struct FlattenSettings {
         .step = 2.5f
     };
 
-    FlattenHeightMode mode{FlattenHeightMode::Explicit};
+    FlattenHeightMode mode{FlattenHeightMode::ReferenceTileAverage};
     ToolParameterSet parameters;
 
     void AdjustPrimaryValue(int32_t delta) noexcept;

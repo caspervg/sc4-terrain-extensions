@@ -8,6 +8,7 @@
 enum class FlattenHeightMode : uint32_t {
     Explicit = 0,
     Average,
+    ReferenceTileAverage,
     Minimum,
     Maximum,
     Delta
@@ -18,6 +19,8 @@ struct FlattenRequest {
     int z1{};
     int x2{};
     int z2{};
+    int referenceTileX{};
+    int referenceTileZ{};
     FlattenHeightMode mode{FlattenHeightMode::Explicit};
     float explicitHeight{250.0f};
     float deltaHeight{7.5f};
@@ -37,6 +40,8 @@ struct FlattenPreview {
     int minTileZ{};
     int maxTileX{};
     int maxTileZ{};
+    int referenceTileX{};
+    int referenceTileZ{};
     int affectedMinTileX{};
     int affectedMinTileZ{};
     int affectedMaxTileX{};

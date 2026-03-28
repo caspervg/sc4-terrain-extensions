@@ -10,12 +10,16 @@ constexpr float kGroundHeightOffset = 0.05f;
 constexpr float kHoverHeightOffset = 0.09f;
 constexpr float kOverlayHeightOffset = 0.20f;
 constexpr float kHoverThickness = 1.0f;
+constexpr float kReferenceThickness = 1.9f;
+constexpr float kReferenceGuideThickness = 0.90f;
 constexpr float kMarkerThickness = 0.65f;
 constexpr float kOutlineThickness = 1.25f;
 constexpr float kRailThickness = 0.50f;
 constexpr float kNodeCrossSize = 1.55f;
 constexpr DWORD kGroundColor = 0x4A9A9A9Au;
 constexpr DWORD kHoverColor = 0xD0101010u;
+constexpr DWORD kReferenceColor = 0xF0D89A28u;
+constexpr DWORD kReferenceFillColor = 0xA0D89A28u;
 
 DWORD ColorForDelta(const float delta) {
     if (delta > 0.25f) {
@@ -74,6 +78,7 @@ void FlattenRenderer::Update(cISTETerrain* terrain, const FlattenPreview& previe
     BuildFill_(preview, color);
     BuildOutline_(preview, color);
     BuildMarkers_(terrain, preview, color);
+    BuildReferenceTile_(terrain, preview);
 }
 
 void FlattenRenderer::ShowHoverTile(cISTETerrain* terrain, const int tileX, const int tileZ) {
@@ -102,6 +107,7 @@ void FlattenRenderer::ClearAll() {
     ClearLayer(kLayerFill);
     ClearLayer(kLayerOutline);
     ClearLayer(kLayerMarkers);
+    ClearLayer(kLayerReference);
     ClearLayer(kLayerHover);
 }
 
@@ -203,4 +209,38 @@ void FlattenRenderer::BuildMarkers_(cISTETerrain*, const FlattenPreview& preview
             nodeColor,
             kLayerMarkers);
     }
+}
+
+void FlattenRenderer::BuildReferenceTile_(cISTETerrain* terrain, const FlattenPreview& preview) {
+    ClearLayer(kLayerReference);
+    if (!terrain || preview.mode != FlattenHeightMode::ReferenceTileAverage) {
+        return;
+    }
+
+    const int tileX = preview.referenceTileX;
+    const int tileZ = preview.referenceTileZ;
+
+    const float planeHeight = preview.targetHeight + kOverlayHeightOffset;
+
+    const OverlayVertex a{WorldXFromVertex(tileX), planeHeight, WorldZFromVertex(tileZ), kReferenceColor};
+    const OverlayVertex b{WorldXFromVertex(tileX + 1), planeHeight, WorldZFromVertex(tileZ), kReferenceColor};
+    const OverlayVertex c{WorldXFromVertex(tileX + 1), planeHeight, WorldZFromVertex(tileZ + 1), kReferenceColor};
+    const OverlayVertex d{WorldXFromVertex(tileX), planeHeight, WorldZFromVertex(tileZ + 1), kReferenceColor};
+
+    EmitQuad(a, b, c, d, kReferenceFillColor, kLayerReference);
+
+    EmitLine(a, b, kReferenceThickness, kReferenceColor, kLayerReference);
+    EmitLine(b, c, kReferenceThickness, kReferenceColor, kLayerReference);
+    EmitLine(c, d, kReferenceThickness, kReferenceColor, kLayerReference);
+    EmitLine(d, a, kReferenceThickness, kReferenceColor, kLayerReference);
+
+    const OverlayVertex groundA{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ) + 0.03f, WorldZFromVertex(tileZ), kReferenceColor};
+    const OverlayVertex groundB{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ) + 0.03f, WorldZFromVertex(tileZ), kReferenceColor};
+    const OverlayVertex groundC{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ + 1) + 0.03f, WorldZFromVertex(tileZ + 1), kReferenceColor};
+    const OverlayVertex groundD{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ + 1) + 0.03f, WorldZFromVertex(tileZ + 1), kReferenceColor};
+
+    EmitLine(groundA, a, kReferenceGuideThickness, kReferenceColor, kLayerReference);
+    EmitLine(groundB, b, kReferenceGuideThickness, kReferenceColor, kLayerReference);
+    EmitLine(groundC, c, kReferenceGuideThickness, kReferenceColor, kLayerReference);
+    EmitLine(groundD, d, kReferenceGuideThickness, kReferenceColor, kLayerReference);
 }

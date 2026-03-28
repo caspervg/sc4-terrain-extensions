@@ -32,7 +32,7 @@ public:
 		mHeight = std::make_unique<args::ValueFlag<float>>(*mCommand, "height",
 			"Target height", args::Matcher{ "height", 'h' });
 		mMode = std::make_unique<args::ValueFlag<std::string>>(*mCommand, "mode",
-			"Height calculation mode (avg|min|max)", args::Matcher{ "mode", 'm'}, "avg");
+			"Height calculation mode (avg|refavg|min|max|delta)", args::Matcher{ "mode", 'm'}, "avg");
 	}
 
 	bool ShouldExecute(const args::ArgumentParser& parser) const override {
@@ -61,6 +61,8 @@ public:
 			.z1 = tileZ1,
 			.x2 = tileX2,
 			.z2 = tileZ2,
+			.referenceTileX = tileX1,
+			.referenceTileZ = tileZ1,
 			.mode = ResolveMode_(mode, hasHeight),
 			.explicitHeight = targetHeight
 		});
@@ -75,7 +77,7 @@ public:
 	}
 
 	const char* GetUsage() const override {
-		return "flatten <x1> <z1> [<x2> <z2>] --height=<value> [--mode=<avg|min|max>]";
+		return "flatten <x1> <z1> [<x2> <z2>] --height=<value> [--mode=<avg|refavg|min|max|delta>]";
 	}
 
 private:
@@ -88,6 +90,9 @@ private:
 		}
 		if (mode == "max") {
 			return FlattenHeightMode::Maximum;
+		}
+		if (mode == "refavg" || mode == "reference" || mode == "referenceavg") {
+			return FlattenHeightMode::ReferenceTileAverage;
 		}
 		if (mode == "delta") {
 			return FlattenHeightMode::Delta;

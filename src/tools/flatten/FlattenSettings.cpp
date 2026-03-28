@@ -1,6 +1,18 @@
 #include "FlattenSettings.hpp"
 
+#include <array>
 #include <sstream>
+
+namespace {
+constexpr std::array kModeCycleOrder{
+    FlattenHeightMode::ReferenceTileAverage,
+    FlattenHeightMode::Delta,
+    FlattenHeightMode::Explicit,
+    FlattenHeightMode::Average,
+    FlattenHeightMode::Minimum,
+    FlattenHeightMode::Maximum
+};
+}
 
 FlattenSettings::FlattenSettings() {
     parameters.Add(ParameterDescriptor{
@@ -31,17 +43,19 @@ void FlattenSettings::AdjustPrimaryValue(const int32_t delta) noexcept {
 }
 
 void FlattenSettings::CycleMode(const int32_t delta) noexcept {
-    constexpr int kModeCount = 5;
-    int modeIndex = static_cast<int>(mode);
+    auto it = std::find(kModeCycleOrder.begin(), kModeCycleOrder.end(), mode);
+    int modeIndex = it != kModeCycleOrder.end()
+        ? static_cast<int>(std::distance(kModeCycleOrder.begin(), it))
+        : 0;
     modeIndex += (delta > 0) ? 1 : -1;
 
     if (modeIndex < 0) {
-        modeIndex = kModeCount - 1;
-    } else if (modeIndex >= kModeCount) {
+        modeIndex = static_cast<int>(kModeCycleOrder.size()) - 1;
+    } else if (modeIndex >= static_cast<int>(kModeCycleOrder.size())) {
         modeIndex = 0;
     }
 
-    mode = static_cast<FlattenHeightMode>(modeIndex);
+    mode = kModeCycleOrder[modeIndex];
 }
 
 const char* FlattenSettings::ModeLabel() const noexcept {
@@ -55,8 +69,10 @@ std::string FlattenSettings::ValueLabel() const {
             text << '+';
         }
         text << deltaHeight.value << "m";
-    } else {
+    } else if (mode == FlattenHeightMode::Explicit) {
         text << explicitHeight.value << "m";
+    } else {
+        text << "auto";
     }
     return text.str();
 }

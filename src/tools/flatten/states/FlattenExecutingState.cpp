@@ -26,6 +26,8 @@ FlattenRequest FlattenExecutingState::BuildRequest_() const {
         .z1 = dragState_.startZ,
         .x2 = dragState_.currentX,
         .z2 = dragState_.currentZ,
+        .referenceTileX = dragState_.startX,
+        .referenceTileZ = dragState_.startZ,
         .mode = settings_.mode,
         .explicitHeight = settings_.explicitHeight.value,
         .deltaHeight = settings_.deltaHeight.value

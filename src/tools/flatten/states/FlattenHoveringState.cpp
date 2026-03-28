@@ -4,6 +4,11 @@
 
 #include "cRZBaseString.h"
 #include "controls/StatefulDragViewInputControl.hpp"
+#include "tools/ToolParameter.hpp"
+
+namespace {
+constexpr int32_t kTabKey = 0x09;
+}
 
 FlattenHoveringState::FlattenHoveringState(
     FlattenSettings& settings,
@@ -25,6 +30,7 @@ void FlattenHoveringState::OnEnter(StatefulDragViewInputControl& ctrl) {
 void FlattenHoveringState::OnExit(StatefulDragViewInputControl& ctrl) {
     ctrl.ClearSelections();
     ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
+    renderer_.ClearHoverTile();
 }
 
 bool FlattenHoveringState::OnMouseMove(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod) {
@@ -63,6 +69,13 @@ bool FlattenHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t
         return true;
     }
 
+    if (vk == kTabKey) {
+        const int32_t delta = (mod & ModifierCombo::kShift) != 0 ? -1 : 1;
+        settings_.CycleMode(delta);
+        UpdateHintText_(ctrl, mod);
+        return true;
+    }
+
     UpdateHintText_(ctrl, mod);
     return false;
 }
@@ -71,6 +84,7 @@ void FlattenHoveringState::UpdateHintText_(StatefulDragViewInputControl& ctrl, c
     std::ostringstream body;
     body << "Drag to flatten\n";
     body << settings_.ModeLabel() << " | " << settings_.ValueLabel() << "\n";
+    body << "Tab/Shift+Tab: cycle mode\n";
     body << settings_.parameters.BuildHintText(modifiers);
 
     const cRZBaseString title("Flatten terrain");

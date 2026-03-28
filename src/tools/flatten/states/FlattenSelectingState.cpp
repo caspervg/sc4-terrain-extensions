@@ -4,6 +4,11 @@
 
 #include "cRZBaseString.h"
 #include "controls/StatefulDragViewInputControl.hpp"
+#include "tools/ToolParameter.hpp"
+
+namespace {
+constexpr int32_t kTabKey = 0x09;
+}
 
 FlattenSelectingState::FlattenSelectingState(
     FlattenSettings& settings,
@@ -76,8 +81,14 @@ bool FlattenSelectingState::OnMouseWheel(
 
 bool FlattenSelectingState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t vk, uint32_t mod) {
     if (vk == 0x1B) {
-        ctrl.TransitionTo(ControlStateId::Inactive);
+        ctrl.TransitionTo(ControlStateId::Hovering);
         return true;
+    }
+
+    if (vk == kTabKey) {
+        const int32_t delta = (mod & ModifierCombo::kShift) != 0 ? -1 : 1;
+        settings_.CycleMode(delta);
+        return RebuildPreview_(ctrl, mod);
     }
 
     return RebuildPreview_(ctrl, mod);
@@ -104,6 +115,8 @@ FlattenRequest FlattenSelectingState::BuildRequest_() const {
         .z1 = dragState_.startZ,
         .x2 = dragState_.currentX,
         .z2 = dragState_.currentZ,
+        .referenceTileX = dragState_.startX,
+        .referenceTileZ = dragState_.startZ,
         .mode = settings_.mode,
         .explicitHeight = settings_.explicitHeight.value,
         .deltaHeight = settings_.deltaHeight.value
@@ -122,6 +135,7 @@ void FlattenSelectingState::UpdateCursor_(
         body << settings_.ModeLabel() << " | target " << preview.targetHeight << "m";
     }
     body << "\n" << settings_.parameters.BuildHintText(modifiers);
+    body << "\nTab/Shift+Tab: cycle mode";
 
     const cRZBaseString title("Flatten terrain");
     const cRZBaseString text(body.str().c_str());
