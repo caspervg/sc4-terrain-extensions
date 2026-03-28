@@ -29,7 +29,9 @@ FlattenRequest FlattenExecutingState::BuildRequest_() const {
         .referenceTileX = dragState_.startX,
         .referenceTileZ = dragState_.startZ,
         .mode = settings_.mode,
+        .shape = settings_.shape,
         .explicitHeight = settings_.explicitHeight.value,
-        .deltaHeight = settings_.deltaHeight.value
+        .deltaHeight = settings_.deltaHeight.value,
+        .lineThickness = settings_.lineThickness.value
     };
 }

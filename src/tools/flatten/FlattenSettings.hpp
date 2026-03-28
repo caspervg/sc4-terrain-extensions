@@ -22,11 +22,23 @@ struct FlattenSettings {
         .step = 2.5f
     };
 
+    TypedParameter<int32_t> lineThickness{
+        .value = 1,
+        .minValue = -9,
+        .maxValue = 9,
+        .step = 1
+    };
+
     FlattenHeightMode mode{FlattenHeightMode::ReferenceTileAverage};
+    FlattenShapeMode shape{FlattenShapeMode::Rectangle};
     ToolParameterSet parameters;
 
     void AdjustPrimaryValue(int32_t delta) noexcept;
+    void AdjustLineThickness(int32_t delta) noexcept;
     void CycleMode(int32_t delta) noexcept;
+    void CycleShape(int32_t delta) noexcept;
     [[nodiscard]] const char* ModeLabel() const noexcept;
+    [[nodiscard]] const char* ShapeLabel() const noexcept;
     [[nodiscard]] std::string ValueLabel() const;
+    [[nodiscard]] std::string ThicknessLabel() const;
 };

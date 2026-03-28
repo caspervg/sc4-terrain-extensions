@@ -87,7 +87,11 @@ bool FlattenSelectingState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_
 
     if (vk == kTabKey) {
         const int32_t delta = (mod & ModifierCombo::kShift) != 0 ? -1 : 1;
-        settings_.CycleMode(delta);
+        if ((mod & ModifierCombo::kCtrl) != 0) {
+            settings_.CycleShape(delta);
+        } else {
+            settings_.CycleMode(delta);
+        }
         return RebuildPreview_(ctrl, mod);
     }
 
@@ -118,8 +122,10 @@ FlattenRequest FlattenSelectingState::BuildRequest_() const {
         .referenceTileX = dragState_.startX,
         .referenceTileZ = dragState_.startZ,
         .mode = settings_.mode,
+        .shape = settings_.shape,
         .explicitHeight = settings_.explicitHeight.value,
-        .deltaHeight = settings_.deltaHeight.value
+        .deltaHeight = settings_.deltaHeight.value,
+        .lineThickness = settings_.lineThickness.value
     };
 }
 
@@ -134,8 +140,18 @@ void FlattenSelectingState::UpdateCursor_(
     } else {
         body << settings_.ModeLabel() << " | target " << preview.targetHeight << "m";
     }
-    body << "\n" << settings_.parameters.BuildHintText(modifiers);
+    body << " | " << settings_.ShapeLabel();
+    if (settings_.shape == FlattenShapeMode::LineMask) {
+        body << ' ' << settings_.ThicknessLabel();
+    }
     body << "\nTab/Shift+Tab: cycle mode";
+    body << "\nCtrl+Tab/Ctrl+Shift+Tab: cycle shape";
+    if (settings_.mode == FlattenHeightMode::Explicit || settings_.mode == FlattenHeightMode::Delta) {
+        body << "\nAlt+Scroll: value (" << settings_.ValueLabel() << ")";
+    }
+    if (settings_.shape == FlattenShapeMode::LineMask) {
+        body << "\nShift+Scroll: thickness (" << settings_.ThicknessLabel() << ")";
+    }
 
     const cRZBaseString title("Flatten terrain");
     const cRZBaseString text(body.str().c_str());

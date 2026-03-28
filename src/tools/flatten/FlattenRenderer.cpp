@@ -1,5 +1,6 @@
 #include "FlattenRenderer.hpp"
 
+#include <algorithm>
 #include <cmath>
 
 #include "cISTETerrain.h"
@@ -114,6 +115,10 @@ void FlattenRenderer::ClearAll() {
 void FlattenRenderer::BuildGround_(const FlattenPreview& preview) {
     for (int tileZ = preview.affectedMinTileZ; tileZ <= preview.affectedMaxTileZ; ++tileZ) {
         for (int tileX = preview.affectedMinTileX; tileX <= preview.affectedMaxTileX; ++tileX) {
+            if (!preview.IsSelectedTile(tileX, tileZ)) {
+                continue;
+            }
+
             const auto* v00 = preview.FindVertex(tileX, tileZ);
             const auto* v10 = preview.FindVertex(tileX + 1, tileZ);
             const auto* v01 = preview.FindVertex(tileX, tileZ + 1);
@@ -135,6 +140,10 @@ void FlattenRenderer::BuildGround_(const FlattenPreview& preview) {
 void FlattenRenderer::BuildFill_(const FlattenPreview& preview, const DWORD color) {
     for (int tileZ = preview.affectedMinTileZ; tileZ <= preview.affectedMaxTileZ; ++tileZ) {
         for (int tileX = preview.affectedMinTileX; tileX <= preview.affectedMaxTileX; ++tileX) {
+            if (!preview.IsSelectedTile(tileX, tileZ)) {
+                continue;
+            }
+
             const auto* v00 = preview.FindVertex(tileX, tileZ);
             const auto* v10 = preview.FindVertex(tileX + 1, tileZ);
             const auto* v01 = preview.FindVertex(tileX, tileZ + 1);
@@ -160,23 +169,59 @@ void FlattenRenderer::BuildFill_(const FlattenPreview& preview, const DWORD colo
 }
 
 void FlattenRenderer::BuildOutline_(const FlattenPreview& preview, const DWORD color) {
-    const auto* aV = preview.FindVertex(preview.minTileX, preview.minTileZ);
-    const auto* bV = preview.FindVertex(preview.maxTileX + 1, preview.minTileZ);
-    const auto* cV = preview.FindVertex(preview.maxTileX + 1, preview.maxTileZ + 1);
-    const auto* dV = preview.FindVertex(preview.minTileX, preview.maxTileZ + 1);
-    if (!aV || !bV || !cV || !dV) {
-        return;
+    for (int tileZ = preview.minTileZ; tileZ <= preview.maxTileZ; ++tileZ) {
+        for (int tileX = preview.minTileX; tileX <= preview.maxTileX; ++tileX) {
+            if (!preview.IsSelectedTile(tileX, tileZ)) {
+                continue;
+            }
+
+            const auto* v00 = preview.FindVertex(tileX, tileZ);
+            const auto* v10 = preview.FindVertex(tileX + 1, tileZ);
+            const auto* v01 = preview.FindVertex(tileX, tileZ + 1);
+            const auto* v11 = preview.FindVertex(tileX + 1, tileZ + 1);
+            if (!v00 || !v10 || !v01 || !v11) {
+                continue;
+            }
+
+            const OverlayVertex a{
+                WorldXFromVertex(v00->vertexX),
+                v00->predictedHeight + kOverlayHeightOffset + 0.02f,
+                WorldZFromVertex(v00->vertexZ),
+                color
+            };
+            const OverlayVertex b{
+                WorldXFromVertex(v10->vertexX),
+                v10->predictedHeight + kOverlayHeightOffset + 0.02f,
+                WorldZFromVertex(v10->vertexZ),
+                color
+            };
+            const OverlayVertex c{
+                WorldXFromVertex(v11->vertexX),
+                v11->predictedHeight + kOverlayHeightOffset + 0.02f,
+                WorldZFromVertex(v11->vertexZ),
+                color
+            };
+            const OverlayVertex d{
+                WorldXFromVertex(v01->vertexX),
+                v01->predictedHeight + kOverlayHeightOffset + 0.02f,
+                WorldZFromVertex(v01->vertexZ),
+                color
+            };
+
+            if (!preview.IsSelectedTile(tileX, tileZ - 1)) {
+                EmitLine(a, b, kOutlineThickness, color, kLayerOutline);
+            }
+            if (!preview.IsSelectedTile(tileX + 1, tileZ)) {
+                EmitLine(b, c, kOutlineThickness, color, kLayerOutline);
+            }
+            if (!preview.IsSelectedTile(tileX, tileZ + 1)) {
+                EmitLine(c, d, kOutlineThickness, color, kLayerOutline);
+            }
+            if (!preview.IsSelectedTile(tileX - 1, tileZ)) {
+                EmitLine(d, a, kOutlineThickness, color, kLayerOutline);
+            }
+        }
     }
-
-    const OverlayVertex a{WorldXFromVertex(aV->vertexX), aV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(aV->vertexZ), color};
-    const OverlayVertex b{WorldXFromVertex(bV->vertexX), bV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(bV->vertexZ), color};
-    const OverlayVertex c{WorldXFromVertex(cV->vertexX), cV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(cV->vertexZ), color};
-    const OverlayVertex d{WorldXFromVertex(dV->vertexX), dV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(dV->vertexZ), color};
-
-    EmitLine(a, b, kOutlineThickness, color, kLayerOutline);
-    EmitLine(b, c, kOutlineThickness, color, kLayerOutline);
-    EmitLine(c, d, kOutlineThickness, color, kLayerOutline);
-    EmitLine(d, a, kOutlineThickness, color, kLayerOutline);
 }
 
 void FlattenRenderer::BuildMarkers_(cISTETerrain*, const FlattenPreview& preview, const DWORD) {

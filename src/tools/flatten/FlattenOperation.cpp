@@ -1,10 +1,21 @@
 #include "FlattenOperation.hpp"
 
 #include <algorithm>
-#include <limits>
 #include <cmath>
+#include <cstdlib>
+#include <limits>
 
 #include "SC4Rect.h"
+
+namespace {
+constexpr int32_t kDefaultLineThickness = 1;
+constexpr int32_t kMaxLineThickness = 9;
+
+int32_t NormalizeLineThickness(int32_t thickness) noexcept {
+    thickness = std::clamp(thickness, -kMaxLineThickness, kMaxLineThickness);
+    return thickness == 0 ? kDefaultLineThickness : thickness;
+}
+}
 
 std::optional<FlattenPreview> FlattenOperation::BuildPreview(const FlattenRequest& request) const {
     const int minX = std::min(request.x1, request.x2);
@@ -22,9 +33,19 @@ std::optional<FlattenPreview> FlattenOperation::BuildPreview(const FlattenReques
         return std::nullopt;
     }
 
-    FlattenPreview preview = SamplePreview_(minX, minZ, maxX, maxZ);
+    const auto selectedTiles = BuildTileSelection_(request, minX, minZ, maxX, maxZ);
+    if (!selectedTiles.has_value()) {
+        return std::nullopt;
+    }
+
+    const auto selectedVertices = BuildVertexSelection_(*selectedTiles);
+    FlattenPreview preview = SamplePreview_(*selectedTiles, selectedVertices);
+    preview.selectedTiles = selectedTiles;
     preview.referenceTileX = referenceTileX;
     preview.referenceTileZ = referenceTileZ;
+    preview.shape = request.shape;
+    preview.lineThickness = NormalizeLineThickness(request.lineThickness);
+    preview.isRectangle = request.shape == FlattenShapeMode::Rectangle;
 
     switch (request.mode) {
     case FlattenHeightMode::Explicit:
@@ -100,6 +121,17 @@ const char* FlattenOperation::ModeName(const FlattenHeightMode mode) noexcept {
     }
 }
 
+const char* FlattenOperation::ShapeName(const FlattenShapeMode shape) noexcept {
+    switch (shape) {
+    case FlattenShapeMode::Rectangle:
+        return "rectangle";
+    case FlattenShapeMode::LineMask:
+        return "line mask";
+    default:
+        return "unknown";
+    }
+}
+
 bool FlattenOperation::IsInBounds_(const int tileX, const int tileZ) const noexcept {
     return tileX >= 0
         && tileZ >= 0
@@ -107,60 +139,174 @@ bool FlattenOperation::IsInBounds_(const int tileX, const int tileZ) const noexc
         && static_cast<uint32_t>(tileZ) < terrain_->CellCountZ();
 }
 
-FlattenPreview FlattenOperation::SamplePreview_(const int minX, const int minZ, const int maxX, const int maxZ) const {
+std::optional<SC4CellRegion<int32_t>> FlattenOperation::BuildTileSelection_(
+    const FlattenRequest& request,
+    const int minX,
+    const int minZ,
+    const int maxX,
+    const int maxZ) const {
+    if (request.shape == FlattenShapeMode::Rectangle) {
+        return SC4CellRegion<int32_t>(minX, minZ, maxX, maxZ, true);
+    }
+
+    const int thickness = NormalizeLineThickness(request.lineThickness);
+    const int expand = std::abs(thickness) - 1;
+    const int regionMinX = std::max(0, minX - expand);
+    const int regionMinZ = std::max(0, minZ - expand);
+    const int regionMaxX = std::min(static_cast<int>(terrain_->CellCountX()) - 1, maxX + expand);
+    const int regionMaxZ = std::min(static_cast<int>(terrain_->CellCountZ()) - 1, maxZ + expand);
+
+    SC4CellRegion<int32_t> region(regionMinX, regionMinZ, regionMaxX, regionMaxZ, false);
+
+    const int dx = std::abs(request.x2 - request.x1);
+    const int dz = std::abs(request.z2 - request.z1);
+    const int sx = request.x1 < request.x2 ? 1 : -1;
+    const int sz = request.z1 < request.z2 ? 1 : -1;
+    const bool horizontalDominant = dx > dz;
+    const int startOffset = thickness > 0 ? 0 : thickness + 1;
+    const int endOffset = thickness > 0 ? thickness - 1 : 0;
+
+    int currentX = request.x1;
+    int currentZ = request.z1;
+    int err = dx - dz;
+
+    while (true) {
+        for (int offset = startOffset; offset <= endOffset; ++offset) {
+            int tileX = currentX;
+            int tileZ = currentZ;
+
+            if (horizontalDominant) {
+                tileZ += offset;
+            } else {
+                tileX += offset;
+            }
+
+            if (!IsInBounds_(tileX, tileZ)) {
+                continue;
+            }
+
+            region.cellMap.SetValue(
+                static_cast<uint32_t>(tileX - regionMinX),
+                static_cast<uint32_t>(tileZ - regionMinZ),
+                true);
+        }
+
+        if (currentX == request.x2 && currentZ == request.z2) {
+            break;
+        }
+
+        const int twiceError = err * 2;
+        if (twiceError > -dz) {
+            err -= dz;
+            currentX += sx;
+        }
+        if (twiceError < dx) {
+            err += dx;
+            currentZ += sz;
+        }
+    }
+
+    return region;
+}
+
+SC4CellRegion<int32_t> FlattenOperation::BuildVertexSelection_(const SC4CellRegion<int32_t>& selectedTiles) const {
+    const auto& bounds = selectedTiles.bounds;
+    SC4CellRegion<int32_t> selectedVertices(
+        bounds.topLeftX,
+        bounds.topLeftY,
+        bounds.bottomRightX + 1,
+        bounds.bottomRightY + 1,
+        false);
+
+    for (int tileZ = bounds.topLeftY; tileZ <= bounds.bottomRightY; ++tileZ) {
+        for (int tileX = bounds.topLeftX; tileX <= bounds.bottomRightX; ++tileX) {
+            if (!selectedTiles.cellMap.GetValue(
+                static_cast<uint32_t>(tileX - bounds.topLeftX),
+                static_cast<uint32_t>(tileZ - bounds.topLeftY))) {
+                continue;
+            }
+
+            selectedVertices.cellMap.SetValue(
+                static_cast<uint32_t>(tileX - bounds.topLeftX),
+                static_cast<uint32_t>(tileZ - bounds.topLeftY),
+                true);
+            selectedVertices.cellMap.SetValue(
+                static_cast<uint32_t>(tileX + 1 - bounds.topLeftX),
+                static_cast<uint32_t>(tileZ - bounds.topLeftY),
+                true);
+            selectedVertices.cellMap.SetValue(
+                static_cast<uint32_t>(tileX - bounds.topLeftX),
+                static_cast<uint32_t>(tileZ + 1 - bounds.topLeftY),
+                true);
+            selectedVertices.cellMap.SetValue(
+                static_cast<uint32_t>(tileX + 1 - bounds.topLeftX),
+                static_cast<uint32_t>(tileZ + 1 - bounds.topLeftY),
+                true);
+        }
+    }
+
+    return selectedVertices;
+}
+
+FlattenPreview FlattenOperation::SamplePreview_(
+    const SC4CellRegion<int32_t>& selectedTiles,
+    const SC4CellRegion<int32_t>& selectedVertices) const {
+    const auto& tileBounds = selectedTiles.bounds;
+    const auto& vertexBounds = selectedVertices.bounds;
     float minimumHeight = std::numeric_limits<float>::max();
     float maximumHeight = std::numeric_limits<float>::lowest();
     float totalHeight = 0.0f;
     int count = 0;
 
-    for (int z = minZ; z <= maxZ + 1; ++z) {
-        for (int x = minX; x <= maxX + 1; ++x) {
-            if (!terrain_->LocationIsInBounds(static_cast<float>(x), static_cast<float>(z))) {
+    FlattenPreview preview{
+        .minTileX = tileBounds.topLeftX,
+        .minTileZ = tileBounds.topLeftY,
+        .maxTileX = tileBounds.bottomRightX,
+        .maxTileZ = tileBounds.bottomRightY,
+        .affectedMinTileX = std::max(0, tileBounds.topLeftX - 1),
+        .affectedMinTileZ = std::max(0, tileBounds.topLeftY - 1),
+        .affectedMaxTileX = std::min(static_cast<int>(terrain_->CellCountX()) - 1, tileBounds.bottomRightX + 1),
+        .affectedMaxTileZ = std::min(static_cast<int>(terrain_->CellCountZ()) - 1, tileBounds.bottomRightY + 1),
+        .targetHeight = 0.0f,
+        .deltaHeight = 0.0f,
+        .mode = FlattenHeightMode::Explicit,
+        .shape = FlattenShapeMode::Rectangle,
+        .averageHeight = 0.0f,
+        .minimumHeight = 0.0f,
+        .maximumHeight = 0.0f,
+        .lineThickness = kDefaultLineThickness,
+        .isRectangle = false
+    };
+
+    for (int vertexZ = vertexBounds.topLeftY; vertexZ <= vertexBounds.bottomRightY; ++vertexZ) {
+        for (int vertexX = vertexBounds.topLeftX; vertexX <= vertexBounds.bottomRightX; ++vertexX) {
+            if (!selectedVertices.cellMap.GetValue(
+                static_cast<uint32_t>(vertexX - vertexBounds.topLeftX),
+                static_cast<uint32_t>(vertexZ - vertexBounds.topLeftY))) {
                 continue;
             }
 
-            const float height = terrain_->GetAltitudeAtVertex(x, z);
+            const float height = terrain_->GetAltitudeAtVertex(vertexX, vertexZ);
             minimumHeight = std::min(minimumHeight, height);
             maximumHeight = std::max(maximumHeight, height);
             totalHeight += height;
             ++count;
-        }
-    }
 
-    const float averageHeight = count > 0 ? totalHeight / static_cast<float>(count) : 0.0f;
-
-    FlattenPreview preview{
-        .minTileX = minX,
-        .minTileZ = minZ,
-        .maxTileX = maxX,
-        .maxTileZ = maxZ,
-        .affectedMinTileX = std::max(0, minX - 1),
-        .affectedMinTileZ = std::max(0, minZ - 1),
-        .affectedMaxTileX = std::min(static_cast<int>(terrain_->CellCountX()) - 1, maxX + 1),
-        .affectedMaxTileZ = std::min(static_cast<int>(terrain_->CellCountZ()) - 1, maxZ + 1),
-        .targetHeight = averageHeight,
-        .deltaHeight = 0.0f,
-        .mode = FlattenHeightMode::Explicit,
-        .averageHeight = averageHeight,
-        .minimumHeight = count > 0 ? minimumHeight : 0.0f,
-        .maximumHeight = count > 0 ? maximumHeight : 0.0f,
-        .isRectangle = minX != maxX || minZ != maxZ
-    };
-
-    preview.vertices.reserve(
-        static_cast<size_t>(preview.affectedMaxTileX - preview.affectedMinTileX + 2)
-        * static_cast<size_t>(preview.affectedMaxTileZ - preview.affectedMinTileZ + 2));
-
-    for (int z = preview.affectedMinTileZ; z <= preview.affectedMaxTileZ + 1; ++z) {
-        for (int x = preview.affectedMinTileX; x <= preview.affectedMaxTileX + 1; ++x) {
             preview.vertices.push_back(FlattenPreview::VertexDelta{
-                .vertexX = x,
-                .vertexZ = z,
-                .currentHeight = terrain_->GetAltitudeAtVertex(x, z),
+                .vertexX = vertexX,
+                .vertexZ = vertexZ,
+                .currentHeight = height,
                 .predictedHeight = 0.0f
             });
         }
     }
+
+    const float averageHeight = count > 0 ? totalHeight / static_cast<float>(count) : 0.0f;
+    preview.targetHeight = averageHeight;
+    preview.averageHeight = averageHeight;
+    preview.minimumHeight = count > 0 ? minimumHeight : 0.0f;
+    preview.maximumHeight = count > 0 ? maximumHeight : 0.0f;
+    preview.isRectangle = false;
 
     return preview;
 }
@@ -174,20 +320,35 @@ const FlattenPreview::VertexDelta* FlattenPreview::FindVertex(const int vertexX,
     return nullptr;
 }
 
+bool FlattenPreview::IsSelectedTile(const int tileX, const int tileZ) const noexcept {
+    if (!selectedTiles.has_value()) {
+        return false;
+    }
+
+    const auto& bounds = selectedTiles->bounds;
+    if (tileX < bounds.topLeftX
+        || tileZ < bounds.topLeftY
+        || tileX > bounds.bottomRightX
+        || tileZ > bounds.bottomRightY) {
+        return false;
+    }
+
+    return selectedTiles->cellMap.GetValue(
+        static_cast<uint32_t>(tileX - bounds.topLeftX),
+        static_cast<uint32_t>(tileZ - bounds.topLeftY));
+}
+
 float FlattenOperation::PredictVertexHeight_(
     const int vertexX,
     const int vertexZ,
     const float currentHeight,
     const FlattenPreview& preview) const noexcept {
-    if (vertexX >= preview.minTileX
-        && vertexX <= preview.maxTileX + 1
-        && vertexZ >= preview.minTileZ
-        && vertexZ <= preview.maxTileZ + 1) {
-        if (preview.mode == FlattenHeightMode::Delta) {
-            return currentHeight + preview.deltaHeight;
-        }
-        return preview.targetHeight;
+    if (!preview.FindVertex(vertexX, vertexZ)) {
+        return currentHeight;
     }
 
-    return currentHeight;
+    if (preview.mode == FlattenHeightMode::Delta) {
+        return currentHeight + preview.deltaHeight;
+    }
+    return preview.targetHeight;
 }

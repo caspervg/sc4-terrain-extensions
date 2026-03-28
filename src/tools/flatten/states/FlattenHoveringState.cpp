@@ -71,7 +71,11 @@ bool FlattenHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t
 
     if (vk == kTabKey) {
         const int32_t delta = (mod & ModifierCombo::kShift) != 0 ? -1 : 1;
-        settings_.CycleMode(delta);
+        if ((mod & ModifierCombo::kCtrl) != 0) {
+            settings_.CycleShape(delta);
+        } else {
+            settings_.CycleMode(delta);
+        }
         UpdateHintText_(ctrl, mod);
         return true;
     }
@@ -83,9 +87,19 @@ bool FlattenHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t
 void FlattenHoveringState::UpdateHintText_(StatefulDragViewInputControl& ctrl, const uint32_t modifiers) const {
     std::ostringstream body;
     body << "Drag to flatten\n";
-    body << settings_.ModeLabel() << " | " << settings_.ValueLabel() << "\n";
-    body << "Tab/Shift+Tab: cycle mode\n";
-    body << settings_.parameters.BuildHintText(modifiers);
+    body << settings_.ModeLabel() << " | " << settings_.ValueLabel();
+    body << " | " << settings_.ShapeLabel();
+    if (settings_.shape == FlattenShapeMode::LineMask) {
+        body << ' ' << settings_.ThicknessLabel();
+    }
+    body << "\nTab/Shift+Tab: cycle mode";
+    body << "\nCtrl+Tab/Ctrl+Shift+Tab: cycle shape";
+    if (settings_.mode == FlattenHeightMode::Explicit || settings_.mode == FlattenHeightMode::Delta) {
+        body << "\nAlt+Scroll: value (" << settings_.ValueLabel() << ")";
+    }
+    if (settings_.shape == FlattenShapeMode::LineMask) {
+        body << "\nShift+Scroll: thickness (" << settings_.ThicknessLabel() << ")";
+    }
 
     const cRZBaseString title("Flatten terrain");
     const cRZBaseString text(body.str().c_str());

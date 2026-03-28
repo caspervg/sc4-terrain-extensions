@@ -1,5 +1,6 @@
 #include "FlattenSettings.hpp"
 
+#include <algorithm>
 #include <array>
 #include <sstream>
 
@@ -12,6 +13,19 @@ constexpr std::array kModeCycleOrder{
     FlattenHeightMode::Minimum,
     FlattenHeightMode::Maximum
 };
+
+constexpr std::array kShapeCycleOrder{
+    FlattenShapeMode::Rectangle,
+    FlattenShapeMode::LineMask
+};
+
+int32_t NormalizeThickness(const int32_t value, const int32_t direction) noexcept {
+    int32_t next = std::clamp(value, -9, 9);
+    if (next == 0) {
+        next += direction >= 0 ? 1 : -1;
+    }
+    return std::clamp(next, -9, 9);
+}
 }
 
 FlattenSettings::FlattenSettings() {
@@ -24,12 +38,12 @@ FlattenSettings::FlattenSettings() {
         .AdjustByDelta = [this](const int32_t delta) { AdjustPrimaryValue(delta); }
     });
     parameters.Add(ParameterDescriptor{
-        .name = "Mode",
+        .name = "Thickness",
         .unit = "",
-        .scrollBinding = {.alt = false, .shift = false, .ctrl = true},
-        .GetAsFloat = []() { return 0.0f; },
-        .GetDisplayValue = [this]() { return std::string(ModeLabel()); },
-        .AdjustByDelta = [this](const int32_t delta) { CycleMode(delta); }
+        .scrollBinding = {.alt = false, .shift = true, .ctrl = false},
+        .GetAsFloat = [this]() { return static_cast<float>(lineThickness.value); },
+        .GetDisplayValue = [this]() { return ThicknessLabel(); },
+        .AdjustByDelta = [this](const int32_t delta) { AdjustLineThickness(delta); }
     });
 }
 
@@ -40,6 +54,11 @@ void FlattenSettings::AdjustPrimaryValue(const int32_t delta) noexcept {
     }
 
     explicitHeight.Adjust(delta);
+}
+
+void FlattenSettings::AdjustLineThickness(const int32_t delta) noexcept {
+    const int direction = delta > 0 ? 1 : -1;
+    lineThickness.value = NormalizeThickness(lineThickness.value + direction, direction);
 }
 
 void FlattenSettings::CycleMode(const int32_t delta) noexcept {
@@ -58,8 +77,28 @@ void FlattenSettings::CycleMode(const int32_t delta) noexcept {
     mode = kModeCycleOrder[modeIndex];
 }
 
+void FlattenSettings::CycleShape(const int32_t delta) noexcept {
+    auto it = std::find(kShapeCycleOrder.begin(), kShapeCycleOrder.end(), shape);
+    int shapeIndex = it != kShapeCycleOrder.end()
+        ? static_cast<int>(std::distance(kShapeCycleOrder.begin(), it))
+        : 0;
+    shapeIndex += (delta > 0) ? 1 : -1;
+
+    if (shapeIndex < 0) {
+        shapeIndex = static_cast<int>(kShapeCycleOrder.size()) - 1;
+    } else if (shapeIndex >= static_cast<int>(kShapeCycleOrder.size())) {
+        shapeIndex = 0;
+    }
+
+    shape = kShapeCycleOrder[shapeIndex];
+}
+
 const char* FlattenSettings::ModeLabel() const noexcept {
     return FlattenOperation::ModeName(mode);
+}
+
+const char* FlattenSettings::ShapeLabel() const noexcept {
+    return FlattenOperation::ShapeName(shape);
 }
 
 std::string FlattenSettings::ValueLabel() const {
@@ -74,5 +113,18 @@ std::string FlattenSettings::ValueLabel() const {
     } else {
         text << "auto";
     }
+    return text.str();
+}
+
+std::string FlattenSettings::ThicknessLabel() const {
+    if (shape != FlattenShapeMode::LineMask) {
+        return "n/a";
+    }
+
+    std::ostringstream text;
+    if (lineThickness.value > 0) {
+        text << '+';
+    }
+    text << lineThickness.value;
     return text.str();
 }
