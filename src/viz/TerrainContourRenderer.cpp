@@ -45,12 +45,23 @@ void TerrainContourRenderer::SetEnabled(const bool enabled, cISTETerrain* terrai
     Rebuild(terrain);
 }
 
-void TerrainContourRenderer::SetIntervalMeters(const float intervalMeters) {
-    intervalMeters_ = std::max(0.25f, intervalMeters);
+bool TerrainContourRenderer::SetConfig(const ContourRenderConfig& config, cISTETerrain* terrain,
+                                       const bool rebuildIfEnabled, std::string* error) {
+    if (!ValidateConfig_(config, error)) {
+        return false;
+    }
+
+    config_ = config;
+
+    if (enabled_ && rebuildIfEnabled) {
+        Rebuild(terrain);
+    }
+
+    return true;
 }
 
-void TerrainContourRenderer::SetMajorEvery(const int majorEvery) {
-    majorEvery_ = std::max(1, majorEvery);
+bool TerrainContourRenderer::ResetConfig(cISTETerrain* terrain, const bool rebuildIfEnabled, std::string* error) {
+    return SetConfig(ContourRenderConfig{}, terrain, rebuildIfEnabled, error);
 }
 
 void TerrainContourRenderer::Rebuild(cISTETerrain* terrain) {
@@ -63,7 +74,7 @@ void TerrainContourRenderer::Rebuild(cISTETerrain* terrain) {
     if (verticesX < 2 || verticesZ < 2) return;
 
     const size_t totalVertices = static_cast<size_t>(verticesX) * verticesZ;
-    std::vector<float> heights(totalVertices, 0.0f);
+    std::vector heights(totalVertices, 0.0f);
 
     float minHeight = std::numeric_limits<float>::max();
     float maxHeight = std::numeric_limits<float>::lowest();
@@ -71,30 +82,30 @@ void TerrainContourRenderer::Rebuild(cISTETerrain* terrain) {
     for (uint32_t z = 0; z < verticesZ; ++z) {
         for (uint32_t x = 0; x < verticesX; ++x) {
             const float h = terrain->GetAltitudeAtVertex(static_cast<int>(x), static_cast<int>(z));
-            heights[static_cast<size_t>(z) * verticesX + x] = h;
+            heights[z * verticesX + x] = h;
             minHeight = std::min(minHeight, h);
             maxHeight = std::max(maxHeight, h);
         }
     }
 
-    if (!(maxHeight > minHeight + intervalMeters_ * 0.25f)) return;
+    if (!(maxHeight > minHeight + config_.intervalMeters * 0.25f)) return;
 
-    const float startLevel = std::floor(minHeight / intervalMeters_) * intervalMeters_;
-    const float endLevel = std::ceil(maxHeight / intervalMeters_) * intervalMeters_;
-    const float majorStep = intervalMeters_ * static_cast<float>(majorEvery_);
+    const float startLevel = std::floor(minHeight / config_.intervalMeters) * config_.intervalMeters;
+    const float endLevel = std::ceil(maxHeight / config_.intervalMeters) * config_.intervalMeters;
     const uint32_t cellsX = verticesX - 1;
     const uint32_t cellsZ = verticesZ - 1;
 
-    for (float level = startLevel; level <= endLevel + kEdgeEpsilon; level += intervalMeters_) {
-        const bool major = IsMajorLevel_(level, majorStep);
-        const float thickness = major ? kMajorThickness : kMinorThickness;
+    int contourIndex = 0;
+    for (float level = startLevel; level <= endLevel + kEdgeEpsilon; level += config_.intervalMeters, ++contourIndex) {
+        const bool major = IsMajorLevel_(level, contourIndex, config_);
+        const float thickness = major ? config_.majorThickness : config_.minorThickness;
         const std::string majorLabelText = major ? FormatLevelLabel_(level) : std::string{};
         int majorSegmentCounter = 0;
 
         const float normalized = (maxHeight > minHeight)
             ? std::clamp((level - minHeight) / (maxHeight - minHeight), 0.0f, 1.0f)
             : 0.5f;
-        const DWORD color = ContourColor_(normalized, major);
+        const DWORD color = ContourColor_(normalized, major, config_);
 
         for (uint32_t tz = 0; tz < cellsZ; ++tz) {
             for (uint32_t tx = 0; tx < cellsX; ++tx) {
@@ -215,8 +226,12 @@ void TerrainContourRenderer::Rebuild(cISTETerrain* terrain) {
         }
     }
 
-    LOG_DEBUG("TerrainContourRenderer: rebuilt contour map (interval={}m majorEvery={} labels={})",
-              intervalMeters_, majorEvery_, labelAnchors_.size());
+    LOG_DEBUG("TerrainContourRenderer: rebuilt contour map (interval={}m minor-thickness={} major-thickness={} major-lines-by={} labels={})",
+              config_.intervalMeters,
+              config_.minorThickness,
+              config_.majorThickness,
+              config_.majorLineMode == ContourMajorLineMode::EveryNth ? "every-nth" : "height-step",
+              labelAnchors_.size());
 }
 
 void TerrainContourRenderer::ClearAll() {
@@ -224,7 +239,39 @@ void TerrainContourRenderer::ClearAll() {
     labelAnchors_.clear();
 }
 
-DWORD TerrainContourRenderer::ContourColor_(const float normalizedHeight, const bool major) {
+bool TerrainContourRenderer::ValidateConfig_(const ContourRenderConfig& config, std::string* error) {
+    if (config.intervalMeters <= 0.0f) {
+        if (error) *error = "--interval must be > 0.";
+        return false;
+    }
+    if (config.minorThickness <= 0.0f) {
+        if (error) *error = "--minor-thickness must be > 0.";
+        return false;
+    }
+    if (config.majorThickness <= 0.0f) {
+        if (error) *error = "--major-thickness must be > 0.";
+        return false;
+    }
+    if (config.minorOpacity < 0.0f || config.minorOpacity > 1.0f) {
+        if (error) *error = "--minor-opacity must be in the range 0..1.";
+        return false;
+    }
+    if (config.majorOpacity < 0.0f || config.majorOpacity > 1.0f) {
+        if (error) *error = "--major-opacity must be in the range 0..1.";
+        return false;
+    }
+    if (config.majorEvery < 1) {
+        if (error) *error = "--major-every must be >= 1.";
+        return false;
+    }
+    if (config.majorHeightStepMeters <= 0.0f) {
+        if (error) *error = "--major-height-step must be > 0.";
+        return false;
+    }
+    return true;
+}
+
+DWORD TerrainContourRenderer::ContourColor_(const float normalizedHeight, const bool major, const ContourRenderConfig& config) {
     constexpr uint32_t lowColor = 0x5C67C8;  // blue
     constexpr uint32_t midColor = 0x66A45F;  // green
     constexpr uint32_t highColor = 0xC39B6A; // tan
@@ -240,7 +287,8 @@ DWORD TerrainContourRenderer::ContourColor_(const float normalizedHeight, const 
         return LerpColor_(highColor, peakColor, (normalizedHeight - 0.66f) / 0.34f);
     }();
 
-    const uint8_t alpha = major ? 235u : 165u;
+    const float opacity = std::clamp(major ? config.majorOpacity : config.minorOpacity, 0.0f, 1.0f);
+    const uint8_t alpha = static_cast<uint8_t>(std::round(opacity * 255.0f));
     return (static_cast<DWORD>(alpha) << 24)
         | (static_cast<DWORD>((rgb >> 16) & 0xFFu) << 16)
         | (static_cast<DWORD>((rgb >> 8) & 0xFFu) << 8)
@@ -264,9 +312,12 @@ uint32_t TerrainContourRenderer::LerpColor_(const uint32_t a, const uint32_t b, 
     return (rr << 16) | (rg << 8) | rb;
 }
 
-bool TerrainContourRenderer::IsMajorLevel_(const float level, const float majorStep) {
-    if (majorStep <= 0.0f) return true;
+bool TerrainContourRenderer::IsMajorLevel_(const float level, const int contourIndex, const ContourRenderConfig& config) {
+    if (config.majorLineMode == ContourMajorLineMode::EveryNth) {
+        return contourIndex % std::max(1, config.majorEvery) == 0;
+    }
 
+    const float majorStep = config.majorHeightStepMeters;
     const float nearestMajor = std::round(level / majorStep) * majorStep;
     const float epsilon = std::max(0.0005f, majorStep * 0.001f);
     return std::abs(level - nearestMajor) <= epsilon;
@@ -315,7 +366,7 @@ void TerrainContourRenderer::TryAddLabelAnchor_(const std::string& text,
     const float midX = (x0 + x1) * 0.5f;
     const float midZ = (z0 + z1) * 0.5f;
 
-    const bool tooClose = std::any_of(labelAnchors_.begin(), labelAnchors_.end(), [&](const LabelAnchor& a) {
+    const bool tooClose = std::ranges::any_of(labelAnchors_, [&](const LabelAnchor& a) {
         const float sx = a.worldX - midX;
         const float sz = a.worldZ - midZ;
         return (sx * sx + sz * sz) < (kMinLabelAnchorSpacing * kMinLabelAnchorSpacing);
@@ -336,7 +387,7 @@ bool TerrainContourRenderer::IntersectEdge_(const float level, const float hA, c
     const float dA = hA - level;
     const float dB = hB - level;
 
-    // Skip fully flat edges exactly on contour to avoid heavy duplicate geometry.
+    // Skip fully flat edges exactly on the contour to avoid heavy duplicate geometry.
     if (std::abs(dA) < kEdgeEpsilon && std::abs(dB) < kEdgeEpsilon) {
         return false;
     }

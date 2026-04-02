@@ -24,6 +24,7 @@ class cISC4View3DWin;
 class cIGZWinMgr;
 class SnapshotPanel;
 class SnapshotDragTool;
+class ContourMapTool;
 struct IDirect3DDevice7;
 
 class TerrainExtensionsDllDirector final : public cRZMessage2COMDirector {
@@ -69,6 +70,7 @@ private:
     SnapshotManager        snapshotManager_;
     SnapshotPreviewRenderer snapshotRenderer_;
     std::unique_ptr<SnapshotPanel> snapshotPanel_;
+    std::unique_ptr<ContourMapTool> contourCommand_;
     SnapshotDragTool*      snapshotDragTool_{nullptr}; // Owned by dragToolManager_
     bool                   snapshotPanelRegistered_{false};
     bool                   snapshotPanelVisible_{false};

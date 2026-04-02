@@ -62,7 +62,7 @@ static constexpr std::string_view kTerrainExtensionsBridgeCheatString = "bridgeb
 static constexpr uint32_t kTerrainExtensionsSnapshotCheatID = 0x7E5A9B00;
 static constexpr std::string_view kTerrainExtensionsSnapshotCheatString = "terrainsnap";
 static constexpr uint32_t kTerrainExtensionsContourCheatID = 0x7E5A9B10;
-static constexpr std::string_view kTerrainExtensionsContourCheatString = "contourmap";
+static constexpr std::string_view kTerrainExtensionsContourCheatString = "contour";
 static constexpr uint32_t kSC4MessageCheatIssued = 0x230E27AC;
 static constexpr uint32_t kSC4MessagePostCityInit = 0x26D31EC1;
 static constexpr uint32_t kSC4MessagePreCityShutdown = 0x26D31EC2;
@@ -302,6 +302,7 @@ void TerrainExtensionsDllDirector::PostCityInit_(
 
     // Register independent contour renderer (not tied to snapshot panel)
     overlayDrawManager_.Register(&contourRenderer_);
+    contourCommand_ = std::make_unique<ContourMapTool>(pTerrain, contourRenderer_);
 
     // Set up snapshot panel
     if (imguiService_ && pTerrain) {
@@ -342,7 +343,6 @@ void TerrainExtensionsDllDirector::SetUpCommandTools_(
     toolRegistry_.RegisterTool(std::make_unique<BlueprintCaptureTool>(pTerrain, pCity));
     toolRegistry_.RegisterTool(std::make_unique<BlueprintExportTool>(pTerrain));
     toolRegistry_.RegisterTool(std::make_unique<BlueprintStampTool>(pTerrain, pCity));
-    toolRegistry_.RegisterTool(std::make_unique<ContourMapTool>(pTerrain, contourRenderer_));
 
     toolRegistry_.ListTools();
     LOG_DEBUG("Command tools setup complete.");
@@ -382,6 +382,7 @@ void TerrainExtensionsDllDirector::PreCityShutdown_(
     snapshotManager_.Clear();
     snapshotRenderer_.ClearAll();
     contourRenderer_.SetEnabled(false, nullptr);
+    contourCommand_.reset();
     overlayDrawManager_.Unregister(&snapshotRenderer_);
     overlayDrawManager_.Unregister(&contourRenderer_);
     snapshotDragTool_ = nullptr;
@@ -403,6 +404,10 @@ void TerrainExtensionsDllDirector::ProcessCheat_(
     cIGZMessage2Standard* pStandardMsg)
 {
     const auto cheatID = static_cast<uint32_t>(pStandardMsg->GetData1());
+    const auto* pCheatString =
+        static_cast<const cIGZString*>(pStandardMsg->GetVoid2());
+    const std::string_view cheatStringView(
+        pCheatString->Data(), pCheatString->Strlen());
 
     // Handle snapshot panel toggle
     if (cheatID == kTerrainExtensionsSnapshotCheatID) {
@@ -418,11 +423,16 @@ void TerrainExtensionsDllDirector::ProcessCheat_(
         return;
     }
 
-    // Handle full-map contour overlay toggle
+    // Handle top-level contour command
     if (cheatID == kTerrainExtensionsContourCheatID) {
-        const bool enableContours = !contourRenderer_.IsEnabled();
-        contourRenderer_.SetEnabled(enableContours, city_ ? city_->GetTerrain() : nullptr);
-        LOG_INFO("Contour map {}", enableContours ? "enabled" : "disabled");
+        if (contourCommand_) {
+            const auto result = contourCommand_->ExecuteCommand(SplitString_(std::string(cheatStringView)));
+            if (!result.title.empty() && !result.message.empty()) {
+                ShowMessageBox_(result.title, result.message);
+            }
+        } else {
+            ShowMessageBox_("Contour error", "Contour commands are not available right now.");
+        }
         return;
     }
 
@@ -436,11 +446,6 @@ void TerrainExtensionsDllDirector::ProcessCheat_(
 
     // Fall through to earthbender CLI
     if (cheatID != kTerrainExtensionsCheatID) return;
-
-    const auto* pCheatString =
-        static_cast<const cIGZString*>(pStandardMsg->GetVoid2());
-    const std::string_view cheatStringView(
-        pCheatString->Data(), pCheatString->Strlen());
 
     LOG_INFO("Cheat: {} (ID: 0x{:X})", cheatStringView.data(), cheatID);
 

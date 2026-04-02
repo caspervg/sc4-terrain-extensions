@@ -7,6 +7,22 @@
 
 class cISTETerrain;
 
+enum class ContourMajorLineMode {
+    EveryNth,
+    HeightStep
+};
+
+struct ContourRenderConfig {
+    float intervalMeters{5.0f};
+    float minorThickness{0.90f};
+    float majorThickness{1.70f};
+    float minorOpacity{0.72f};
+    float majorOpacity{0.96f};
+    ContourMajorLineMode majorLineMode{ContourMajorLineMode::EveryNth};
+    int majorEvery{5};
+    float majorHeightStepMeters{25.0f};
+};
+
 class TerrainContourRenderer : public OverlayRenderer {
 public:
     struct LabelAnchor {
@@ -21,11 +37,10 @@ public:
     void SetEnabled(bool enabled, cISTETerrain* terrain);
     [[nodiscard]] bool IsEnabled() const { return enabled_; }
 
-    void SetIntervalMeters(float intervalMeters);
-    [[nodiscard]] float GetIntervalMeters() const { return intervalMeters_; }
-
-    void SetMajorEvery(int majorEvery);
-    [[nodiscard]] int GetMajorEvery() const { return majorEvery_; }
+    [[nodiscard]] const ContourRenderConfig& GetConfig() const { return config_; }
+    bool SetConfig(const ContourRenderConfig& config, cISTETerrain* terrain,
+                   bool rebuildIfEnabled = true, std::string* error = nullptr);
+    bool ResetConfig(cISTETerrain* terrain, bool rebuildIfEnabled = true, std::string* error = nullptr);
 
     void Rebuild(cISTETerrain* terrain);
     void ClearAll();
@@ -34,15 +49,14 @@ public:
 private:
     static constexpr float kTileSize = 16.0f;
     static constexpr float kHeightOffset = 0.25f;
-    static constexpr float kMinorThickness = 0.58f;
-    static constexpr float kMajorThickness = 1.15f;
     static constexpr float kLabelHeightOffset = 0.30f;
     static constexpr float kLabelMinSegmentLength = 8.0f;
     static constexpr int kLabelEveryMajorSegments = 8;
 
-    static DWORD ContourColor_(float normalizedHeight, bool major);
+    static bool ValidateConfig_(const ContourRenderConfig& config, std::string* error = nullptr);
+    static DWORD ContourColor_(float normalizedHeight, bool major, const ContourRenderConfig& config);
     static uint32_t LerpColor_(uint32_t a, uint32_t b, float t);
-    static bool IsMajorLevel_(float level, float majorStep);
+    static bool IsMajorLevel_(float level, int contourIndex, const ContourRenderConfig& config);
     static std::string FormatLevelLabel_(float levelMeters);
     static bool IntersectEdge_(float level, float hA, float hB, float xA, float zA, float xB, float zB,
                                float& outX, float& outZ);
@@ -51,7 +65,6 @@ private:
 
 private:
     bool enabled_{false};
-    float intervalMeters_{5.0f};
-    int majorEvery_{5};
+    ContourRenderConfig config_{};
     std::vector<LabelAnchor> labelAnchors_{};
 };

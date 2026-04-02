@@ -1,32 +1,31 @@
 #pragma once
 
-#include <memory>
+#include <string>
+#include <vector>
 
-#include "TerrainTool.hpp"
-
+class cISTETerrain;
 class TerrainContourRenderer;
 
-class ContourMapTool : public TerrainTool {
+class ContourMapTool {
 public:
+    struct CommandResult {
+        bool ok{true};
+        std::string title{};
+        std::string message{};
+    };
+
     ContourMapTool(cISTETerrain* terrain, TerrainContourRenderer& renderer);
-    ~ContourMapTool() override = default;
 
-    void RegisterArguments(args::Group& commands) override;
-    bool ShouldExecute(const args::ArgumentParser& parser) const override;
-    void Execute(const args::ArgumentParser& parser) override;
-
-    const char* GetName() const override;
-    const char* GetDescription() const override;
-    const char* GetUsage() const override;
+    CommandResult ExecuteCommand(const std::vector<std::string>& tokens);
+    void SetTerrain(cISTETerrain* terrain);
 
 private:
-    TerrainContourRenderer& renderer_;
+    [[nodiscard]] std::string BuildHelpText_() const;
+    [[nodiscard]] std::string BuildStatusText_() const;
+    [[nodiscard]] static std::string FormatFloat_(float value, int precision = 2);
+    [[nodiscard]] static std::string ToLower_(std::string value);
 
-    std::unique_ptr<args::Command> mCommand;
-    std::unique_ptr<args::Flag> mOn;
-    std::unique_ptr<args::Flag> mOff;
-    std::unique_ptr<args::Flag> mToggle;
-    std::unique_ptr<args::ValueFlag<float>> mIntervalMeters;
-    std::unique_ptr<args::ValueFlag<int>> mMajorEvery;
-    std::unique_ptr<args::Flag> mRefresh;
+private:
+    cISTETerrain* terrain_{};
+    TerrainContourRenderer& renderer_;
 };
