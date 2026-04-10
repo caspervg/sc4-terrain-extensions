@@ -131,6 +131,8 @@ list(REMOVE_ITEM PROJECT_SOURCES
     "${CMAKE_SOURCE_DIR}/src/tools/BlueprintCaptureTool.cpp"
     "${CMAKE_SOURCE_DIR}/src/tools/BlueprintExportTool.cpp"
     "${CMAKE_SOURCE_DIR}/src/tools/BlueprintStampTool.cpp"
+    "${CMAKE_SOURCE_DIR}/src/tools/SlopeMapTool.cpp"
+    "${CMAKE_SOURCE_DIR}/src/viz/TerrainSlopeRenderer.cpp"
 )
 list(APPEND PROJECT_SOURCES "${CMAKE_SOURCE_DIR}/src/version.rc")
 set(SC4_DLL_DEF "${CMAKE_SOURCE_DIR}/SC4TerrainExtensions.def")

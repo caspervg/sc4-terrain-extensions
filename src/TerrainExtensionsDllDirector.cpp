@@ -27,6 +27,8 @@
 #include "tools/BlueprintExportTool.cpp"
 #include "tools/BlueprintStampTool.cpp"
 #include "tools/ContourMapTool.hpp"
+#include "tools/SlopeMapTool.hpp"
+#include "tools/SlopeMapTool.cpp"
 
 #include "tools/bridge/BridgeApproachDragTool.hpp"
 
@@ -52,6 +54,7 @@
 
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "public/cIGZDrawService.h"
+#include "viz/TerrainSlopeRenderer.cpp"
 
 
 static constexpr uint32_t kTerrainExtensionsDirectorID     = 0x2099E7AB; // your actual ID
@@ -63,6 +66,8 @@ static constexpr uint32_t kTerrainExtensionsSnapshotCheatID = 0x7E5A9B00;
 static constexpr std::string_view kTerrainExtensionsSnapshotCheatString = "terrainsnap";
 static constexpr uint32_t kTerrainExtensionsContourCheatID = 0x7E5A9B10;
 static constexpr std::string_view kTerrainExtensionsContourCheatString = "contour";
+static constexpr uint32_t kTerrainExtensionsSlopeCheatID = 0x7E5A9B20;
+static constexpr std::string_view kTerrainExtensionsSlopeCheatString = "slope";
 static constexpr uint32_t kSC4MessageCheatIssued = 0x230E27AC;
 static constexpr uint32_t kSC4MessagePostCityInit = 0x26D31EC1;
 static constexpr uint32_t kSC4MessagePreCityShutdown = 0x26D31EC2;
@@ -256,6 +261,10 @@ void TerrainExtensionsDllDirector::PostCityInit_(
             kTerrainExtensionsContourCheatID,
             cRZBaseString(kTerrainExtensionsContourCheatString.data(),
                           kTerrainExtensionsContourCheatString.size()));
+        cheatCodeManager_->RegisterCheatCode(
+            kTerrainExtensionsSlopeCheatID,
+            cRZBaseString(kTerrainExtensionsSlopeCheatString.data(),
+                          kTerrainExtensionsSlopeCheatString.size()));
     } else {
         LOG_ERROR("PostCityInit: cheat code manager not initialized");
     }
@@ -281,7 +290,7 @@ void TerrainExtensionsDllDirector::PostCityInit_(
         {
             LOG_INFO("Acquired Draw service");
             if (drawService_->RegisterDrawPassCallback(
-                    DrawServicePass::PreDynamic,
+                    DrawServicePass::PostDynamic,
                     &DrawOverlayCallback_, this,
                     &drawCallbackToken_))
             {
@@ -303,6 +312,8 @@ void TerrainExtensionsDllDirector::PostCityInit_(
     // Register independent contour renderer (not tied to snapshot panel)
     overlayDrawManager_.Register(&contourRenderer_);
     contourCommand_ = std::make_unique<ContourMapTool>(pTerrain, contourRenderer_);
+    overlayDrawManager_.Register(&slopeRenderer_);
+    slopeCommand_ = std::make_unique<SlopeMapTool>(pTerrain, slopeRenderer_);
 
     // Set up snapshot panel
     if (imguiService_ && pTerrain) {
@@ -383,8 +394,11 @@ void TerrainExtensionsDllDirector::PreCityShutdown_(
     snapshotRenderer_.ClearAll();
     contourRenderer_.SetEnabled(false, nullptr);
     contourCommand_.reset();
+    slopeRenderer_.SetEnabled(false, nullptr);
+    slopeCommand_.reset();
     overlayDrawManager_.Unregister(&snapshotRenderer_);
     overlayDrawManager_.Unregister(&contourRenderer_);
+    overlayDrawManager_.Unregister(&slopeRenderer_);
     snapshotDragTool_ = nullptr;
 
     if (drawService_ && drawCallbackToken_) {
@@ -432,6 +446,18 @@ void TerrainExtensionsDllDirector::ProcessCheat_(
             }
         } else {
             ShowMessageBox_("Contour error", "Contour commands are not available right now.");
+        }
+        return;
+    }
+
+    if (cheatID == kTerrainExtensionsSlopeCheatID) {
+        if (slopeCommand_) {
+            const auto result = slopeCommand_->ExecuteCommand(SplitString_(std::string(cheatStringView)));
+            if (!result.title.empty() && !result.message.empty()) {
+                ShowMessageBox_(result.title, result.message);
+            }
+        } else {
+            ShowMessageBox_("Slope error", "Slope commands are not available right now.");
         }
         return;
     }
@@ -550,13 +576,19 @@ bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
 void TerrainExtensionsDllDirector::DrawOverlayCallback_(
     const DrawServicePass pass, const bool begin, void* pThis)
 {
-    if (pass != DrawServicePass::PreDynamic || begin) return;
+    if (pass != DrawServicePass::PostDynamic || begin) return;
 
     const auto pDirector = static_cast<TerrainExtensionsDllDirector*>(pThis);
     IDirect3DDevice7* device = nullptr;
     IDirectDraw7*     dd     = nullptr;
 
     if (pDirector->imguiService_->AcquireD3DInterfaces(&device, &dd)) {
+        if (pDirector->city_ && pDirector->cameraService_) {
+            pDirector->slopeRenderer_.UpdateView(
+                pDirector->city_->GetTerrain(),
+                pDirector->cameraService_,
+                device);
+        }
         pDirector->overlayDrawManager_.DrawAll(device);
         device->Release();
         dd->Release();

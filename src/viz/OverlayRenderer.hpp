@@ -6,6 +6,7 @@
 #include <vector>
 
 struct IDirect3DDevice7;
+struct IDirectDrawSurface7;
 
 struct OverlayVertex {
     float x, y, z;
@@ -32,10 +33,50 @@ private:
     struct SavedRenderState {
         DWORD zEnable;
         DWORD zWrite;
+        DWORD zFunc;
         DWORD lighting;
+        DWORD fogEnable;
+        DWORD rangeFogEnable;
         DWORD alphaBlend;
+        DWORD alphaTest;
+        DWORD alphaFunc;
+        DWORD alphaRef;
+        DWORD stencilEnable;
+        DWORD srcBlend;
+        DWORD dstBlend;
         DWORD cullMode;
         DWORD zBias;
+        DWORD tss0ColorOp;
+        DWORD tss0ColorArg1;
+        DWORD tss0AlphaOp;
+        DWORD tss0AlphaArg1;
+        DWORD tss1ColorOp;
+        DWORD tss1AlphaOp;
+        IDirectDrawSurface7* texture0;
+        IDirectDrawSurface7* texture1;
+        bool okZEnable;
+        bool okZWrite;
+        bool okZFunc;
+        bool okLighting;
+        bool okFogEnable;
+        bool okRangeFogEnable;
+        bool okAlphaBlend;
+        bool okAlphaTest;
+        bool okAlphaFunc;
+        bool okAlphaRef;
+        bool okStencilEnable;
+        bool okSrcBlend;
+        bool okDstBlend;
+        bool okCullMode;
+        bool okZBias;
+        bool okTexture0;
+        bool okTexture1;
+        bool okTss0ColorOp;
+        bool okTss0ColorArg1;
+        bool okTss0AlphaOp;
+        bool okTss0AlphaArg1;
+        bool okTss1ColorOp;
+        bool okTss1AlphaOp;
     };
 
     Layer& GetOrCreateLayer_(uint32_t);

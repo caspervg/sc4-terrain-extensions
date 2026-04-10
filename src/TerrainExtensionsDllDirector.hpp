@@ -6,6 +6,7 @@
 #include "core/DragToolManager.hpp"
 #include "viz/OverlayDrawManager.hpp"
 #include "viz/TerrainContourRenderer.hpp"
+#include "viz/TerrainSlopeRenderer.hpp"
 #include "snapshot/SnapshotManager.hpp"
 #include "snapshot/SnapshotPreviewRenderer.hpp"
 
@@ -25,6 +26,7 @@ class cIGZWinMgr;
 class SnapshotPanel;
 class SnapshotDragTool;
 class ContourMapTool;
+class SlopeMapTool;
 struct IDirect3DDevice7;
 
 class TerrainExtensionsDllDirector final : public cRZMessage2COMDirector {
@@ -66,11 +68,13 @@ private:
     DragToolManager     dragToolManager_;
     OverlayDrawManager  overlayDrawManager_;
     TerrainContourRenderer contourRenderer_;
+    TerrainSlopeRenderer slopeRenderer_;
 
     SnapshotManager        snapshotManager_;
     SnapshotPreviewRenderer snapshotRenderer_;
     std::unique_ptr<SnapshotPanel> snapshotPanel_;
     std::unique_ptr<ContourMapTool> contourCommand_;
+    std::unique_ptr<SlopeMapTool> slopeCommand_;
     SnapshotDragTool*      snapshotDragTool_{nullptr}; // Owned by dragToolManager_
     bool                   snapshotPanelRegistered_{false};
     bool                   snapshotPanelVisible_{false};

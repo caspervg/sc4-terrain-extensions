@@ -21,7 +21,7 @@ struct ContourPoint {
 
 constexpr float kEdgeEpsilon = 1e-5f;
 constexpr float kPointDedupEpsilon = 1e-3f;
-constexpr size_t kMaxLabelAnchors = 220;
+constexpr size_t kMaxLabelAnchors = 256;
 constexpr float kMinLabelAnchorSpacing = 96.0f; // world units
 
 void TrimTrailingZeros(std::string& numeric) {

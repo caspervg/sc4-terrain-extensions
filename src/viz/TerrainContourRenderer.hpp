@@ -51,7 +51,7 @@ private:
     static constexpr float kHeightOffset = 0.25f;
     static constexpr float kLabelHeightOffset = 0.30f;
     static constexpr float kLabelMinSegmentLength = 8.0f;
-    static constexpr int kLabelEveryMajorSegments = 8;
+    static constexpr int kLabelEveryMajorSegments = 2;
 
     static bool ValidateConfig_(const ContourRenderConfig& config, std::string* error = nullptr);
     static DWORD ContourColor_(float normalizedHeight, bool major, const ContourRenderConfig& config);
