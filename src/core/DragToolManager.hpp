@@ -6,15 +6,15 @@
 #include "IDragTool.hpp"
 #include "viz/OverlayDrawManager.hpp"
 
-
 class cISC4City;
 class cISC4View3DWin;
+class SnapshotManager;
 
 class DragToolManager {
 public:
     void Register(std::unique_ptr<IDragTool> tool);
 
-    bool TryActivate(uint32_t cheatId, cISC4City*, cISC4View3DWin*, cIGZWinMgr*, cIGZImGuiService*, OverlayDrawManager&);
+    bool TryActivate(uint32_t cheatId, cISC4City*, cISC4View3DWin*, cIGZWinMgr*, cIGZImGuiService*, OverlayDrawManager&, SnapshotManager* snapshots = nullptr);
 
     void DeactivateAll();
     void Clear();

@@ -81,6 +81,7 @@ void BridgeExecutingState::OnEnter(StatefulDragViewInputControl& ctrl) {
 	const auto grade = settings_.grade.value;
 	const auto width = static_cast<float>(widthTiles);
 
+	ctrl.FireBeforeExecute();
 	BridgeApproachTool tool(ctrl.GetTerrain());
 	tool.CreateBridgeApproaches(
 		placement->bridgeStartX, placement->bridgeStartZ,

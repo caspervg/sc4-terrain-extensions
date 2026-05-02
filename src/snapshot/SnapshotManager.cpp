@@ -4,7 +4,12 @@
 #include "utils/Logger.h"
 
 bool SnapshotManager::Capture(cISTETerrain* terrain, const std::string& name, const std::string& desc) {
-	if (!terrain || IsFull()) return false;
+	if (!terrain) return false;
+
+	if (IsFull()) {
+		LOG_DEBUG("SnapshotManager: buffer full, evicting oldest snapshot ('{}')", snapshots_[0].name);
+		Remove(0);
+	}
 
 	const uint32_t cx = terrain->CellCountX() + 1;
 	const uint32_t cz = terrain->CellCountZ() + 1;

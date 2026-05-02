@@ -3,6 +3,7 @@
 #include <utils/Logger.h>
 
 #include "cISC4City.h"
+#include "snapshot/SnapshotManager.hpp"
 #include "BridgeDragState.hpp"
 #include "controls/InactiveState.hpp"
 #include "controls/StatefulDragViewInputControl.hpp"
@@ -65,7 +66,8 @@ void BridgeApproachDragTool::Activate(
 	cISC4View3DWin* view3d,
 	cIGZWinMgr* windowMgr,
 	cIGZImGuiService* imguiService,
-	OverlayDrawManager& drawMgr)
+	OverlayDrawManager& drawMgr,
+	SnapshotManager* snapshots)
 {
 	if (!city || !view3d || !windowMgr) {
 		LOG_ERROR("BridgeApproachDragTool::Activate: missing city/view3d/windowMgr");
@@ -103,6 +105,13 @@ void BridgeApproachDragTool::Activate(
 		}
 		view3d_ = nullptr;
 	});
+	if (snapshots) {
+		control_->SetBeforeExecuteCallback([snapshots, terrain]() {
+			if (!snapshots->IsAutoCaptureEnabled()) return;
+			snapshots->Capture(terrain, "Before bridge",
+				"Auto-captured before bridge approach operation");
+		});
+	}
 	control_->Activate();
 
 	view3d->SetCurrentViewInputControl(

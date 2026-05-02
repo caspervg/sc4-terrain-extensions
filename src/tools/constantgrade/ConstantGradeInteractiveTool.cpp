@@ -6,6 +6,7 @@
 #include "cIGZWinMgr.h"
 #include "controls/InactiveState.hpp"
 #include "controls/StatefulDragViewInputControl.hpp"
+#include "snapshot/SnapshotManager.hpp"
 #include "states/ConstantGradeExecutingState.hpp"
 #include "states/ConstantGradeHoveringState.hpp"
 #include "states/ConstantGradeSelectingState.hpp"
@@ -59,7 +60,8 @@ void ConstantGradeInteractiveTool::Activate(
     cISC4View3DWin* view3d,
     cIGZWinMgr* windowMgr,
     cIGZImGuiService*,
-    OverlayDrawManager& drawMgr) {
+    OverlayDrawManager& drawMgr,
+    SnapshotManager* snapshots) {
     if (!city || !view3d || !windowMgr) {
         LOG_ERROR("ConstantGradeInteractiveTool::Activate: missing city/view3d/windowMgr");
         return;
@@ -95,9 +97,20 @@ void ConstantGradeInteractiveTool::Activate(
     control_->SetOwnerDeactivateCallback([this]() {
         if (renderer_) {
             renderer_->ClearAll();
+            if (drawMgr_) {
+                drawMgr_->Unregister(renderer_.get());
+                drawMgr_ = nullptr;
+            }
         }
         view3d_ = nullptr;
     });
+    if (snapshots) {
+        control_->SetBeforeExecuteCallback([snapshots, terrain]() {
+            if (!snapshots->IsAutoCaptureEnabled()) return;
+            snapshots->Capture(terrain, "Before grade",
+                "Auto-captured before constant grade operation");
+        });
+    }
     control_->Activate();
 
     view3d->SetCurrentViewInputControl(

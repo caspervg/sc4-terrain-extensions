@@ -6,11 +6,14 @@
 #include "cIGZWinMgr.h"
 #include "controls/InactiveState.hpp"
 #include "controls/StatefulDragViewInputControl.hpp"
+#include "snapshot/SnapshotManager.hpp"
 #include "states/FlattenExecutingState.hpp"
 #include "states/FlattenHoveringState.hpp"
 #include "states/FlattenSelectingState.hpp"
 #include "utils/Logger.h"
 #include "viz/OverlayDrawManager.hpp"
+
+#include <format>
 
 namespace {
 class FlattenViewInputControl final : public StatefulDragViewInputControl {
@@ -59,7 +62,8 @@ void FlattenInteractiveTool::Activate(
     cISC4View3DWin* view3d,
     cIGZWinMgr* windowMgr,
     cIGZImGuiService*,
-    OverlayDrawManager& drawMgr) {
+    OverlayDrawManager& drawMgr,
+    SnapshotManager* snapshots) {
     if (!city || !view3d || !windowMgr) {
         LOG_ERROR("FlattenInteractiveTool::Activate: missing city/view3d/windowMgr");
         return;
@@ -102,6 +106,13 @@ void FlattenInteractiveTool::Activate(
         }
         view3d_ = nullptr;
     });
+    if (snapshots) {
+        control_->SetBeforeExecuteCallback([snapshots, terrain]() {
+            if (!snapshots->IsAutoCaptureEnabled()) return;
+            snapshots->Capture(terrain, "Before flatten",
+                "Auto-captured before flatten operation");
+        });
+    }
     control_->Activate();
 
     view3d->SetCurrentViewInputControl(

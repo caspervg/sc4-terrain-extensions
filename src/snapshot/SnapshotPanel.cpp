@@ -48,7 +48,7 @@ void SnapshotPanel::RenderCaptureSection_() {
 	ImGui::PopItemWidth();
 	ImGui::SameLine();
 
-	const bool canCapture = !mgr_.IsFull() && terrain_ && nameBuffer_[0] != '\0';
+	const bool canCapture = terrain_ && nameBuffer_[0] != '\0';
 	if (!canCapture) ImGui::BeginDisabled();
 	if (ImGui::Button("Save")) {
 		if (mgr_.Capture(terrain_, nameBuffer_, descBuffer_)) {
@@ -58,9 +58,12 @@ void SnapshotPanel::RenderCaptureSection_() {
 	}
 	if (!canCapture) ImGui::EndDisabled();
 
-	if (mgr_.IsFull()) {
-		ImGui::SameLine();
-		ImGui::TextColored(ImVec4(1, 0.6f, 0.2f, 1), "(full)");
+	ImGui::SameLine();
+	ImGui::TextDisabled("%zu/%zu", mgr_.Count(), SnapshotManager::kMaxSnapshots);
+
+	bool autoCapture = mgr_.IsAutoCaptureEnabled();
+	if (ImGui::Checkbox("Auto-snapshot on tool use", &autoCapture)) {
+		mgr_.SetAutoCapture(autoCapture);
 	}
 
 	ImGui::Separator();
@@ -87,6 +90,9 @@ void SnapshotPanel::RenderSnapshotActions_(int index) {
 
 	// Row: name + time, then action buttons below
 	ImGui::TextUnformatted(snap->name.c_str());
+	if (!snap->description.empty() && ImGui::IsItemHovered()) {
+		ImGui::SetTooltip("%s", snap->description.c_str());
+	}
 	ImGui::SameLine();
 	ImGui::TextDisabled("%s", FormatTimestamp_(snap->timestamp).c_str());
 

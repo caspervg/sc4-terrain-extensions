@@ -316,6 +316,10 @@ void TerrainExtensionsDllDirector::PostCityInit_(
     overlayDrawManager_.Register(&slopeRenderer_);
     slopeCommand_ = std::make_unique<SlopeMapTool>(pTerrain, slopeRenderer_);
 
+    // Capture the pristine city-load state before any tools run
+    snapshotManager_.Capture(pTerrain, "City load",
+        "Initial terrain state captured at city load");
+
     // Set up snapshot panel
     if (imguiService_ && pTerrain) {
         // Register the snapshot renderer permanently so preview works from the panel
@@ -427,10 +431,6 @@ void TerrainExtensionsDllDirector::ProcessCheat_(
     // Handle snapshot panel toggle
     if (cheatID == kTerrainExtensionsSnapshotCheatID) {
         if (imguiService_ && snapshotPanelRegistered_) {
-            // Auto-capture initial snapshot on first activation
-            if (snapshotManager_.Count() == 0 && city_) {
-                snapshotManager_.Capture(city_->GetTerrain(), "Initial terrain");
-            }
             snapshotPanelVisible_ = !snapshotPanelVisible_;
             imguiService_->SetPanelVisible(SnapshotPanel::kPanelId, snapshotPanelVisible_);
             LOG_INFO("Snapshot panel {}", snapshotPanelVisible_ ? "shown" : "hidden");
@@ -466,7 +466,7 @@ void TerrainExtensionsDllDirector::ProcessCheat_(
     // Try drag tools first — each tool knows its own cheat ID
     if (dragToolManager_.TryActivate(
             cheatID, city_, view3d_, winMgr_,
-            imguiService_, overlayDrawManager_))
+            imguiService_, overlayDrawManager_, &snapshotManager_))
     {
         return;
     }
@@ -531,30 +531,22 @@ bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
         LOG_INFO("Terrain catalog item 0x{:08X}: activating flatten tool", itemId);
         return dragToolManager_.TryActivate(
             TerrainCatalogHook::ItemId::Flatten,
-            city_,
-            view3d_,
-            winMgr_,
-            imguiService_,
-            overlayDrawManager_);
+            city_, view3d_, winMgr_, imguiService_,
+            overlayDrawManager_, &snapshotManager_);
 
     case TerrainCatalogHook::ItemId::BridgeApproach:
         LOG_INFO("Terrain catalog item 0x{:08X}: activating bridge approach tool", itemId);
         return dragToolManager_.TryActivate(
             kTerrainExtensionsBridgeCheatID,
-            city_,
-            view3d_,
-            winMgr_,
-            imguiService_,
-            overlayDrawManager_);
+            city_, view3d_, winMgr_, imguiService_,
+            overlayDrawManager_, &snapshotManager_);
+
     case TerrainCatalogHook::ItemId::ConstantGrade:
         LOG_INFO("Terrain catalog item 0x{:08X}: activating constant grade tool", itemId);
         return dragToolManager_.TryActivate(
             TerrainCatalogHook::ItemId::ConstantGrade,
-            city_,
-            view3d_,
-            winMgr_,
-            imguiService_,
-            overlayDrawManager_);
+            city_, view3d_, winMgr_, imguiService_,
+            overlayDrawManager_, &snapshotManager_);
     case TerrainCatalogHook::ItemId::BlueprintCapture:
     case TerrainCatalogHook::ItemId::BlueprintExport:
     case TerrainCatalogHook::ItemId::BlueprintStamp:

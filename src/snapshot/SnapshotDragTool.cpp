@@ -60,7 +60,8 @@ void SnapshotDragTool::Activate(
 	cISC4View3DWin* view3d,
 	cIGZWinMgr* windowMgr,
 	cIGZImGuiService*,
-	OverlayDrawManager& drawMgr)
+	OverlayDrawManager& drawMgr,
+	SnapshotManager*)
 {
 	ActivateDirect(city, view3d, windowMgr, drawMgr);
 }

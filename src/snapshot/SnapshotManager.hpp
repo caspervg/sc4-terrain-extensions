@@ -26,7 +26,11 @@ public:
     void SetPreviewIndex(int index) { previewIndex_ = index; }
     [[nodiscard]] int GetPreviewIndex() const { return previewIndex_; }
 
+    void SetAutoCapture(bool enabled) { autoCapture_ = enabled; }
+    [[nodiscard]] bool IsAutoCaptureEnabled() const { return autoCapture_; }
+
 private:
     std::vector<TerrainSnapshot> snapshots_;
     int previewIndex_ = -1;
+    bool autoCapture_ = true;
 };

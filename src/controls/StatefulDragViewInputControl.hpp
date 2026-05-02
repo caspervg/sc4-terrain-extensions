@@ -13,12 +13,15 @@ class cRZBaseString;
 class StatefulDragViewInputControl : public cSC4BaseViewInputControl {
 public:
     using DeactivateCallback = std::function<void()>;
+    using BeforeExecuteCallback = std::function<void()>;
 
     StatefulDragViewInputControl(uint32_t controlId, uint32_t cursorId, cISTETerrain* terrain, cIGZWin* window,
                                  cISC4View3DWin* view3D);
 
     void SetDeactivateCallback(DeactivateCallback cb) { onDeactivate_ = std::move(cb); }
     void SetOwnerDeactivateCallback(DeactivateCallback cb) { onOwnerDeactivate_ = std::move(cb); }
+    void SetBeforeExecuteCallback(BeforeExecuteCallback cb) { onBeforeExecute_ = std::move(cb); }
+    void FireBeforeExecute() const { if (onBeforeExecute_) onBeforeExecute_(); }
 
     void RegisterState(std::unique_ptr<IControlState> state);
     void TransitionTo(ControlStateId newId);
@@ -70,4 +73,5 @@ private:
 
     DeactivateCallback onOwnerDeactivate_;
     DeactivateCallback onDeactivate_;
+    BeforeExecuteCallback onBeforeExecute_;
 };

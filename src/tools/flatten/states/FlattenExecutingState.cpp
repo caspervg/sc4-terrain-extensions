@@ -13,6 +13,7 @@ FlattenExecutingState::FlattenExecutingState(
 }
 
 void FlattenExecutingState::OnEnter(StatefulDragViewInputControl& ctrl) {
+    ctrl.FireBeforeExecute();
     if (!operation_.Apply(BuildRequest_())) {
         LOG_WARN("FlattenExecutingState: flatten apply failed");
     }

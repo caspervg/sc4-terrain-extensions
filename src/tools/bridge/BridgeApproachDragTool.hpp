@@ -16,7 +16,7 @@ public:
     [[nodiscard]] const char* GetCheatName() const override { return "bridgebuilder"; }
     [[nodiscard]] const uint32_t GetCheatId() const override { return kCheatId; }
 
-    void Activate(cISC4City* city, cISC4View3DWin*, cIGZWinMgr*, cIGZImGuiService*, OverlayDrawManager&) override;
+    void Activate(cISC4City* city, cISC4View3DWin*, cIGZWinMgr*, cIGZImGuiService*, OverlayDrawManager&, SnapshotManager*) override;
     void Deactivate() override;
 
     StatefulDragViewInputControl* GetInputControl() override;

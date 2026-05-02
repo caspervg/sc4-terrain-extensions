@@ -16,7 +16,8 @@ bool DragToolManager::TryActivate(
 	cISC4View3DWin* view3d,
 	cIGZWinMgr* winManager,
 	cIGZImGuiService* imguiService,
-	OverlayDrawManager& overlayManager) {
+	OverlayDrawManager& overlayManager,
+	SnapshotManager* snapshotManager) {
 	int32_t candidateIdx = -1;
 	for (auto i = 0; i < tools_.size(); ++i) {
 		if (tools_[i]->GetCheatId() == cheatId) {
@@ -38,7 +39,7 @@ bool DragToolManager::TryActivate(
 		DeactivateCurrent_(view3d);
 	}
 
-	candidate->Activate(city, view3d, winManager, imguiService, overlayManager);
+	candidate->Activate(city, view3d, winManager, imguiService, overlayManager, snapshotManager);
 	if (auto* control = candidate->GetInputControl()) {
 		activeToolIdx_ = candidateIdx;
 		view3d_ = view3d;
