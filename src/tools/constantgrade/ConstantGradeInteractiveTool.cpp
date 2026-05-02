@@ -4,7 +4,7 @@
 #include "cISC4View3DWin.h"
 #include "cIGZWin.h"
 #include "cIGZWinMgr.h"
-#include "controls/InactiveState.hpp"
+#include "controls/DormantState.hpp"
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "snapshot/SnapshotManager.hpp"
 #include "states/ConstantGradeExecutingState.hpp"
@@ -24,11 +24,11 @@ public:
         ConstantGradeOperation& operation,
         ConstantGradeRenderer& renderer)
         : StatefulDragViewInputControl(kControlId, kCursorId, terrain, window, view3D) {
-        RegisterState(std::make_unique<InactiveState>());
+        RegisterState(std::make_unique<DormantState>());
         RegisterState(std::make_unique<ConstantGradeHoveringState>(settings, renderer, dragState_));
         RegisterState(std::make_unique<ConstantGradeSelectingState>(settings, operation, renderer, dragState_));
         RegisterState(std::make_unique<ConstantGradeExecutingState>(settings, operation, dragState_));
-        TransitionTo(ControlStateId::Inactive);
+        TransitionTo(ControlStateId::Dormant);
     }
 
     bool Init() override {
@@ -97,6 +97,9 @@ void ConstantGradeInteractiveTool::Activate(
     control_->SetOwnerDeactivateCallback([this]() {
         if (renderer_) renderer_->ClearAll();
     });
+    control_->SetCloseCallback([this]() {
+        Deactivate();
+    });
     if (snapshots) {
         control_->SetBeforeExecuteCallback([snapshots, terrain]() {
             if (!snapshots->IsAutoCaptureEnabled()) return;
@@ -115,11 +118,12 @@ void ConstantGradeInteractiveTool::Activate(
 
 void ConstantGradeInteractiveTool::Deactivate() {
     if (control_) {
+        control_->SetCloseCallback(nullptr);
         control_->SetOwnerDeactivateCallback(nullptr);
-        control_->SetDeactivateCallback(nullptr);
         control_->ClearSelections();
         control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
-        control_->Close();
+        control_->FinalizeClose();
+        control_->SetDeactivateCallback(nullptr);
     }
 
     if (control_ && view3d_) {

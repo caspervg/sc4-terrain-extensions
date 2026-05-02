@@ -15,8 +15,20 @@ void OverlayDrawManager::Unregister(OverlayRenderer* renderer) {
 	);
 }
 
+bool OverlayDrawManager::HasVisibleGeometry() const {
+	for (const auto* renderer : renderers_) {
+		if (renderer && renderer->HasVisibleGeometry()) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void OverlayDrawManager::DrawAll(IDirect3DDevice7* device) {
 	for (auto* renderer : renderers_) {
-		renderer->Draw(device);
+		if (renderer) {
+			renderer->Draw(device);
+		}
 	}
 }

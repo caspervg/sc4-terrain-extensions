@@ -65,7 +65,7 @@ bool FlattenHoveringState::OnMouseWheel(
 
 bool FlattenHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t vk, uint32_t mod) {
     if (vk == 0x1B) {
-        ctrl.TransitionTo(ControlStateId::Inactive);
+        ctrl.Close();
         return true;
     }
 

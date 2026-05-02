@@ -51,7 +51,7 @@ void StatefulDragViewInputControl::TransitionTo(ControlStateId newId) {
 }
 
 ControlStateId StatefulDragViewInputControl::GetCurrentStateId() const {
-	if (!currentState_) return ControlStateId::Inactive;
+	if (!currentState_) return ControlStateId::Dormant;
 	return currentState_->GetStateId();
 }
 
@@ -204,8 +204,23 @@ void StatefulDragViewInputControl::Activate() {
 }
 
 void StatefulDragViewInputControl::Close() {
-	if (currentState_ && currentState_->GetStateId() != ControlStateId::Inactive) {
-		TransitionTo(ControlStateId::Inactive);
+	if (closeInProgress_) {
+		return;
+	}
+
+	if (onClose_) {
+		closeInProgress_ = true;
+		onClose_();
+		closeInProgress_ = false;
+		return;
+	}
+
+	FinalizeClose();
+}
+
+void StatefulDragViewInputControl::FinalizeClose() {
+	if (currentState_ && currentState_->GetStateId() != ControlStateId::Dormant) {
+		TransitionTo(ControlStateId::Dormant);
 	}
 
 	if (onOwnerDeactivate_) {

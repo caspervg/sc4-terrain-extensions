@@ -14,6 +14,7 @@ class StatefulDragViewInputControl : public cSC4BaseViewInputControl {
 public:
     using DeactivateCallback = std::function<void()>;
     using BeforeExecuteCallback = std::function<void()>;
+    using CloseCallback = std::function<void()>;
 
     StatefulDragViewInputControl(uint32_t controlId, uint32_t cursorId, cISTETerrain* terrain, cIGZWin* window,
                                  cISC4View3DWin* view3D);
@@ -21,6 +22,7 @@ public:
     void SetDeactivateCallback(DeactivateCallback cb) { onDeactivate_ = std::move(cb); }
     void SetOwnerDeactivateCallback(DeactivateCallback cb) { onOwnerDeactivate_ = std::move(cb); }
     void SetBeforeExecuteCallback(BeforeExecuteCallback cb) { onBeforeExecute_ = std::move(cb); }
+    void SetCloseCallback(CloseCallback cb) { onClose_ = std::move(cb); }
     void FireBeforeExecute() const { if (onBeforeExecute_) onBeforeExecute_(); }
 
     void RegisterState(std::unique_ptr<IControlState> state);
@@ -45,6 +47,7 @@ public:
     bool BeginCapture() { return SetCapture(); }
     bool EndCapture() { return ReleaseCapture(); }
     void Close();
+    void FinalizeClose();
     void Activate() override;
     void Deactivate() override;
 
@@ -75,4 +78,6 @@ private:
     DeactivateCallback onOwnerDeactivate_;
     DeactivateCallback onDeactivate_;
     BeforeExecuteCallback onBeforeExecute_;
+    CloseCallback onClose_;
+    bool closeInProgress_ = false;
 };

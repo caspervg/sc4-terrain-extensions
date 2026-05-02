@@ -19,6 +19,7 @@ public:
     void EmitQuad(const OverlayVertex& a, const OverlayVertex& b, const OverlayVertex& c, const OverlayVertex& d, DWORD color, uint32_t layerId);
     void Clear();
     void Draw(IDirect3DDevice7* device);
+    [[nodiscard]] bool HasVisibleGeometry() const;
     void ClearLayer(uint32_t layerId);
     void SetLayerVisible(uint32_t layerId, bool visible);
 

@@ -200,7 +200,7 @@ bool BridgeSelectingState::OnMouseWheel(StatefulDragViewInputControl& ctrl, int3
 
 bool BridgeSelectingState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t vk, uint32_t mod) {
 	if (vk == 0x1B) { // VK_ESCAPE
-		ctrl.TransitionTo(ControlStateId::Inactive);
+		ctrl.Close();
 		return true;
 	}
 

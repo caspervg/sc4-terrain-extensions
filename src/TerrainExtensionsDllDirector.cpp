@@ -576,9 +576,16 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
     IDirectDraw7*     dd     = nullptr;
 
     if (pDirector->imguiService_->AcquireD3DInterfaces(&device, &dd)) {
-        {
+        const bool needsSlopeUpdate =
+            pDirector->city_
+            && pDirector->cameraService_
+            && pDirector->slopeRenderer_.IsEnabled();
+        const bool needsOverlayDraw =
+            needsSlopeUpdate || pDirector->overlayDrawManager_.HasVisibleGeometry();
+
+        if (needsOverlayDraw) {
             D3D7StateGuard guard(device);
-            if (pDirector->city_ && pDirector->cameraService_) {
+            if (needsSlopeUpdate) {
                 pDirector->slopeRenderer_.UpdateView(
                     pDirector->city_->GetTerrain(),
                     pDirector->cameraService_,

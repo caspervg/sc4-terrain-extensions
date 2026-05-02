@@ -4,7 +4,7 @@
 #include "cISC4View3DWin.h"
 #include "cIGZWin.h"
 #include "cIGZWinMgr.h"
-#include "controls/InactiveState.hpp"
+#include "controls/DormantState.hpp"
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "snapshot/SnapshotManager.hpp"
 #include "states/FlattenExecutingState.hpp"
@@ -26,11 +26,11 @@ public:
         FlattenOperation& operation,
         FlattenRenderer& renderer)
         : StatefulDragViewInputControl(kControlId, kCursorId, terrain, window, view3D) {
-        RegisterState(std::make_unique<InactiveState>());
+        RegisterState(std::make_unique<DormantState>());
         RegisterState(std::make_unique<FlattenHoveringState>(settings, operation, renderer, dragState_));
         RegisterState(std::make_unique<FlattenSelectingState>(settings, operation, renderer, dragState_));
         RegisterState(std::make_unique<FlattenExecutingState>(settings, operation, dragState_));
-        TransitionTo(ControlStateId::Inactive);
+        TransitionTo(ControlStateId::Dormant);
     }
 
     bool Init() override {
@@ -99,6 +99,9 @@ void FlattenInteractiveTool::Activate(
     control_->SetOwnerDeactivateCallback([this]() {
         if (renderer_) renderer_->ClearAll();
     });
+    control_->SetCloseCallback([this]() {
+        Deactivate();
+    });
     if (snapshots) {
         control_->SetBeforeExecuteCallback([snapshots, terrain]() {
             if (!snapshots->IsAutoCaptureEnabled()) return;
@@ -117,11 +120,12 @@ void FlattenInteractiveTool::Activate(
 
 void FlattenInteractiveTool::Deactivate() {
     if (control_) {
+        control_->SetCloseCallback(nullptr);
         control_->SetOwnerDeactivateCallback(nullptr);
-        control_->SetDeactivateCallback(nullptr);
         control_->ClearSelections();
         control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
-        control_->Close();
+        control_->FinalizeClose();
+        control_->SetDeactivateCallback(nullptr);
     }
 
     if (control_ && view3d_) {

@@ -57,7 +57,7 @@ bool SnapshotHoveringState::OnMouseDownL(StatefulDragViewInputControl& ctrl, int
 
 bool SnapshotHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t vk, uint32_t mod) {
 	if (vk == 0x1B) { // VK_ESCAPE
-		ctrl.TransitionTo(ControlStateId::Inactive);
+		ctrl.Close();
 		return true;
 	}
 	return false;

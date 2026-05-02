@@ -63,8 +63,19 @@ bool OverlayRenderer::HasLayer(uint32_t layerId) const {
 	return layers_.count(layerId) > 0;
 }
 
+bool OverlayRenderer::HasVisibleGeometry() const {
+	for (const auto& [id, layer] : layers_) {
+		(void)id;
+		if (layer.visible && !layer.vertices.empty()) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 void OverlayRenderer::Draw(IDirect3DDevice7* device) {
-	if (!device) return;
+	if (!device || !HasVisibleGeometry()) return;
 
 	SetupRenderState_(device);
 
@@ -113,8 +124,8 @@ void OverlayRenderer::SetupRenderState_(IDirect3DDevice7* device) {
 	savedState_.okTss1ColorOp = SUCCEEDED(device->GetTextureStageState(1, D3DTSS_COLOROP, &savedState_.tss1ColorOp));
 	savedState_.okTss1AlphaOp = SUCCEEDED(device->GetTextureStageState(1, D3DTSS_ALPHAOP, &savedState_.tss1AlphaOp));
 
-	device->SetRenderState(D3DRENDERSTATE_ZENABLE, TRUE);
-	device->SetRenderState(D3DRENDERSTATE_ZFUNC, D3DCMP_LESSEQUAL);
+	device->SetRenderState(D3DRENDERSTATE_ZENABLE, FALSE);
+	device->SetRenderState(D3DRENDERSTATE_ZFUNC, D3DCMP_ALWAYS);
 	device->SetRenderState(D3DRENDERSTATE_ZWRITEENABLE, FALSE);
 	device->SetRenderState(D3DRENDERSTATE_LIGHTING, FALSE);
 	device->SetRenderState(D3DRENDERSTATE_FOGENABLE, TRUE);

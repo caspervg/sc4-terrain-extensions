@@ -4,7 +4,7 @@
 #include "cISC4View3DWin.h"
 #include "cIGZWin.h"
 #include "cIGZWinMgr.h"
-#include "controls/InactiveState.hpp"
+#include "controls/DormantState.hpp"
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "snapshot/SnapshotManager.hpp"
 #include "snapshot/states/SnapshotHoveringState.hpp"
@@ -24,12 +24,12 @@ public:
 		SnapshotDragState& dragState)
 		: StatefulDragViewInputControl(kControlId, kCursorId, terrain, window, view3D)
 	{
-		RegisterState(std::make_unique<InactiveState>());
+		RegisterState(std::make_unique<DormantState>());
 		RegisterState(std::make_unique<SnapshotHoveringState>(mgr, renderer, dragState));
 		RegisterState(std::make_unique<SnapshotSelectingState>(mgr, renderer, dragState));
 		RegisterState(std::make_unique<SnapshotExecutingState>(mgr, renderer, dragState));
 
-		TransitionTo(ControlStateId::Inactive);
+		TransitionTo(ControlStateId::Dormant);
 	}
 
 	bool Init() override {
@@ -106,6 +106,9 @@ void SnapshotDragTool::ActivateDirect(
 		renderer_.ClearAll();
 		view3d_ = nullptr;
 	});
+	control_->SetCloseCallback([this]() {
+		Deactivate();
+	});
 
 	view3d->SetCurrentViewInputControl(
 		control_.get(),
@@ -119,11 +122,12 @@ void SnapshotDragTool::Deactivate() {
 	if (!control_) return;
 
 	// Clear the callback first to prevent recursion
-	control_->SetDeactivateCallback(nullptr);
+	control_->SetCloseCallback(nullptr);
 
 	control_->ClearSelections();
 	control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
-	control_->Close();
+	control_->FinalizeClose();
+	control_->SetDeactivateCallback(nullptr);
 
 	if (view3d_) {
 		cISC4ViewInputControl* currentControl = view3d_->GetCurrentViewInputControl();

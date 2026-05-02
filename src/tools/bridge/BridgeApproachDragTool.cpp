@@ -5,7 +5,7 @@
 #include "cISC4City.h"
 #include "snapshot/SnapshotManager.hpp"
 #include "BridgeDragState.hpp"
-#include "controls/InactiveState.hpp"
+#include "controls/DormantState.hpp"
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "states/BridgeExecutingState.hpp"
 #include "states/BridgeHoveringState.hpp"
@@ -24,12 +24,12 @@ public:
 		, settings_(settings)
 		, renderer_(renderer)
 	{
-		RegisterState(std::make_unique<InactiveState>());
+		RegisterState(std::make_unique<DormantState>());
 		RegisterState(std::make_unique<BridgeHoveringState>(settings, renderer, dragState_));
 		RegisterState(std::make_unique<BridgeSelectingState>(settings, renderer, dragState_));
 		RegisterState(std::make_unique<BridgeExecutingState>(settings, dragState_));
 
-		TransitionTo(ControlStateId::Inactive);
+		TransitionTo(ControlStateId::Dormant);
 	}
 
 	bool Init() override {
@@ -105,6 +105,9 @@ void BridgeApproachDragTool::Activate(
 		}
 		view3d_ = nullptr;
 	});
+	control_->SetCloseCallback([this]() {
+		Deactivate();
+	});
 	if (snapshots) {
 		control_->SetBeforeExecuteCallback([snapshots, terrain]() {
 			if (!snapshots->IsAutoCaptureEnabled()) return;
@@ -123,11 +126,12 @@ void BridgeApproachDragTool::Activate(
 
 void BridgeApproachDragTool::Deactivate() {
 	if (control_) {
+		control_->SetCloseCallback(nullptr);
 		control_->SetOwnerDeactivateCallback(nullptr);
-		control_->SetDeactivateCallback(nullptr);
 		control_->ClearSelections();
 		control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
-		control_->Close();
+		control_->FinalizeClose();
+		control_->SetDeactivateCallback(nullptr);
 	}
 
 	if (control_ && view3d_) {

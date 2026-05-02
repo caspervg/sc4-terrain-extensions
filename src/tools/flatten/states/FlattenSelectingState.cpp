@@ -81,7 +81,7 @@ bool FlattenSelectingState::OnMouseWheel(
 
 bool FlattenSelectingState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t vk, uint32_t mod) {
     if (vk == 0x1B) {
-        ctrl.TransitionTo(ControlStateId::Hovering);
+        ctrl.Close();
         return true;
     }
 

@@ -73,7 +73,7 @@ bool ConstantGradeHoveringState::OnKeyDown(
     const int32_t vk,
     const uint32_t mod) {
     if (vk == 0x1B) {
-        ctrl.TransitionTo(ControlStateId::Inactive);
+        ctrl.Close();
         return true;
     }
 
