@@ -95,6 +95,10 @@ void FlattenInteractiveTool::Activate(
     control_->SetOwnerDeactivateCallback([this]() {
         if (renderer_) {
             renderer_->ClearAll();
+            if (drawMgr_) {
+                drawMgr_->Unregister(renderer_.get());
+                drawMgr_ = nullptr;
+            }
         }
         view3d_ = nullptr;
     });

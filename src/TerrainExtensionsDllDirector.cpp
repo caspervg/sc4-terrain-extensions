@@ -54,6 +54,7 @@
 
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "public/cIGZDrawService.h"
+#include "viz/D3D7StateGuard.hpp"
 #include "viz/TerrainSlopeRenderer.cpp"
 
 
@@ -583,15 +584,20 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
     IDirectDraw7*     dd     = nullptr;
 
     if (pDirector->imguiService_->AcquireD3DInterfaces(&device, &dd)) {
-        if (pDirector->city_ && pDirector->cameraService_) {
-            pDirector->slopeRenderer_.UpdateView(
-                pDirector->city_->GetTerrain(),
-                pDirector->cameraService_,
-                device);
+        {
+            D3D7StateGuard guard(device);
+            if (pDirector->city_ && pDirector->cameraService_) {
+                pDirector->slopeRenderer_.UpdateView(
+                    pDirector->city_->GetTerrain(),
+                    pDirector->cameraService_,
+                    device);
+            }
+            pDirector->overlayDrawManager_.DrawAll(device);
         }
-        pDirector->overlayDrawManager_.DrawAll(device);
         device->Release();
         dd->Release();
+    } else {
+        LOG_WARN("DrawOverlayCallback_: AcquireD3DInterfaces failed, skipping overlay draw");
     }
 
     if (pDirector->imguiService_
