@@ -97,14 +97,7 @@ void FlattenInteractiveTool::Activate(
     drawMgr_ = &drawMgr;
     drawMgr_->Register(renderer_.get());
     control_->SetOwnerDeactivateCallback([this]() {
-        if (renderer_) {
-            renderer_->ClearAll();
-            if (drawMgr_) {
-                drawMgr_->Unregister(renderer_.get());
-                drawMgr_ = nullptr;
-            }
-        }
-        view3d_ = nullptr;
+        if (renderer_) renderer_->ClearAll();
     });
     if (snapshots) {
         control_->SetBeforeExecuteCallback([snapshots, terrain]() {
@@ -128,7 +121,7 @@ void FlattenInteractiveTool::Deactivate() {
         control_->SetDeactivateCallback(nullptr);
         control_->ClearSelections();
         control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
-        control_->Deactivate();
+        control_->Close();
     }
 
     if (control_ && view3d_) {

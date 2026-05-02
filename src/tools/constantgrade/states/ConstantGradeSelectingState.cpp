@@ -74,8 +74,8 @@ bool ConstantGradeSelectingState::OnMouseDownR(
     int32_t,
     int32_t,
     uint32_t) {
-    ctrl.TransitionTo(ControlStateId::Hovering);
-    return true;
+    //ctrl.TransitionTo(ControlStateId::Hovering);
+    return false;
 }
 
 bool ConstantGradeSelectingState::OnMouseWheel(

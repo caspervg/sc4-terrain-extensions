@@ -72,8 +72,8 @@ bool BridgeSelectingState::OnMouseMove(StatefulDragViewInputControl& ctrl, int32
 }
 
 bool BridgeSelectingState::OnMouseDownR(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod) {
-	ctrl.TransitionTo(ControlStateId::Hovering);
-	return true;
+	//ctrl.TransitionTo(ControlStateId::Hovering);
+	return false;
 }
 
 bool BridgeSelectingState::OnMouseUpL(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod) {

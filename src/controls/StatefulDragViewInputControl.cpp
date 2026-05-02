@@ -155,6 +155,15 @@ bool StatefulDragViewInputControl::OnMouseUpL(const int32_t x, const int32_t z, 
 
 bool StatefulDragViewInputControl::OnMouseDownR(const int32_t x, const int32_t z, const uint32_t mod) {
 	if (!IsOnTop() || !currentState_) return false;
+
+	// Right-drag city scrolling is handled by the native view control. If our drag
+	// tool is mid-selection, cancel that selection first so we release capture and
+	// do not leave the tool stuck in a half-active state after the stack changes.
+	if (currentState_->GetStateId() == ControlStateId::Selecting) {
+		TransitionTo(ControlStateId::Hovering);
+		return false;
+	}
+
 	return currentState_->OnMouseDownR(*this, x, z, mod);
 }
 
@@ -190,11 +199,14 @@ bool StatefulDragViewInputControl::OnKeyUp(const int32_t vkCode, const uint32_t 
 
 void StatefulDragViewInputControl::Activate() {
 	cSC4BaseViewInputControl::Activate();
+	LOG_DEBUG("StatefulDragViewInputControl::Activate: state='{}'",
+		currentState_ ? currentState_->GetName() : "(null)");
 }
 
-void StatefulDragViewInputControl::Deactivate() {
-	cSC4BaseViewInputControl::Deactivate();
-	TransitionTo(ControlStateId::Inactive);
+void StatefulDragViewInputControl::Close() {
+	if (currentState_ && currentState_->GetStateId() != ControlStateId::Inactive) {
+		TransitionTo(ControlStateId::Inactive);
+	}
 
 	if (onOwnerDeactivate_) {
 		onOwnerDeactivate_();
@@ -203,4 +215,10 @@ void StatefulDragViewInputControl::Deactivate() {
 	if (onDeactivate_) {
 		onDeactivate_();
 	}
+}
+
+void StatefulDragViewInputControl::Deactivate() {
+	cSC4BaseViewInputControl::Deactivate();
+	LOG_DEBUG("StatefulDragViewInputControl::Deactivate: state='{}'",
+		currentState_ ? currentState_->GetName() : "(null)");
 }

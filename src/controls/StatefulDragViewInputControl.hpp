@@ -44,6 +44,7 @@ public:
 
     bool BeginCapture() { return SetCapture(); }
     bool EndCapture() { return ReleaseCapture(); }
+    void Close();
     void Activate() override;
     void Deactivate() override;
 

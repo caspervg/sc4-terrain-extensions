@@ -123,7 +123,7 @@ void SnapshotDragTool::Deactivate() {
 
 	control_->ClearSelections();
 	control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
-	control_->Deactivate();
+	control_->Close();
 
 	if (view3d_) {
 		cISC4ViewInputControl* currentControl = view3d_->GetCurrentViewInputControl();
