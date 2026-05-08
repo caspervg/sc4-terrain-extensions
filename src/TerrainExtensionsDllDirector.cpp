@@ -74,6 +74,50 @@ static constexpr uint32_t kSC4MessagePostCityInit = 0x26D31EC1;
 static constexpr uint32_t kSC4MessagePreCityShutdown = 0x26D31EC2;
 
 namespace {
+enum class OverlayCameraResetStatus {
+    DrawServiceMissing = 0,
+    DrawContextMissing,
+    CameraServiceMissing,
+    ActiveCameraApplied,
+    ModelViewFallback,
+    Count
+};
+
+const char* OverlayCameraResetStatusName(const OverlayCameraResetStatus status) {
+    switch (status) {
+    case OverlayCameraResetStatus::DrawServiceMissing:
+        return "draw-service-missing";
+    case OverlayCameraResetStatus::DrawContextMissing:
+        return "draw-context-missing";
+    case OverlayCameraResetStatus::CameraServiceMissing:
+        return "camera-service-missing";
+    case OverlayCameraResetStatus::ActiveCameraApplied:
+        return "active-camera-applied";
+    case OverlayCameraResetStatus::ModelViewFallback:
+        return "model-view-fallback";
+    default:
+        return "unknown";
+    }
+}
+
+void LogOverlayCameraResetStatus(
+    const OverlayCameraResetStatus status,
+    const void* drawContext,
+    const void* camera) {
+    static bool sLogged[static_cast<int>(OverlayCameraResetStatus::Count)]{};
+    const auto index = static_cast<int>(status);
+    if (index < 0 || index >= static_cast<int>(OverlayCameraResetStatus::Count) || sLogged[index]) {
+        return;
+    }
+
+    sLogged[index] = true;
+    LOG_DEBUG(
+        "DrawOverlayCallback_: camera reset path={} drawContext={} camera={}",
+        OverlayCameraResetStatusName(status),
+        drawContext,
+        camera);
+}
+
 struct ContourLabelRenderPayload {
     cIGZS3DCameraService* cameraService{};
     std::vector<TerrainContourRenderer::LabelAnchor> labels{};
@@ -575,7 +619,7 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
     IDirect3DDevice7* device = nullptr;
     IDirectDraw7*     dd     = nullptr;
 
-    if (pDirector->imguiService_->AcquireD3DInterfaces(&device, &dd)) {
+    if (pDirector->imguiService_ && pDirector->imguiService_->AcquireD3DInterfaces(&device, &dd)) {
         const bool needsSlopeUpdate =
             pDirector->city_
             && pDirector->cameraService_
@@ -585,6 +629,48 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
 
         if (needsOverlayDraw) {
             D3D7StateGuard guard(device);
+            if (pDirector->drawService_) {
+                const SC4DrawContextHandle drawContext =
+                    pDirector->drawService_->WrapActiveRendererDrawContext();
+                if (drawContext.ptr) {
+                    pDirector->drawService_->SetDefaultRenderStateUnilaterally(drawContext);
+                    if (pDirector->cameraService_) {
+                        const S3DCameraHandle camera =
+                            pDirector->cameraService_->WrapActiveRendererCamera();
+                        if (camera.ptr) {
+                            pDirector->drawService_->SetCamera(
+                                drawContext,
+                                reinterpret_cast<cS3DCamera*>(camera.ptr));
+                            LogOverlayCameraResetStatus(
+                                OverlayCameraResetStatus::ActiveCameraApplied,
+                                drawContext.ptr,
+                                camera.ptr);
+                        } else {
+                            pDirector->drawService_->SetModelViewTransformChanged(drawContext, 0);
+                            pDirector->drawService_->ResetModelViewTransform(drawContext);
+                            LogOverlayCameraResetStatus(
+                                OverlayCameraResetStatus::ModelViewFallback,
+                                drawContext.ptr,
+                                nullptr);
+                        }
+                    } else {
+                        LogOverlayCameraResetStatus(
+                            OverlayCameraResetStatus::CameraServiceMissing,
+                            drawContext.ptr,
+                            nullptr);
+                    }
+                } else {
+                    LogOverlayCameraResetStatus(
+                        OverlayCameraResetStatus::DrawContextMissing,
+                        nullptr,
+                        nullptr);
+                }
+            } else {
+                LogOverlayCameraResetStatus(
+                    OverlayCameraResetStatus::DrawServiceMissing,
+                    nullptr,
+                    nullptr);
+            }
             if (needsSlopeUpdate) {
                 pDirector->slopeRenderer_.UpdateView(
                     pDirector->city_->GetTerrain(),
