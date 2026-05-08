@@ -16,6 +16,7 @@ public:
 
     void Update(cISTETerrain* terrain, const FlattenPreview& preview);
     void ShowHoverTile(cISTETerrain* terrain, int tileX, int tileZ);
+    void ShowReferenceHoverTile(cISTETerrain* terrain, int tileX, int tileZ);
     void ClearHoverTile();
     void ClearAll();
 

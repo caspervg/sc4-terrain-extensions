@@ -9,6 +9,7 @@
 #include "snapshot/SnapshotManager.hpp"
 #include "states/FlattenExecutingState.hpp"
 #include "states/FlattenHoveringState.hpp"
+#include "states/FlattenPickingHeightState.hpp"
 #include "states/FlattenSelectingState.hpp"
 #include "utils/Logger.h"
 #include "viz/OverlayDrawManager.hpp"
@@ -30,6 +31,7 @@ public:
         RegisterState(std::make_unique<FlattenHoveringState>(settings, operation, renderer, dragState_));
         RegisterState(std::make_unique<FlattenSelectingState>(settings, operation, renderer, dragState_));
         RegisterState(std::make_unique<FlattenExecutingState>(settings, operation, dragState_));
+        RegisterState(std::make_unique<FlattenPickingHeightState>(renderer, dragState_));
         TransitionTo(ControlStateId::Dormant);
     }
 

@@ -8,6 +8,17 @@
 
 namespace {
 constexpr int32_t kTabKey = 0x09;
+constexpr int32_t kPickHeightKey = 0x48; // H
+
+bool CanPickReferenceTile(const FlattenSettings& settings) noexcept {
+    return settings.mode == FlattenHeightMode::ReferenceTileAverage;
+}
+
+bool IsAltOnly(const uint32_t modifiers) noexcept {
+    return (modifiers & ModifierCombo::kAlt) != 0
+        && (modifiers & ModifierCombo::kShift) == 0
+        && (modifiers & ModifierCombo::kCtrl) == 0;
+}
 }
 
 FlattenHoveringState::FlattenHoveringState(
@@ -69,11 +80,17 @@ bool FlattenHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t
         return true;
     }
 
+    if (vk == kPickHeightKey && CanPickReferenceTile(settings_)) {
+        ctrl.TransitionTo(ControlStateId::ToolSpecific);
+        return true;
+    }
+
     if (vk == kTabKey) {
         const int32_t delta = (mod & ModifierCombo::kShift) != 0 ? -1 : 1;
         if ((mod & ModifierCombo::kCtrl) != 0) {
             settings_.CycleShape(delta);
         } else {
+            dragState_.ClearPickedReferenceTile();
             settings_.CycleMode(delta);
         }
         UpdateHintText_(ctrl, mod);
@@ -86,11 +103,19 @@ bool FlattenHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t
 
 void FlattenHoveringState::UpdateHintText_(StatefulDragViewInputControl& ctrl, const uint32_t modifiers) const {
     std::ostringstream body;
+    const bool hasPickedReference = CanPickReferenceTile(settings_) && dragState_.hasPickedReferenceTile;
     body << "Drag to flatten\n";
-    body << settings_.ModeLabel() << " | " << settings_.ValueLabel();
+    if (hasPickedReference) {
+        body << "picked reference | target " << dragState_.pickedReferenceAverageHeight << "m";
+    } else {
+        body << settings_.ModeLabel() << " | " << settings_.ValueLabel();
+    }
     body << " | " << settings_.ShapeLabel();
     if (settings_.shape == FlattenShapeMode::LineMask) {
         body << ' ' << settings_.ThicknessLabel();
+    }
+    if (CanPickReferenceTile(settings_)) {
+        body << "\nH: " << (hasPickedReference ? "repick reference tile" : "pick reference tile");
     }
     body << "\nTab/Shift+Tab: cycle mode";
     body << "\nCtrl+Tab/Ctrl+Shift+Tab: cycle shape";
@@ -132,6 +157,12 @@ bool FlattenHoveringState::HandleAdjustment_(
     StatefulDragViewInputControl& ctrl,
     const uint32_t modifiers,
     const int32_t delta) const {
+    if (IsAltOnly(modifiers)
+        && settings_.mode != FlattenHeightMode::Explicit
+        && settings_.mode != FlattenHeightMode::Delta) {
+        return false;
+    }
+
     const auto parameter = settings_.parameters.FindByModifiers(modifiers);
     if (!parameter.has_value()) {
         return false;

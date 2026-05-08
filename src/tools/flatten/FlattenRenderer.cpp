@@ -82,21 +82,42 @@ void FlattenRenderer::Update(cISTETerrain* terrain, const FlattenPreview& previe
     BuildReferenceTile_(terrain, preview);
 }
 
+namespace {
+void EmitTileHoverOutline(
+    FlattenRenderer& renderer,
+    cISTETerrain* terrain,
+    const int tileX,
+    const int tileZ,
+    const DWORD color,
+    const float thickness) {
+    const OverlayVertex a{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ) + kHoverHeightOffset, WorldZFromVertex(tileZ), color};
+    const OverlayVertex b{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ) + kHoverHeightOffset, WorldZFromVertex(tileZ), color};
+    const OverlayVertex c{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), color};
+    const OverlayVertex d{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), color};
+
+    renderer.EmitLine(a, b, thickness, color, FlattenRenderer::kLayerHover);
+    renderer.EmitLine(b, c, thickness, color, FlattenRenderer::kLayerHover);
+    renderer.EmitLine(c, d, thickness, color, FlattenRenderer::kLayerHover);
+    renderer.EmitLine(d, a, thickness, color, FlattenRenderer::kLayerHover);
+}
+}
+
 void FlattenRenderer::ShowHoverTile(cISTETerrain* terrain, const int tileX, const int tileZ) {
     ClearLayer(kLayerHover);
     if (!terrain) {
         return;
     }
 
-    const OverlayVertex a{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ) + kHoverHeightOffset, WorldZFromVertex(tileZ), kHoverColor};
-    const OverlayVertex b{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ) + kHoverHeightOffset, WorldZFromVertex(tileZ), kHoverColor};
-    const OverlayVertex c{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), kHoverColor};
-    const OverlayVertex d{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), kHoverColor};
+    EmitTileHoverOutline(*this, terrain, tileX, tileZ, kHoverColor, kHoverThickness);
+}
 
-    EmitLine(a, b, kHoverThickness, kHoverColor, kLayerHover);
-    EmitLine(b, c, kHoverThickness, kHoverColor, kLayerHover);
-    EmitLine(c, d, kHoverThickness, kHoverColor, kLayerHover);
-    EmitLine(d, a, kHoverThickness, kHoverColor, kLayerHover);
+void FlattenRenderer::ShowReferenceHoverTile(cISTETerrain* terrain, const int tileX, const int tileZ) {
+    ClearLayer(kLayerHover);
+    if (!terrain) {
+        return;
+    }
+
+    EmitTileHoverOutline(*this, terrain, tileX, tileZ, kReferenceColor, kReferenceThickness);
 }
 
 void FlattenRenderer::ClearHoverTile() {

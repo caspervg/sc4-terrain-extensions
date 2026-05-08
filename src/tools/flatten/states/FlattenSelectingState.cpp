@@ -8,6 +8,21 @@
 
 namespace {
 constexpr int32_t kTabKey = 0x09;
+constexpr int32_t kPickHeightKey = 0x48; // H
+
+bool CanPickReferenceTile(const FlattenSettings& settings) noexcept {
+    return settings.mode == FlattenHeightMode::ReferenceTileAverage;
+}
+
+bool UsePickedReferenceTile(const FlattenSettings& settings, const FlattenDragState& dragState) noexcept {
+    return CanPickReferenceTile(settings) && dragState.hasPickedReferenceTile;
+}
+
+bool IsAltOnly(const uint32_t modifiers) noexcept {
+    return (modifiers & ModifierCombo::kAlt) != 0
+        && (modifiers & ModifierCombo::kShift) == 0
+        && (modifiers & ModifierCombo::kCtrl) == 0;
+}
 }
 
 FlattenSelectingState::FlattenSelectingState(
@@ -22,11 +37,15 @@ FlattenSelectingState::FlattenSelectingState(
 }
 
 void FlattenSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
+    dragState_.selectionCommitted = false;
     ctrl.BeginCapture();
     RebuildPreview_(ctrl, 0);
 }
 
 void FlattenSelectingState::OnExit(StatefulDragViewInputControl& ctrl) {
+    if (!dragState_.selectionCommitted) {
+        dragState_.ClearPickedReferenceTile();
+    }
     ctrl.EndCapture();
     ctrl.ClearSelections();
     ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
@@ -57,6 +76,7 @@ bool FlattenSelectingState::OnMouseUpL(StatefulDragViewInputControl& ctrl, int32
         dragState_.currentZ = tileZ;
     }
 
+    dragState_.selectionCommitted = true;
     ctrl.TransitionTo(ControlStateId::Executing);
     return true;
 }
@@ -85,11 +105,18 @@ bool FlattenSelectingState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_
         return true;
     }
 
+    if (vk == kPickHeightKey && CanPickReferenceTile(settings_)) {
+        dragState_.selectionCommitted = false;
+        ctrl.TransitionTo(ControlStateId::ToolSpecific);
+        return true;
+    }
+
     if (vk == kTabKey) {
         const int32_t delta = (mod & ModifierCombo::kShift) != 0 ? -1 : 1;
         if ((mod & ModifierCombo::kCtrl) != 0) {
             settings_.CycleShape(delta);
         } else {
+            dragState_.ClearPickedReferenceTile();
             settings_.CycleMode(delta);
         }
         return RebuildPreview_(ctrl, mod);
@@ -114,13 +141,14 @@ bool FlattenSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl, 
 }
 
 FlattenRequest FlattenSelectingState::BuildRequest_() const {
+    const bool usePickedReferenceTile = UsePickedReferenceTile(settings_, dragState_);
     return FlattenRequest{
         .x1 = dragState_.startX,
         .z1 = dragState_.startZ,
         .x2 = dragState_.currentX,
         .z2 = dragState_.currentZ,
-        .referenceTileX = dragState_.startX,
-        .referenceTileZ = dragState_.startZ,
+        .referenceTileX = usePickedReferenceTile ? dragState_.pickedReferenceTileX : dragState_.startX,
+        .referenceTileZ = usePickedReferenceTile ? dragState_.pickedReferenceTileZ : dragState_.startZ,
         .mode = settings_.mode,
         .shape = settings_.shape,
         .explicitHeight = settings_.explicitHeight.value,
@@ -135,7 +163,9 @@ void FlattenSelectingState::UpdateCursor_(
     const uint32_t modifiers) const {
     std::ostringstream body;
     body << "Release to apply\n";
-    if (settings_.mode == FlattenHeightMode::Delta) {
+    if (UsePickedReferenceTile(settings_, dragState_)) {
+        body << "picked reference | target " << preview.targetHeight << "m";
+    } else if (settings_.mode == FlattenHeightMode::Delta) {
         body << settings_.ModeLabel() << " | " << settings_.ValueLabel();
     } else {
         body << settings_.ModeLabel() << " | target " << preview.targetHeight << "m";
@@ -143,6 +173,10 @@ void FlattenSelectingState::UpdateCursor_(
     body << " | " << settings_.ShapeLabel();
     if (settings_.shape == FlattenShapeMode::LineMask) {
         body << ' ' << settings_.ThicknessLabel();
+    }
+    if (CanPickReferenceTile(settings_)) {
+        body << "\nH: "
+            << (UsePickedReferenceTile(settings_, dragState_) ? "repick reference tile" : "pick reference tile");
     }
     body << "\nTab/Shift+Tab: cycle mode";
     body << "\nCtrl+Tab/Ctrl+Shift+Tab: cycle shape";
@@ -162,6 +196,12 @@ bool FlattenSelectingState::HandleAdjustment_(
     StatefulDragViewInputControl& ctrl,
     const uint32_t modifiers,
     const int32_t delta) const {
+    if (IsAltOnly(modifiers)
+        && settings_.mode != FlattenHeightMode::Explicit
+        && settings_.mode != FlattenHeightMode::Delta) {
+        return false;
+    }
+
     const auto parameter = settings_.parameters.FindByModifiers(modifiers);
     if (!parameter.has_value()) {
         return false;
