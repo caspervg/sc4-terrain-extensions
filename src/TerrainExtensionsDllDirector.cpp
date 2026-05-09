@@ -72,6 +72,9 @@ static constexpr std::string_view kTerrainExtensionsSlopeCheatString = "slope";
 static constexpr uint32_t kSC4MessageCheatIssued = 0x230E27AC;
 static constexpr uint32_t kSC4MessagePostCityInit = 0x26D31EC1;
 static constexpr uint32_t kSC4MessagePreCityShutdown = 0x26D31EC2;
+static constexpr uint32_t kSC4MessageTerrainRedisplayed = 0x870BC918;
+static constexpr uint32_t kTerrainAutoSnapshotQuietPeriodMs = 3000;
+static constexpr uint32_t kTerrainAutoSnapshotMinIntervalMs = 30000;
 
 namespace {
 enum class OverlayCameraResetStatus {
@@ -224,6 +227,15 @@ bool TerrainExtensionsDllDirector::DoMessage(cIGZMessage2* pMsg) {
     case kSC4MessagePreCityShutdown:
         PreCityShutdown_(pStandardMsg);
         break;
+    case kSC4MessageTerrainRedisplayed:
+        if (contourRenderer_.IsEnabled() || slopeRenderer_.IsEnabled()) {
+            terrainRefreshPending_ = true;
+        }
+        if (snapshotManager_.IsTerrainAutoCaptureEnabled()) {
+            terrainSnapshotPending_ = true;
+            terrainAutoSnapshotLastMessageTick_ = GetTickCount();
+        }
+        break;
     default:
         LOG_DEBUG("Unsupported message type: 0x{:X}", pMsg->GetType());
         break;
@@ -249,6 +261,7 @@ bool TerrainExtensionsDllDirector::PostAppInit() {
     if (pMS2) {
         pMS2->AddNotification(this, kSC4MessagePostCityInit);
         pMS2->AddNotification(this, kSC4MessagePreCityShutdown);
+        pMS2->AddNotification(this, kSC4MessageTerrainRedisplayed);
         messageServer_ = pMS2;
     }
 
@@ -442,6 +455,11 @@ void TerrainExtensionsDllDirector::PreCityShutdown_(
     snapshotManager_.Clear();
     snapshotRenderer_.ClearAll();
     contourRenderer_.SetEnabled(false, nullptr);
+    terrainRefreshPending_ = false;
+    terrainSnapshotPending_ = false;
+    terrainAutoSnapshotLastTick_ = 0;
+    terrainAutoSnapshotLastMessageTick_ = 0;
+    terrainAutoSnapshotSequence_ = 0;
     contourCommand_.reset();
     slopeRenderer_.SetEnabled(false, nullptr);
     slopeCommand_.reset();
@@ -610,6 +628,57 @@ bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
 
 // ── Draw callback ─────────────────────────────────────────────────────────────
 
+void TerrainExtensionsDllDirector::CaptureTerrainSnapshotIfPending_()
+{
+    if (!terrainSnapshotPending_) {
+        return;
+    }
+
+    if (!snapshotManager_.IsTerrainAutoCaptureEnabled()) {
+        terrainSnapshotPending_ = false;
+        return;
+    }
+
+    if (!city_) {
+        return;
+    }
+
+    const uint32_t now = GetTickCount();
+    if (terrainAutoSnapshotLastMessageTick_ != 0
+        && now - terrainAutoSnapshotLastMessageTick_ < kTerrainAutoSnapshotQuietPeriodMs)
+    {
+        return;
+    }
+
+    cISTETerrain* terrain = city_->GetTerrain();
+    if (!terrain) {
+        return;
+    }
+
+    if (!snapshotManager_.TerrainDiffersFromLatest(terrain)) {
+        terrainSnapshotPending_ = false;
+        LOG_DEBUG("CaptureTerrainSnapshotIfPending_: skipped; terrain matches latest snapshot");
+        return;
+    }
+
+    if (terrainAutoSnapshotLastTick_ != 0
+        && now - terrainAutoSnapshotLastTick_ < kTerrainAutoSnapshotMinIntervalMs)
+    {
+        return;
+    }
+
+    terrainSnapshotPending_ = false;
+    terrainAutoSnapshotLastTick_ = now;
+    ++terrainAutoSnapshotSequence_;
+
+    const std::string name =
+        "Terrain change " + std::to_string(terrainAutoSnapshotSequence_);
+    snapshotManager_.Capture(
+        terrain,
+        name,
+        "Captured after terrain redisplay message 0x870BC918");
+}
+
 void TerrainExtensionsDllDirector::DrawOverlayCallback_(
     const DrawServicePass pass, const bool begin, void* pThis)
 {
@@ -620,6 +689,21 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
     IDirectDraw7*     dd     = nullptr;
 
     if (pDirector->imguiService_ && pDirector->imguiService_->AcquireD3DInterfaces(&device, &dd)) {
+        if (pDirector->terrainRefreshPending_) {
+            pDirector->terrainRefreshPending_ = false;
+            if (pDirector->city_) {
+                cISTETerrain* terrain = pDirector->city_->GetTerrain();
+                if (pDirector->contourRenderer_.IsEnabled()) {
+                    pDirector->contourRenderer_.Rebuild(terrain);
+                }
+                if (pDirector->slopeRenderer_.IsEnabled()) {
+                    pDirector->slopeRenderer_.Rebuild(terrain);
+                }
+                LOG_DEBUG("DrawOverlayCallback_: refreshed terrain overlays after terrain redisplay message");
+            }
+        }
+        pDirector->CaptureTerrainSnapshotIfPending_();
+
         const bool needsSlopeUpdate =
             pDirector->city_
             && pDirector->cameraService_

@@ -66,6 +66,11 @@ void SnapshotPanel::RenderCaptureSection_() {
 		mgr_.SetAutoCapture(autoCapture);
 	}
 
+	bool terrainAutoCapture = mgr_.IsTerrainAutoCaptureEnabled();
+	if (ImGui::Checkbox("Auto-snapshot on terrain changes", &terrainAutoCapture)) {
+		mgr_.SetTerrainAutoCapture(terrainAutoCapture);
+	}
+
 	ImGui::Separator();
 }
 

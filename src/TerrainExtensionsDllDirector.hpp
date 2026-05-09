@@ -48,6 +48,7 @@ private:
 
     void SetUpCommandTools_(cISC4City* pCity, cISTETerrain* pTerrain);
     void SetUpDragTools_   (cISC4City* pCity, cISC4View3DWin* pView3D);
+    void CaptureTerrainSnapshotIfPending_();
 
     static void DrawOverlayCallback_(DrawServicePass pass, bool begin, void* pThis);
 
@@ -78,4 +79,9 @@ private:
     SnapshotDragTool*      snapshotDragTool_{nullptr}; // Owned by dragToolManager_
     bool                   snapshotPanelRegistered_{false};
     bool                   snapshotPanelVisible_{false};
+    bool                   terrainRefreshPending_{false};
+    bool                   terrainSnapshotPending_{false};
+    uint32_t               terrainAutoSnapshotLastTick_{0};
+    uint32_t               terrainAutoSnapshotLastMessageTick_{0};
+    uint32_t               terrainAutoSnapshotSequence_{0};
 };
