@@ -18,17 +18,13 @@
 #include "GZServPtrs.h"
 #include "args.hxx"
 
-#include "tools/ConstantGradeTool.cpp"
-#include "tools/FlattenTool.cpp"
 #include "tools/bridge/BridgeApproachCommand.hpp"
+#include "tools/ConstantGradeTool.hpp"
 #include "tools/constantgrade/ConstantGradeInteractiveTool.hpp"
+#include "tools/FlattenTool.hpp"
 #include "tools/flatten/FlattenInteractiveTool.hpp"
-#include "tools/BlueprintCaptureTool.cpp"
-#include "tools/BlueprintExportTool.cpp"
-#include "tools/BlueprintStampTool.cpp"
 #include "tools/ContourMapTool.hpp"
 #include "tools/SlopeMapTool.hpp"
-#include "tools/SlopeMapTool.cpp"
 
 #include "tools/bridge/BridgeApproachDragTool.hpp"
 
@@ -55,7 +51,6 @@
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "public/cIGZDrawService.h"
 #include "viz/D3D7StateGuard.hpp"
-#include "viz/TerrainSlopeRenderer.cpp"
 
 
 static constexpr uint32_t kTerrainExtensionsDirectorID     = 0x2099E7AB; // your actual ID
@@ -413,10 +408,6 @@ void TerrainExtensionsDllDirector::SetUpCommandTools_(
     toolRegistry_.RegisterTool(std::make_unique<ConstantGradeTool>(pTerrain));
     toolRegistry_.RegisterTool(std::make_unique<FlattenTool>(pTerrain));
     toolRegistry_.RegisterTool(std::make_unique<BridgeApproachCommand>(pTerrain));
-    toolRegistry_.RegisterTool(std::make_unique<BlueprintCaptureTool>(pTerrain, pCity));
-    toolRegistry_.RegisterTool(std::make_unique<BlueprintExportTool>(pTerrain));
-    toolRegistry_.RegisterTool(std::make_unique<BlueprintStampTool>(pTerrain, pCity));
-
     toolRegistry_.ListTools();
     LOG_DEBUG("Command tools setup complete.");
 }
@@ -730,7 +721,7 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
                                 drawContext.ptr,
                                 camera.ptr);
                         } else {
-                            pDirector->drawService_->SetModelViewTransformChanged(drawContext, 0);
+                            pDirector->drawService_->SetModelViewTransformChanged(drawContext);
                             pDirector->drawService_->ResetModelViewTransform(drawContext);
                             LogOverlayCameraResetStatus(
                                 OverlayCameraResetStatus::ModelViewFallback,

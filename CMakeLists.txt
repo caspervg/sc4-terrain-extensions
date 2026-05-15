@@ -124,16 +124,6 @@ endif()
 file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
-# These .cpp files are #include'd directly by TerrainExtensionsDllDirector.cpp
-list(REMOVE_ITEM PROJECT_SOURCES
-    "${CMAKE_SOURCE_DIR}/src/tools/ConstantGradeTool.cpp"
-    "${CMAKE_SOURCE_DIR}/src/tools/FlattenTool.cpp"
-    "${CMAKE_SOURCE_DIR}/src/tools/BlueprintCaptureTool.cpp"
-    "${CMAKE_SOURCE_DIR}/src/tools/BlueprintExportTool.cpp"
-    "${CMAKE_SOURCE_DIR}/src/tools/BlueprintStampTool.cpp"
-    "${CMAKE_SOURCE_DIR}/src/tools/SlopeMapTool.cpp"
-    "${CMAKE_SOURCE_DIR}/src/viz/TerrainSlopeRenderer.cpp"
-)
 list(APPEND PROJECT_SOURCES "${CMAKE_SOURCE_DIR}/src/version.rc")
 set(SC4_DLL_DEF "${CMAKE_SOURCE_DIR}/SC4TerrainExtensions.def")
 
