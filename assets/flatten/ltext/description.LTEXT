@@ -1,0 +1,7 @@
+Flatten Terrain
+
+Flattens the selected terrain to a chosen target height. Drag a rectangle to flatten an area, or switch to line-mask shape for roads, ramps, canals, and narrow cuts.
+
+Modes: reference avg flattens to the average height of the starting tile or a tile picked with H. Delta raises or lowers each selected vertex by the chosen amount. Explicit flattens to a fixed height. Average, minimum, and maximum flatten to the selected area's average, lowest, or highest sampled height.
+
+Controls: release the mouse to apply the preview. Tab and Shift+Tab cycle height mode, and D toggles rectangle or line-mask shape. In reference mode, press H to pick or repick the source tile. Alt+Scroll adjusts the explicit height or delta value, and Shift+Scroll changes line-mask thickness. Press Esc to cancel.

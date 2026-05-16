@@ -1,0 +1,5 @@
+Bridge Builder
+
+Builds bridge approaches for a dragged bridge span. Drag along the bridge direction to set the span, and drag sideways to set the approach width. The tool grades one or both ends up to the bridge deck height and chooses approach lengths from the current terrain and maximum grade.
+
+Controls: release the mouse to place the approaches. Alt+Scroll adjusts bridge height, Shift+Scroll adjusts maximum grade, and Ctrl+Scroll cycles which side receives an approach: both, start, end, or none. Wider drags create wider approaches, up to 10 tiles. Press Esc to cancel.
