@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a DLL plugin for SimCity 4 that provides terrain extension tools. The plugin creates custom terrain manipulation tools accessible through in-game cheat codes. It uses modern C++24 with a modular architecture for adding new terrain tools and drag-based input controls.
+This is a DLL plugin for SimCity 4 that provides terrain extension tools. The plugin creates custom terrain manipulation tools accessible through in-game cheat codes. It uses modern C++20 with a modular architecture for adding new terrain tools and drag-based input controls.
 
 ## Build System
 
@@ -93,7 +93,7 @@ cmake --build cmake-build-release-visual-studio --config Release
 - Uses gzcom-dll framework for SimCity 4 COM integration
 - Cheat codes: "earthbender" (terrain tools) and "bridgebuilder" (drag-based tools)
 - Integrates with SimCity 4's terrain system via `cISTETerrain` interface
-- Custom cursors located in `cursors/` directory
+- Custom cursors and menu icons located in the `assets/` directory
 
 **Tool Architecture Patterns:**
 
@@ -120,7 +120,7 @@ cmake --build cmake-build-release-visual-studio --config Release
 **Adding a new drag-based tool:**
 1. Create new input control inheriting from BaseDragViewInputControl
 2. Implement drag callbacks and parameter configuration
-3. Add cursor resources to `cursors/` directory
+3. Add cursor resources to `assets/<tool>/cursors/` and menu icon resources to `assets/<tool>/icon/`
 4. Register tool in TerrainExtensionsDllDirector cheat handling
 
 **Testing:**

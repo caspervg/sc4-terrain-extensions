@@ -1,0 +1,44 @@
+#pragma once
+
+#include <string>
+
+#include "tools/ToolParameter.hpp"
+#include "FlattenOperation.hpp"
+
+struct FlattenSettings {
+    FlattenSettings();
+
+    TypedParameter<float> explicitHeight{
+        .value = 250.0f,
+        .minValue = -300.0f,
+        .maxValue = 3000.0f,
+        .step = 5.0f
+    };
+
+    TypedParameter<float> deltaHeight{
+        .value = 7.5f,
+        .minValue = -200.0f,
+        .maxValue = 200.0f,
+        .step = 2.5f
+    };
+
+    TypedParameter<int32_t> lineThickness{
+        .value = 1,
+        .minValue = -9,
+        .maxValue = 9,
+        .step = 1
+    };
+
+    FlattenHeightMode mode{FlattenHeightMode::ReferenceTileAverage};
+    FlattenShapeMode shape{FlattenShapeMode::Rectangle};
+    ToolParameterSet parameters;
+
+    void AdjustPrimaryValue(int32_t delta) noexcept;
+    void AdjustLineThickness(int32_t delta) noexcept;
+    void CycleMode(int32_t delta) noexcept;
+    void CycleShape(int32_t delta) noexcept;
+    [[nodiscard]] const char* ModeLabel() const noexcept;
+    [[nodiscard]] const char* ShapeLabel() const noexcept;
+    [[nodiscard]] std::string ValueLabel() const;
+    [[nodiscard]] std::string ThicknessLabel() const;
+};

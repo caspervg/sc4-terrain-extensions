@@ -1,164 +1,124 @@
-#pragma once
-#include "TerrainTool.hpp"
-#include <algorithm>
+#include "FlattenTool.hpp"
 
-class FlattenTool : public TerrainTool {
-private:
-	std::unique_ptr<args::Command> mCommand;
-	std::unique_ptr<args::Group> mRectGroup;
-	std::unique_ptr<args::Positional<int>> mTileX1, mTileZ1, mTileX2, mTileZ2;
-	std::unique_ptr<args::ValueFlag<float>> mHeight;
-	std::unique_ptr<args::ValueFlag<std::string>> mMode;
+#include "utils/Logger.h"
 
-public:
-	FlattenTool(cISTETerrain* terrain) : TerrainTool(terrain) {
-	}
+FlattenTool::FlattenTool(cISTETerrain* terrain)
+    : TerrainTool(terrain) {
+}
 
-	~FlattenTool() override = default;
+FlattenTool::~FlattenTool() = default;
 
-	void RegisterArguments(args::Group& commands) override {
-		mCommand = std::make_unique<args::Command>(commands, "flatten",
-			"Flatten terrain to specified height");
+void FlattenTool::RegisterArguments(args::Group& commands) {
+    mCommand = std::make_unique<args::Command>(commands, "flatten",
+        "Flatten terrain to specified height");
 
-		mTileX1 = std::make_unique<args::Positional<int>>(*mCommand, "x1", "Tile X coordinate");
-		mTileZ1 = std::make_unique<args::Positional<int>>(*mCommand, "z1", "Tile Z coordinate");
-		
-		mRectGroup = std::make_unique<args::Group>(*mCommand, "Rectangle coordinates (optional, both or neither):", args::Group::Validators::AllOrNone);
-		mTileX2 = std::make_unique<args::Positional<int>>(*mRectGroup, "x2", "End tile X");
-		mTileZ2 = std::make_unique<args::Positional<int>>(*mRectGroup, "z2", "End tile Z");
+    mTileX1 = std::make_unique<args::Positional<int>>(*mCommand, "x1", "Tile X coordinate");
+    mTileZ1 = std::make_unique<args::Positional<int>>(*mCommand, "z1", "Tile Z coordinate");
 
-		mHeight = std::make_unique<args::ValueFlag<float>>(*mCommand, "height",
-			"Target height", args::Matcher{ "height", 'h' });
-		mMode = std::make_unique<args::ValueFlag<std::string>>(*mCommand, "mode",
-			"Height calculation mode (avg|min|max)", args::Matcher{ "mode", 'm'}, "avg");
-	}
+    mRectGroup = std::make_unique<args::Group>(
+        *mCommand,
+        "Rectangle coordinates (optional, both or neither):",
+        args::Group::Validators::AllOrNone);
+    mTileX2 = std::make_unique<args::Positional<int>>(*mRectGroup, "x2", "End tile X");
+    mTileZ2 = std::make_unique<args::Positional<int>>(*mRectGroup, "z2", "End tile Z");
 
-	bool ShouldExecute(const args::ArgumentParser& parser) const override {
-		return *mCommand;
-	}
+    mHeight = std::make_unique<args::ValueFlag<float>>(
+        *mCommand,
+        "height",
+        "Target height or delta height when --mode=delta",
+        args::Matcher{"height", 'h'});
+    mMode = std::make_unique<args::ValueFlag<std::string>>(
+        *mCommand,
+        "mode",
+        "Height calculation mode (avg|refavg|min|max|delta)",
+        args::Matcher{"mode", 'm'},
+        "avg");
+    mShape = std::make_unique<args::ValueFlag<std::string>>(
+        *mCommand,
+        "shape",
+        "Selection shape (rect|line)",
+        args::Matcher{"shape", 's'},
+        "rect");
+    mThickness = std::make_unique<args::ValueFlag<int>>(
+        *mCommand,
+        "thickness",
+        "Line-mask thickness (-9..-1 or 1..9)",
+        args::Matcher{"thickness", 't'});
+}
 
-	void Execute(const args::ArgumentParser& parser) override {
-		int tileX1 = args::get(*mTileX1);
-		int tileZ1 = args::get(*mTileZ1);
-		
-		bool isRectangleMode = *mTileX2 && *mTileZ2;
-		int tileX2 = isRectangleMode ? args::get(*mTileX2) : tileX1;
-		int tileZ2 = isRectangleMode ? args::get(*mTileZ2) : tileZ1;
-		
-		bool hasHeight = *mHeight;
-		float targetHeight = hasHeight ? args::get(*mHeight) : 0.0f;
-		std::string mode = args::get(*mMode);
+bool FlattenTool::ShouldExecute(const args::ArgumentParser& parser) const {
+    return *mCommand;
+}
 
-		if (isRectangleMode) {
-			LOG_INFO("Flattening rectangle from ({},{}) to ({},{})", tileX1, tileZ1, tileX2, tileZ2);
-		} else {
-			LOG_INFO("Flattening single tile ({},{})", tileX1, tileZ1);
-		}
+void FlattenTool::Execute(const args::ArgumentParser& parser) {
+    const int tileX1 = args::get(*mTileX1);
+    const int tileZ1 = args::get(*mTileZ1);
+    const bool isRectangleMode = *mTileX2 && *mTileZ2;
+    const int tileX2 = isRectangleMode ? args::get(*mTileX2) : tileX1;
+    const int tileZ2 = isRectangleMode ? args::get(*mTileZ2) : tileZ1;
+    const bool hasHeight = *mHeight;
+    const float heightValue = hasHeight ? args::get(*mHeight) : 0.0f;
+    const std::string mode = args::get(*mMode);
+    const std::string shape = args::get(*mShape);
+    const int lineThickness = *mThickness ? args::get(*mThickness) : 1;
+    const FlattenHeightMode resolvedMode = ResolveMode_(mode, hasHeight);
 
-		FlattenArea(tileX1, tileZ1, tileX2, tileZ2, targetHeight, mode, isRectangleMode, hasHeight);
-	}
+    if (isRectangleMode) {
+        LOG_INFO("Flattening rectangle from ({},{}) to ({},{})", tileX1, tileZ1, tileX2, tileZ2);
+    } else {
+        LOG_INFO("Flattening single tile ({},{})", tileX1, tileZ1);
+    }
 
-	const char* GetName() const override {
-		return "flatten";
-	}
+    FlattenOperation operation(terrain_);
+    operation.Apply(FlattenRequest{
+        .x1 = tileX1,
+        .z1 = tileZ1,
+        .x2 = tileX2,
+        .z2 = tileZ2,
+        .referenceTileX = tileX1,
+        .referenceTileZ = tileZ1,
+        .mode = resolvedMode,
+        .shape = ResolveShape_(shape),
+        .explicitHeight = resolvedMode == FlattenHeightMode::Explicit ? heightValue : 250.0f,
+        .deltaHeight = resolvedMode == FlattenHeightMode::Delta && hasHeight ? heightValue : 7.5f,
+        .lineThickness = lineThickness
+    });
+}
 
-	const char* GetDescription() const override {
-		return "Flatten terrain to specified height";
-	}
+const char* FlattenTool::GetName() const {
+    return "flatten";
+}
 
-	const char* GetUsage() const override {
-		return "flatten <x1> <z1> [<x2> <z2>] --height=<value> [--mode=<avg|min|max>]";
-	}
+const char* FlattenTool::GetDescription() const {
+    return "Flatten terrain to specified height";
+}
 
-private:
-	void FlattenArea(int x1, int z1, int x2, int z2, float specifiedHeight, const std::string& mode, bool isRectangle, bool hasHeight) {
-		// Ensure proper bounds
-		int minX = std::min(x1, x2);
-		int maxX = std::max(x1, x2);
-		int minZ = std::min(z1, z2);
-		int maxZ = std::max(z1, z2);
+const char* FlattenTool::GetUsage() const {
+    return "flatten <x1> <z1> [<x2> <z2>] [--height=<value>] [--mode=<avg|refavg|min|max|delta>] [--shape=<rect|line>] [--thickness=<n>]";
+}
 
-		// Calculate target height
-		float targetHeight = CalculateTargetHeight(minX, minZ, maxX, maxZ, specifiedHeight, mode, isRectangle, hasHeight);
-		
-		LOG_DEBUG("Target height: {:.2f}", targetHeight);
+FlattenHeightMode FlattenTool::ResolveMode_(const std::string& mode, const bool hasHeight) {
+    if (hasHeight && mode != "delta") {
+        return FlattenHeightMode::Explicit;
+    }
+    if (mode == "min") {
+        return FlattenHeightMode::Minimum;
+    }
+    if (mode == "max") {
+        return FlattenHeightMode::Maximum;
+    }
+    if (mode == "refavg" || mode == "reference" || mode == "referenceavg") {
+        return FlattenHeightMode::ReferenceTileAverage;
+    }
+    if (mode == "delta") {
+        return FlattenHeightMode::Delta;
+    }
+    return FlattenHeightMode::Average;
+}
 
-		// Flatten all vertices in the area
-		for (int z = minZ; z <= maxZ + 1; z++) {
-			for (int x = minX; x <= maxX + 1; x++) {
-				SetAltitudeAtVertex(x, z, targetHeight);
-			}
-		}
-
-		// Refresh terrain display
-		SC4Rect<int32_t> refreshRect(minX, minZ, maxX + 1, maxZ + 1);
-		Refresh(refreshRect);
-		
-		LOG_DEBUG("Terrain flattening completed");
-	}
-
-	float CalculateTargetHeight(int minX, int minZ, int maxX, int maxZ, float specifiedHeight, const std::string& mode, bool isRectangle, bool hasHeight) {
-		// If height is specified, use it
-		if (hasHeight) {
-			return specifiedHeight;
-		}
-
-		// For single tile mode, height is required
-		if (!isRectangle) {
-			LOG_DEBUG("Height parameter required for single tile mode");
-			return GetTileAverageHeight(minX, minZ); // Fallback to current height
-		}
-
-		// Calculate height based on mode for rectangle
-		if (mode == "min") {
-			return FindMinHeight(minX, minZ, maxX, maxZ);
-		} else if (mode == "max") {
-			return FindMaxHeight(minX, minZ, maxX, maxZ);
-		} else {
-			return CalculateAverageHeight(minX, minZ, maxX, maxZ);
-		}
-	}
-
-	float FindMinHeight(int minX, int minZ, int maxX, int maxZ) {
-		float minHeight = std::numeric_limits<float>::max();
-		
-		for (int z = minZ; z <= maxZ + 1; z++) {
-			for (int x = minX; x <= maxX + 1; x++) {
-				if (mTerrain->LocationIsInBounds(static_cast<float>(x), static_cast<float>(z))) {
-					float height = mTerrain->GetAltitudeAtVertex(x, z);
-					minHeight = std::min(minHeight, height);
-				}
-			}
-		}
-		return minHeight;
-	}
-
-	float FindMaxHeight(int minX, int minZ, int maxX, int maxZ) {
-		float maxHeight = std::numeric_limits<float>::lowest();
-		
-		for (int z = minZ; z <= maxZ + 1; z++) {
-			for (int x = minX; x <= maxX + 1; x++) {
-				if (mTerrain->LocationIsInBounds(static_cast<float>(x), static_cast<float>(z))) {
-					float height = mTerrain->GetAltitudeAtVertex(x, z);
-					maxHeight = std::max(maxHeight, height);
-				}
-			}
-		}
-		return maxHeight;
-	}
-
-	float CalculateAverageHeight(int minX, int minZ, int maxX, int maxZ) {
-		float totalHeight = 0.0f;
-		int count = 0;
-		
-		for (int z = minZ; z <= maxZ + 1; z++) {
-			for (int x = minX; x <= maxX + 1; x++) {
-				if (mTerrain->LocationIsInBounds(static_cast<float>(x), static_cast<float>(z))) {
-					totalHeight += mTerrain->GetAltitudeAtVertex(x, z);
-					count++;
-				}
-			}
-		}
-		return count > 0 ? totalHeight / count : 0.0f;
-	}
-};
+FlattenShapeMode FlattenTool::ResolveShape_(const std::string& shape) {
+    if (shape == "line" || shape == "linemask" || shape == "mask" || shape == "diag" || shape == "diagonal") {
+        return FlattenShapeMode::LineMask;
+    }
+    return FlattenShapeMode::Rectangle;
+}
