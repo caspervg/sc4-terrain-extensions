@@ -45,7 +45,7 @@ public:
 
 private:
     static constexpr uint32_t kControlId = 0x2099E811u;
-    static constexpr uint32_t kCursorId = 0xD9B4FFAAu;
+    static constexpr uint32_t kCursorId = 0xB84ED172u;
 
     FlattenDragState dragState_{};
 };

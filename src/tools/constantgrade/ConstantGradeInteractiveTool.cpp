@@ -41,7 +41,7 @@ public:
 
 private:
     static constexpr uint32_t kControlId = 0x2099E822u;
-    static constexpr uint32_t kCursorId = 0xD9B4FFAAu;
+    static constexpr uint32_t kCursorId = 0xFA150212u;
 
     ConstantGradeDragState dragState_{};
 };
