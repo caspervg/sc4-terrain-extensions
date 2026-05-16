@@ -24,7 +24,7 @@ struct BridgeToolSettings {
     TypedParameter<int> widthTiles {
         .value = 1,
         .minValue = 1,
-        .maxValue = 10,
+        .maxValue = 32,
         .step = 1
     };
 

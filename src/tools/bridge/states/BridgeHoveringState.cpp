@@ -70,7 +70,7 @@ bool BridgeHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t 
 void BridgeHoveringState::UpdateHintText_(StatefulDragViewInputControl& ctrl, uint32_t modifiers) const {
 	const std::string hint = settings_.parameters.BuildHintText(modifiers);
 	const cRZBaseString body(hint.c_str());
-	const cRZBaseString title("Bridge builder");
+	const cRZBaseString title("Bridge Builder");
 	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, title, body);
 }
 

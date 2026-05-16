@@ -137,7 +137,7 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl, c
 			: "Too short - drag further | Right-click to cancel");
 	const std::string body = std::format("{}\n{}", statusText, settings_.parameters.BuildHintText(modifiers));
 
-	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, "Bridge builder", body);
+	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, "Bridge Builder", body);
 }
 
 std::optional<BridgePlacement> BridgeSelectingState::ResolvePlacementFromDrag_() const {

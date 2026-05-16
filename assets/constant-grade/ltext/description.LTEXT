@@ -1,5 +1,1 @@
-Constant Grade
-
-Creates a straight terrain path with a fixed slope. Drag from the start tile to the end tile to set the path direction and length; dragging sideways widens the affected path. The preview shows the resulting start and end heights before applying.
-
-Controls: release the mouse to apply the grade. Alt+Scroll changes the target grade from downhill to uphill, and Ctrl+Scroll toggles side smoothing. Side smoothing blends the path edges into nearby terrain; turning it off keeps harder edges. Press Esc to cancel.
+Creates a straight terrain path with a fixed slope.1/ Drag from the start tile to the end tile to set the path direction and length (dragging sideways widens the affected path)2/ The preview shows the resulting start and end heights before applying.Controls:- Release the mouse to apply the grade.- Alt+Scroll changes the target grade from downhill to uphill- Ctrl+Scroll toggles side smoothing. Side smoothing blends the path edges into nearby terrain.- Press Esc to cancel.Requires SC4TerrainExtensions.dll to work.

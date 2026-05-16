@@ -143,7 +143,7 @@ void FlattenPickingHeightState::UpdateHintText_(
 
     body << "\nRight-click/Esc: cancel";
 
-    const cRZBaseString title("Pick reference tile");
+    const cRZBaseString title("Leveler [pick reference avg]");
     const cRZBaseString text(body.str().c_str());
     ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, title, text);
 }

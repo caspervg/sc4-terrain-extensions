@@ -8,6 +8,7 @@
 
 namespace {
 constexpr int32_t kTabKey = 0x09;
+constexpr int32_t kToggleShapeKey = 0x44; // D
 constexpr int32_t kPickHeightKey = 0x48; // H
 
 bool CanPickReferenceTile(const FlattenSettings& settings) noexcept {
@@ -18,6 +19,16 @@ bool IsAltOnly(const uint32_t modifiers) noexcept {
     return (modifiers & ModifierCombo::kAlt) != 0
         && (modifiers & ModifierCombo::kShift) == 0
         && (modifiers & ModifierCombo::kCtrl) == 0;
+}
+
+std::string BuildTitle(const FlattenSettings& settings) {
+    std::ostringstream title;
+    title << "Leveler [" << settings.ModeLabel();
+    if (settings.shape == FlattenShapeMode::LineMask) {
+        title << " (D)";
+    }
+    title << "]";
+    return title.str();
 }
 }
 
@@ -87,12 +98,14 @@ bool FlattenHoveringState::OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t
 
     if (vk == kTabKey) {
         const int32_t delta = (mod & ModifierCombo::kShift) != 0 ? -1 : 1;
-        if ((mod & ModifierCombo::kCtrl) != 0) {
-            settings_.CycleShape(delta);
-        } else {
-            dragState_.ClearPickedReferenceTile();
-            settings_.CycleMode(delta);
-        }
+        dragState_.ClearPickedReferenceTile();
+        settings_.CycleMode(delta);
+        UpdateHintText_(ctrl, mod);
+        return true;
+    }
+
+    if (vk == kToggleShapeKey) {
+        settings_.CycleShape(1);
         UpdateHintText_(ctrl, mod);
         return true;
     }
@@ -118,7 +131,7 @@ void FlattenHoveringState::UpdateHintText_(StatefulDragViewInputControl& ctrl, c
         body << "\nH: " << (hasPickedReference ? "repick reference tile" : "pick reference tile");
     }
     body << "\nTab/Shift+Tab: cycle mode";
-    body << "\nCtrl+Tab/Ctrl+Shift+Tab: cycle shape";
+    body << "\nD: toggle rectangle/diagonal";
     if (settings_.mode == FlattenHeightMode::Explicit || settings_.mode == FlattenHeightMode::Delta) {
         body << "\nAlt+Scroll: value (" << settings_.ValueLabel() << ")";
     }
@@ -126,9 +139,10 @@ void FlattenHoveringState::UpdateHintText_(StatefulDragViewInputControl& ctrl, c
         body << "\nShift+Scroll: thickness (" << settings_.ThicknessLabel() << ")";
     }
 
-    const cRZBaseString title("Flatten terrain");
+    const std::string title = BuildTitle(settings_);
+    const cRZBaseString titleText(title.c_str());
     const cRZBaseString text(body.str().c_str());
-    ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, title, text);
+    ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, titleText, text);
 }
 
 void FlattenHoveringState::UpdateHoverSelection_(
