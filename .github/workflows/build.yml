@@ -65,14 +65,21 @@ jobs:
           output-file: SC4TerrainExtensions.spdx.json
           upload-artifact: false
 
+      - name: Stage raw DLL artifact
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force artifact-dll | Out-Null
+          Copy-Item cmake-build-release-visual-studio\Release\SC4TerrainExtensions.dll artifact-dll\SC4TerrainExtensions.dll -Force
+          Copy-Item SC4TerrainExtensions.spdx.json artifact-dll\SC4TerrainExtensions.spdx.json -Force
+
       - name: Upload raw DLL artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.DLL_ARTIFACT_NAME }}
           compression-level: 0
           path: |
-            cmake-build-release-visual-studio/Release/SC4TerrainExtensions.dll
-            SC4TerrainExtensions.spdx.json
+            artifact-dll/SC4TerrainExtensions.dll
+            artifact-dll/SC4TerrainExtensions.spdx.json
 
   package-installer:
     needs: [build-dll]
@@ -97,8 +104,21 @@ jobs:
         run: |
           mkdir -p dist-package
 
-          cp artifacts/dll/SC4TerrainExtensions.dll dist-package/SC4TerrainExtensions.dll
-          cp artifacts/dll/SC4TerrainExtensions.spdx.json dist-package/SC4TerrainExtensions.spdx.json
+          dll_path="$(find artifacts/dll -type f -name SC4TerrainExtensions.dll | head -n 1)"
+          sbom_path="$(find artifacts/dll -type f -name SC4TerrainExtensions.spdx.json | head -n 1)"
+          if [ -z "$dll_path" ]; then
+            echo "Could not find SC4TerrainExtensions.dll in downloaded artifact"
+            find artifacts/dll -type f | sort
+            exit 1
+          fi
+          if [ -z "$sbom_path" ]; then
+            echo "Could not find SC4TerrainExtensions.spdx.json in downloaded artifact"
+            find artifacts/dll -type f | sort
+            exit 1
+          fi
+
+          cp "$dll_path" dist-package/SC4TerrainExtensions.dll
+          cp "$sbom_path" dist-package/SC4TerrainExtensions.spdx.json
           cp dist/SC4TerrainExtensions.dat dist-package/SC4TerrainExtensions.dat
           cp dist/README.txt dist-package/
           cp LICENSE.txt dist-package/
