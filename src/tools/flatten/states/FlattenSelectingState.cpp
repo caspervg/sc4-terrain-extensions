@@ -103,7 +103,7 @@ bool FlattenSelectingState::OnMouseUpL(StatefulDragViewInputControl& ctrl, int32
 }
 
 bool FlattenSelectingState::OnMouseDownR(StatefulDragViewInputControl& ctrl, int32_t, int32_t, uint32_t) {
-    //ctrl.TransitionTo(ControlStateId::Hovering);
+    ctrl.TransitionTo(ControlStateId::Hovering);
     return false;
 }
 

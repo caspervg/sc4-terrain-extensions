@@ -162,15 +162,6 @@ bool StatefulDragViewInputControl::OnMouseUpL(const int32_t x, const int32_t z, 
 bool StatefulDragViewInputControl::OnMouseDownR(const int32_t x, const int32_t z, const uint32_t mod) {
 	if (!IsOnTop() || !currentState_) return false;
 	KeepAliveRef guard(this);
-
-	// Right-drag city scrolling is handled by the native view control. If our drag
-	// tool is mid-selection, cancel that selection first so we release capture and
-	// do not leave the tool stuck in a half-active state after the stack changes.
-	if (currentState_->GetStateId() == ControlStateId::Selecting) {
-		TransitionTo(ControlStateId::Hovering);
-		return false;
-	}
-
 	return currentState_->OnMouseDownR(*this, x, z, mod);
 }
 
