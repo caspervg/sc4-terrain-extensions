@@ -99,10 +99,10 @@ void SnapshotDragTool::ActivateDirect(
 	view3d_ = view3d;
 	drawMgr_ = &drawMgr;
 
-	// Set deactivate callback BEFORE activating (SC4 may call Deactivate during SetCurrentViewInputControl)
-	control_->SetDeactivateCallback([this]() {
-		// Just clean up our state, don't call Deactivate() recursively
-		LOG_DEBUG("SnapshotDragTool: deactivate callback fired");
+	// Owner cleanup callback (manager owns the plain deactivate callback). Set BEFORE
+	// activating since SC4 may call Deactivate during SetCurrentViewInputControl.
+	control_->SetOwnerDeactivateCallback([this]() {
+		LOG_DEBUG("SnapshotDragTool: owner deactivate callback fired");
 		renderer_.ClearAll();
 		view3d_ = nullptr;
 	});
@@ -128,6 +128,7 @@ void SnapshotDragTool::Deactivate() {
 	control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
 	control_->FinalizeClose();
 	control_->SetDeactivateCallback(nullptr);
+	control_->SetOwnerDeactivateCallback(nullptr);
 
 	if (view3d_) {
 		cISC4ViewInputControl* currentControl = view3d_->GetCurrentViewInputControl();
