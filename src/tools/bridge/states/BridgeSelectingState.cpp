@@ -136,10 +136,10 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl, c
 	renderer_.ShowHoverTile(ctrl.GetTerrain(), dragState_.currentX, dragState_.currentZ);
 
 	const std::string statusText = isValid
-		? "Release to place | Right-click to cancel"
+		? std::string("Release to place | Right-click to cancel")
 		: (widthTooWide
-			? "Too wide - max 10 tiles | Right-click to cancel"
-			: "Too short - drag further | Right-click to cancel");
+			? std::format("Too wide - max {} tiles | Right-click to cancel", settings_.widthTiles.maxValue)
+			: std::string("Too short - drag further | Right-click to cancel"));
 	const std::string body = std::format("{}\n{}", statusText, settings_.parameters.BuildHintText(modifiers));
 
 	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, "Bridge Builder", body);
