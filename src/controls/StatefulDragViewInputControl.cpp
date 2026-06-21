@@ -236,4 +236,18 @@ void StatefulDragViewInputControl::Deactivate() {
 	cSC4BaseViewInputControl::Deactivate();
 	LOG_DEBUG("StatefulDragViewInputControl::Deactivate: state='{}'",
 		currentState_ ? currentState_->GetName() : "(null)");
+
+	if (currentState_ && currentState_->GetStateId() != ControlStateId::Dormant) {
+		TransitionTo(ControlStateId::Dormant);
+	}
+
+	EndCapture();
+
+	if (onOwnerDeactivate_) {
+		onOwnerDeactivate_();
+	}
+
+	if (onDeactivate_) {
+		onDeactivate_();
+	}
 }
