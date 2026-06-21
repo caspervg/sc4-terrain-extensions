@@ -132,11 +132,11 @@ void FlattenInteractiveTool::Activate(
 void FlattenInteractiveTool::Deactivate() {
     if (control_) {
         control_->SetCloseCallback(nullptr);
-        control_->SetOwnerDeactivateCallback(nullptr);
         control_->ClearSelections();
         control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
         control_->FinalizeClose();
         control_->SetDeactivateCallback(nullptr);
+        control_->SetOwnerDeactivateCallback(nullptr);
     }
 
     if (control_ && view3d_) {
