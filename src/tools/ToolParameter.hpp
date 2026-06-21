@@ -90,7 +90,7 @@ struct TypedParameter {
         return value;
     }
 
-    void ResetToMid() const noexcept {
+    void ResetToMid() noexcept {
         value = minValue + (maxValue - minValue) / T{2};
     }
 
