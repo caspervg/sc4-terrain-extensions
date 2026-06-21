@@ -92,6 +92,11 @@ bool FlattenSelectingState::OnMouseUpL(StatefulDragViewInputControl& ctrl, int32
         dragState_.currentZ = tileZ;
     }
 
+    if (!operation_.BuildPreview(BuildRequest_()).has_value()) {
+        ctrl.TransitionTo(ControlStateId::Hovering);
+        return true;
+    }
+
     dragState_.selectionCommitted = true;
     ctrl.TransitionTo(ControlStateId::Executing);
     return true;

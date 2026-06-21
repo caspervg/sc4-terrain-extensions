@@ -65,7 +65,8 @@ bool ConstantGradeSelectingState::OnMouseUpL(
         dragState_.currentZ = tileZ;
     }
 
-    if (!BuildRequest_().has_value()) {
+    const auto request = BuildRequest_();
+    if (!request.has_value() || !operation_.BuildPreview(*request).has_value()) {
         ctrl.TransitionTo(ControlStateId::Hovering);
         return true;
     }
