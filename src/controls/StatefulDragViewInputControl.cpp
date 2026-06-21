@@ -48,6 +48,10 @@ void StatefulDragViewInputControl::TransitionTo(ControlStateId newId) {
 		return;
 	}
 
+	if (currentState_ && currentState_->GetStateId() == newId) {
+		return;
+	}
+
 	const auto state = states_.at(newId).get();
 
 	if (currentState_) {
