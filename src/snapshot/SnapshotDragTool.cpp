@@ -55,6 +55,11 @@ SnapshotDragTool::~SnapshotDragTool() {
 	Deactivate();
 }
 
+void SnapshotDragTool::SetRestoreIndex(int index) {
+	const auto* snap = mgr_.Get(index);
+	dragState_.restoreId = snap ? snap->id : 0;
+}
+
 void SnapshotDragTool::Activate(
 	cISC4City* city,
 	cISC4View3DWin* view3d,
@@ -125,7 +130,7 @@ void SnapshotDragTool::ActivateDirect(
 	}
 	control_->Activate();
 
-	LOG_INFO("SnapshotDragTool: Activated for snapshot index {}", dragState_.restoreIndex);
+	LOG_INFO("SnapshotDragTool: Activated for snapshot id {}", dragState_.restoreId);
 }
 
 void SnapshotDragTool::Deactivate() {

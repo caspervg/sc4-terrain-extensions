@@ -31,7 +31,7 @@ void SnapshotExecutingState::OnEnter(StatefulDragViewInputControl& ctrl) {
 	const int maxVX = maxTileX + 1;
 	const int maxVZ = maxTileZ + 1;
 
-	mgr_.RestoreRegion(dragState_.restoreIndex, ctrl.GetTerrain(),
+	mgr_.RestoreRegion(dragState_.restoreId, ctrl.GetTerrain(),
 	                    minVX, minVZ, maxVX, maxVZ);
 
 	LOG_INFO("SnapshotExecutingState: restored region [{},{} - {},{}]",

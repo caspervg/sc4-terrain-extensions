@@ -21,9 +21,9 @@ void SnapshotHoveringState::OnEnter(StatefulDragViewInputControl& ctrl) {
 	ctrl.ClearSelections();
 
 	// Auto-enable wireframe preview for the target snapshot
-	const auto* snap = mgr_.Get(dragState_.restoreIndex);
+	const auto* snap = mgr_.GetById(dragState_.restoreId);
 	if (snap) {
-		mgr_.SetPreviewIndex(dragState_.restoreIndex);
+		mgr_.SetPreviewIndex(mgr_.IndexOfId(dragState_.restoreId));
 		renderer_.Rebuild(*snap, ctrl.GetTerrain());
 	}
 
@@ -31,7 +31,7 @@ void SnapshotHoveringState::OnEnter(StatefulDragViewInputControl& ctrl) {
 	const cRZBaseString title("Snapshot Restore");
 	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, title, body);
 
-	LOG_DEBUG("SnapshotHoveringState::OnEnter (snapshot index={})", dragState_.restoreIndex);
+	LOG_DEBUG("SnapshotHoveringState::OnEnter (snapshot id={})", dragState_.restoreId);
 }
 
 void SnapshotHoveringState::OnExit(StatefulDragViewInputControl& ctrl) {

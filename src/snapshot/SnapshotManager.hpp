@@ -15,11 +15,13 @@ public:
 
     bool Capture(cISTETerrain* terrain, const std::string& name, const std::string& desc = "");
     void RestoreFull(int index, cISTETerrain* terrain);
-    void RestoreRegion(int index, cISTETerrain* terrain, int minX, int minZ, int maxX, int maxZ);
+    void RestoreRegion(uint32_t snapshotId, cISTETerrain* terrain, int minX, int minZ, int maxX, int maxZ);
     void Remove(int index);
     void Clear();
 
     [[nodiscard]] const TerrainSnapshot* Get(int index) const;
+    [[nodiscard]] const TerrainSnapshot* GetById(uint32_t id) const;
+    [[nodiscard]] int IndexOfId(uint32_t id) const;
     [[nodiscard]] size_t Count() const { return snapshots_.size(); }
     [[nodiscard]] bool IsFull() const { return snapshots_.size() >= kMaxSnapshots; }
     [[nodiscard]] bool TerrainDiffersFromLatest(cISTETerrain* terrain) const;
@@ -35,6 +37,7 @@ public:
 
 private:
     std::vector<TerrainSnapshot> snapshots_;
+    uint32_t nextId_ = 1;
     int previewIndex_ = -1;
     bool autoCapture_ = true;
     bool terrainAutoCapture_ = false;
