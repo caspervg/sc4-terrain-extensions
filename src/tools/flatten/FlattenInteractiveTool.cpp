@@ -94,7 +94,12 @@ void FlattenInteractiveTool::Activate(
     newControl->AddRef();
     control_.reset(newControl);
 
-    control_->Init();
+    if (!control_->Init()) {
+        LOG_ERROR("FlattenInteractiveTool::Activate: control Init failed");
+        Deactivate();
+        return;
+    }
+
     view3d_ = view3d;
     drawMgr_ = &drawMgr;
     drawMgr_->Register(renderer_.get());
@@ -111,11 +116,15 @@ void FlattenInteractiveTool::Activate(
                 "Auto-captured before flatten operation");
         });
     }
-    control_->Activate();
 
-    view3d->SetCurrentViewInputControl(
+    if (!view3d->SetCurrentViewInputControl(
         control_.get(),
-        cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl);
+        cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl)) {
+        LOG_ERROR("FlattenInteractiveTool::Activate: SetCurrentViewInputControl failed");
+        Deactivate();
+        return;
+    }
+    control_->Activate();
 
     LOG_INFO("FlattenInteractiveTool: activated");
 }

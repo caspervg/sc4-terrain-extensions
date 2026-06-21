@@ -91,7 +91,12 @@ void BridgeApproachDragTool::Activate(
 	newControl->AddRef();
 	control_.reset(newControl);
 
-	control_->Init();
+	if (!control_->Init()) {
+		LOG_ERROR("BridgeApproachDragTool::Activate: control Init failed");
+		Deactivate();
+		return;
+	}
+
 	view3d_ = view3d;
 	drawMgr_ = &drawMgr;
 	drawMgr.Register(renderer_.get());
@@ -115,11 +120,15 @@ void BridgeApproachDragTool::Activate(
 				"Auto-captured before bridge approach operation");
 		});
 	}
-	control_->Activate();
 
-	view3d->SetCurrentViewInputControl(
+	if (!view3d->SetCurrentViewInputControl(
 		control_.get(),
-		cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl);
+		cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl)) {
+		LOG_ERROR("BridgeApproachDragTool::Activate: SetCurrentViewInputControl failed");
+		Deactivate();
+		return;
+	}
+	control_->Activate();
 
 	LOG_INFO("BridgeApproachDragTool: Activated");
 }
