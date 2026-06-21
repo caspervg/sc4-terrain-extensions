@@ -8,6 +8,19 @@
 #include "cISTETerrainView.h"
 #include "utils/Logger.h"
 
+namespace {
+// Holds a reference to the control for the duration of an event dispatch so that
+// teardown triggered from within a handler (Close -> owner Deactivate -> reset)
+// cannot free the control or its states while they are still on the stack.
+struct KeepAliveRef {
+	cISC4ViewInputControl* p;
+	explicit KeepAliveRef(cISC4ViewInputControl* c) : p(c) { p->AddRef(); }
+	~KeepAliveRef() { p->Release(); }
+	KeepAliveRef(const KeepAliveRef&) = delete;
+	KeepAliveRef& operator=(const KeepAliveRef&) = delete;
+};
+}
+
 StatefulDragViewInputControl::StatefulDragViewInputControl(
 	const uint32_t controlId,
 	const uint32_t cursorId,
@@ -140,21 +153,25 @@ void StatefulDragViewInputControl::ClearCursorText(const uint32_t slot) const {
 
 bool StatefulDragViewInputControl::OnMouseMove(const int32_t x, const int32_t z, const uint32_t mod) {
 	if (!IsOnTop() || !currentState_) return false;
+	KeepAliveRef guard(this);
 	return currentState_->OnMouseMove(*this, x, z, mod);
 }
 
 bool StatefulDragViewInputControl::OnMouseDownL(const int32_t x, const int32_t z, const uint32_t mod) {
 	if (!IsOnTop() || !currentState_) return false;
+	KeepAliveRef guard(this);
 	return currentState_->OnMouseDownL(*this, x, z, mod);
 }
 
 bool StatefulDragViewInputControl::OnMouseUpL(const int32_t x, const int32_t z, const uint32_t mod) {
 	if (!IsOnTop() || !currentState_) return false;
+	KeepAliveRef guard(this);
 	return currentState_->OnMouseUpL(*this, x, z, mod);
 }
 
 bool StatefulDragViewInputControl::OnMouseDownR(const int32_t x, const int32_t z, const uint32_t mod) {
 	if (!IsOnTop() || !currentState_) return false;
+	KeepAliveRef guard(this);
 
 	// Right-drag city scrolling is handled by the native view control. If our drag
 	// tool is mid-selection, cancel that selection first so we release capture and
@@ -169,31 +186,37 @@ bool StatefulDragViewInputControl::OnMouseDownR(const int32_t x, const int32_t z
 
 bool StatefulDragViewInputControl::OnMouseUpR(const int32_t x, const int32_t z, const uint32_t mod) {
 	if (!IsOnTop() || !currentState_) return false;
+	KeepAliveRef guard(this);
 	return currentState_->OnMouseUpR(*this, x, z, mod);
 }
 
 bool StatefulDragViewInputControl::OnMouseWheel(const int32_t x, const int32_t z, const uint32_t mod, const int32_t delta) {
 	if (!IsOnTop() || !currentState_) return false;
+	KeepAliveRef guard(this);
 	return currentState_->OnMouseWheel(*this, x, z, mod, delta);
 }
 
 bool StatefulDragViewInputControl::OnMouseExit() {
 	if (!currentState_) return false;
+	KeepAliveRef guard(this);
 	return currentState_->OnMouseExit(*this);
 }
 
 bool StatefulDragViewInputControl::OnCharacter(const char value) {
 	if (!IsOnTop() || !currentState_) return false;
+	KeepAliveRef guard(this);
 	return currentState_->OnCharacter(*this, value);
 }
 
 bool StatefulDragViewInputControl::OnKeyDown(const int32_t vk, const uint32_t mod) {
 	if (!IsOnTop() || !currentState_) return false;
+	KeepAliveRef guard(this);
 	return currentState_->OnKeyDown(*this, vk, mod);
 }
 
 bool StatefulDragViewInputControl::OnKeyUp(const int32_t vkCode, const uint32_t modifiers) {
 	if (!IsOnTop() || !currentState_) return false;
+	KeepAliveRef guard(this);
 	return currentState_->OnKeyUp(*this, vkCode, modifiers);
 }
 
@@ -208,14 +231,18 @@ void StatefulDragViewInputControl::Close() {
 		return;
 	}
 
+	KeepAliveRef guard(this);
+	closeInProgress_ = true;
+
 	if (onClose_) {
-		closeInProgress_ = true;
-		onClose_();
-		closeInProgress_ = false;
-		return;
+		// Local copy: the owner's Deactivate() clears onClose_ while it runs.
+		const CloseCallback cb = onClose_;
+		cb();
+	} else {
+		FinalizeClose();
 	}
 
-	FinalizeClose();
+	closeInProgress_ = false;
 }
 
 void StatefulDragViewInputControl::FinalizeClose() {
