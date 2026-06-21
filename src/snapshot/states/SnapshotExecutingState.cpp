@@ -43,5 +43,5 @@ void SnapshotExecutingState::OnEnter(StatefulDragViewInputControl& ctrl) {
 
 	ctrl.ClearSelections();
 	ctrl.ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
-	ctrl.TransitionTo(ControlStateId::Dormant);
+	ctrl.Close();
 }
