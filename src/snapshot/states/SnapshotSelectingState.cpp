@@ -22,7 +22,11 @@ SnapshotSelectingState::SnapshotSelectingState(
 }
 
 void SnapshotSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
-	ctrl.BeginCapture();
+	if (!ctrl.BeginCapture()) {
+		LOG_WARN("SnapshotSelectingState: failed to acquire mouse capture; aborting selection");
+		ctrl.TransitionTo(ControlStateId::Hovering);
+		return;
+	}
 	UpdateSelection_(ctrl);
 }
 

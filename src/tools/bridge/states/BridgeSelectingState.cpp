@@ -10,6 +10,7 @@
 #include "tools/bridge/BridgePlacement.hpp"
 #include "tools/bridge/BridgeToolSettings.hpp"
 #include "viz/BridgeApproachRenderer.hpp"
+#include "utils/Logger.h"
 
 namespace {
 
@@ -49,7 +50,11 @@ BridgeSelectingState::BridgeSelectingState(BridgeToolSettings& settings,
 	, dragState_(dragState) {}
 
 void BridgeSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
-	ctrl.BeginCapture();
+	if (!ctrl.BeginCapture()) {
+		LOG_WARN("BridgeSelectingState: failed to acquire mouse capture; aborting selection");
+		ctrl.TransitionTo(ControlStateId::Hovering);
+		return;
+	}
 	settings_.widthTiles.value = settings_.widthTiles.minValue;
 
 	const std::string body = std::format(
