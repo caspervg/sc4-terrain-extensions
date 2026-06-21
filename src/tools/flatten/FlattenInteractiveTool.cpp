@@ -40,6 +40,7 @@ public:
     }
 
     void Activate() override {
+        StatefulDragViewInputControl::Activate();
         TransitionTo(ControlStateId::Hovering);
     }
 
