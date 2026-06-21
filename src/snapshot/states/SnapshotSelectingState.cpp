@@ -58,12 +58,6 @@ bool SnapshotSelectingState::OnMouseUpL(StatefulDragViewInputControl& ctrl, int3
 	dragState_.currentX = tileX;
 	dragState_.currentZ = tileZ;
 
-	// Need at least a 1-tile selection
-	if (dragState_.startX == dragState_.currentX && dragState_.startZ == dragState_.currentZ) {
-		ctrl.TransitionTo(ControlStateId::Hovering);
-		return true;
-	}
-
 	ctrl.TransitionTo(ControlStateId::Executing);
 	return true;
 }
