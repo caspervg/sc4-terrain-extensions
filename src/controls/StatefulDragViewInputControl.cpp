@@ -83,21 +83,11 @@ bool StatefulDragViewInputControl::ScreenToTile(int32_t screenX, int32_t screenZ
 
 	if (!pickResult) return false;
 
-	const uint32_t maxX = terrain_->CellCountX() - 1;
-	const uint32_t maxZ = terrain_->CellCountZ() - 1;
+	const int32_t maxX = static_cast<int32_t>(terrain_->CellCountX()) - 1;
+	const int32_t maxZ = static_cast<int32_t>(terrain_->CellCountZ()) - 1;
 
-	outTileX = static_cast<int32_t>(
-		std::clamp(
-			static_cast<uint32_t>(worldCoords[0] / 16.0f),
-			0u, maxX
-		)
-	);
-	outTileZ = static_cast<int32_t>(
-		std::clamp(
-			static_cast<uint32_t>(worldCoords[2] / 16.0f),
-			0u, maxZ
-		)
-	);
+	outTileX = std::clamp(static_cast<int32_t>(worldCoords[0] / 16.0f), 0, maxX);
+	outTileZ = std::clamp(static_cast<int32_t>(worldCoords[2] / 16.0f), 0, maxZ);
 
 	return true;
 }
