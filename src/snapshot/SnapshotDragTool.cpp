@@ -108,6 +108,7 @@ void SnapshotDragTool::ActivateDirect(
 	// activating since SC4 may call Deactivate during SetCurrentViewInputControl.
 	control_->SetOwnerDeactivateCallback([this]() {
 		LOG_DEBUG("SnapshotDragTool: owner deactivate callback fired");
+		mgr_.SetPreviewIndex(-1);
 		renderer_.ClearAll();
 		view3d_ = nullptr;
 	});
