@@ -14,18 +14,38 @@ constexpr float kTileSizeMeters = 16.0f;
 constexpr float kSlabEpsilon = 1e-4f;
 constexpr float kUnselected = -1.0f;
 
-float ComputeInfluence(
-    const float perpendicularDistance,
-    const int effectiveWidthTiles,
-    const bool sideSmoothing) noexcept {
-    if (!sideSmoothing || effectiveWidthTiles <= 1) {
+// Distance from the core slab, zero inside it. The core is the full requested
+// band: it always grades to the plane at full strength. Everything softer lives
+// in a skirt of falloffTiles *outside* the core, so the band stays usable and
+// the blend into surrounding terrain happens beyond it.
+float DistanceOutsideCore(
+    const float along,
+    const float perpendicular,
+    const float length,
+    const float lowerBound,
+    const float upperBound) noexcept {
+    const float alongOver = std::max({
+        0.0f,
+        -0.5f + kSlabEpsilon - along,
+        along - length - 0.5f + kSlabEpsilon});
+    const float perpOver = std::max({
+        0.0f,
+        lowerBound + kSlabEpsilon - perpendicular,
+        perpendicular - upperBound + kSlabEpsilon});
+
+    return std::sqrt(alongOver * alongOver + perpOver * perpOver);
+}
+
+float ComputeInfluence(const float distanceOutsideCore, const float falloffTiles) noexcept {
+    if (distanceOutsideCore <= 0.0f) {
         return 1.0f;
     }
+    if (falloffTiles <= 0.0f || distanceOutsideCore >= falloffTiles) {
+        return kUnselected;
+    }
 
-    return std::clamp(
-        1.0f - std::abs(perpendicularDistance) / (static_cast<float>(effectiveWidthTiles) / 2.0f),
-        0.0f,
-        1.0f);
+    const float t = 1.0f - distanceOutsideCore / falloffTiles;
+    return t * t * (3.0f - 2.0f * t);
 }
 
 }
@@ -61,6 +81,10 @@ float ConstantGradePreview::InfluenceAtTile(const int tileX, const int tileZ) co
 
 bool ConstantGradePreview::IsSelectedTile(const int tileX, const int tileZ) const noexcept {
     return InfluenceAtTile(tileX, tileZ) >= 0.0f;
+}
+
+bool ConstantGradePreview::IsCoreTile(const int tileX, const int tileZ) const noexcept {
+    return InfluenceAtTile(tileX, tileZ) >= 1.0f;
 }
 
 int ConstantGradeOperation::Index_(const int offsetX, const int offsetZ, const int spanX) noexcept {
@@ -104,13 +128,6 @@ std::optional<ConstantGradeOperation::PathInfo> ConstantGradeOperation::BuildPat
     const int requestedWidthTiles = BridgeApproachGeometry::GetEffectiveWidthTiles(request.widthTiles);
     const auto widthOffsets = BridgeApproachGeometry::GetWidthOffsetBounds(requestedWidthTiles);
 
-    int influencedRows = 0;
-    for (int offset = -widthOffsets.negativeOffset; offset <= widthOffsets.positiveOffset; ++offset) {
-        if (ComputeInfluence(static_cast<float>(offset), requestedWidthTiles, request.sideSmoothing) > 0.0f) {
-            ++influencedRows;
-        }
-    }
-
     return PathInfo{
         .tileDx = tileDx,
         .tileDz = tileDz,
@@ -125,8 +142,8 @@ std::optional<ConstantGradeOperation::PathInfo> ConstantGradeOperation::BuildPat
         .gradePercent = ((endHeight - startHeight) / horizontalDistanceMeters) * 100.0f,
         .angleDegrees = std::atan2(static_cast<float>(tileDz), static_cast<float>(tileDx))
             * (180.0f / std::numbers::pi_v<float>),
+        .falloffTiles = std::max(0.0f, request.falloffTiles),
         .requestedWidthTiles = requestedWidthTiles,
-        .effectiveWidthTiles = std::max(1, influencedRows),
         .negativeOffset = widthOffsets.negativeOffset,
         .positiveOffset = widthOffsets.positiveOffset,
     };
@@ -144,7 +161,9 @@ std::optional<ConstantGradePreview> ConstantGradeOperation::BuildPreview(
         return std::nullopt;
     }
 
-    const int pad = static_cast<int>(std::ceil(static_cast<float>(path->requestedWidthTiles) / 2.0f)) + 1;
+    const int pad = static_cast<int>(std::ceil(static_cast<float>(path->requestedWidthTiles) / 2.0f))
+        + static_cast<int>(std::ceil(path->falloffTiles))
+        + 1;
     const int scanMinX = ClampTileX_(std::min(request.startTileX, request.endTileX) - pad);
     const int scanMaxX = ClampTileX_(std::max(request.startTileX, request.endTileX) + pad);
     const int scanMinZ = ClampTileZ_(std::min(request.startTileZ, request.endTileZ) - pad);
@@ -172,12 +191,12 @@ std::optional<ConstantGradePreview> ConstantGradeOperation::BuildPreview(
             const float along = centreDx * path->unitX + centreDz * path->unitZ;
             const float perpendicular = centreDx * path->normalX + centreDz * path->normalZ;
 
-            if (along < -0.5f - kSlabEpsilon || along >= path->length + 0.5f - kSlabEpsilon) continue;
-            if (perpendicular < lowerBound - kSlabEpsilon) continue;
-            if (perpendicular >= upperBound - kSlabEpsilon) continue;
+            const float influence = ComputeInfluence(
+                DistanceOutsideCore(along, perpendicular, path->length, lowerBound, upperBound),
+                path->falloffTiles);
+            if (influence < 0.0f) continue;
 
-            scanInfluence[Index_(tileX - scanMinX, tileZ - scanMinZ, scanSpanX)] =
-                ComputeInfluence(perpendicular, path->requestedWidthTiles, request.sideSmoothing);
+            scanInfluence[Index_(tileX - scanMinX, tileZ - scanMinZ, scanSpanX)] = influence;
             tightMinX = std::min(tightMinX, tileX);
             tightMinZ = std::min(tightMinZ, tileZ);
             tightMaxX = std::max(tightMaxX, tileX);
@@ -203,7 +222,7 @@ std::optional<ConstantGradePreview> ConstantGradeOperation::BuildPreview(
         .affectedMaxTileZ = tightMaxZ,
         .pathLengthTiles = static_cast<int>(std::round(path->length)),
         .requestedWidthTiles = path->requestedWidthTiles,
-        .effectiveWidthTiles = path->effectiveWidthTiles,
+        .falloffTiles = path->falloffTiles,
         .pathAngleDegrees = path->angleDegrees,
         .gradePercent = path->gradePercent,
         .startHeight = path->startHeight,
@@ -246,6 +265,33 @@ std::optional<ConstantGradePreview> ConstantGradeOperation::BuildPreview(
         }
     }
 
+    const auto vertexAlong = [&](const int vertexX, const int vertexZ) {
+        return static_cast<float>(vertexX - request.startTileX) * path->unitX
+            + static_cast<float>(vertexZ - request.startTileZ) * path->unitZ;
+    };
+
+    // Past the ends of the core the plane would keep climbing, so the skirt
+    // blends toward the height at the nearest core edge instead. The bounds are
+    // measured rather than derived because the core's vertex extent along the
+    // path depends on the drag direction and angle.
+    float coreAlongMin = std::numeric_limits<float>::max();
+    float coreAlongMax = std::numeric_limits<float>::lowest();
+    for (int offsetZ = 0; offsetZ < vertexSpanZ; ++offsetZ) {
+        for (int offsetX = 0; offsetX < preview.vertexSpanX; ++offsetX) {
+            if (vertexInfluence[Index_(offsetX, offsetZ, preview.vertexSpanX)] < 1.0f) {
+                continue;
+            }
+
+            const float along = vertexAlong(preview.minVertexX + offsetX, preview.minVertexZ + offsetZ);
+            coreAlongMin = std::min(coreAlongMin, along);
+            coreAlongMax = std::max(coreAlongMax, along);
+        }
+    }
+    if (coreAlongMin > coreAlongMax) {
+        coreAlongMin = 0.0f;
+        coreAlongMax = path->length;
+    }
+
     preview.vertexIndex.assign(vertexInfluence.size(), -1);
     preview.vertices.reserve(vertexInfluence.size());
 
@@ -259,9 +305,8 @@ std::optional<ConstantGradePreview> ConstantGradeOperation::BuildPreview(
 
             const int vertexX = preview.minVertexX + offsetX;
             const int vertexZ = preview.minVertexZ + offsetZ;
-            const float alongTiles =
-                static_cast<float>(vertexX - request.startTileX) * path->unitX
-                + static_cast<float>(vertexZ - request.startTileZ) * path->unitZ;
+            const float alongTiles = std::clamp(
+                vertexAlong(vertexX, vertexZ), coreAlongMin, coreAlongMax);
             const float planeHeight = path->startHeight + path->gradePerTile * alongTiles;
             const float currentHeight = terrain_->GetAltitudeAtVertex(vertexX, vertexZ);
 
@@ -271,6 +316,7 @@ std::optional<ConstantGradePreview> ConstantGradeOperation::BuildPreview(
                 .vertexZ = vertexZ,
                 .currentHeight = currentHeight,
                 .predictedHeight = Lerp(currentHeight, planeHeight, influence),
+                .influence = influence,
             });
         }
     }

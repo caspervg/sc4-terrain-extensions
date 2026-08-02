@@ -65,7 +65,7 @@ std::optional<ConstantGradeRequest> BuildConstantGradeRequest(
             .endTileZ = dragState.startZ + offset.z,
             .widthTiles = static_cast<float>(settings.lineWidthTiles.value),
             .gradePercent = settings.gradePercent.value,
-            .sideSmoothing = settings.IsSideSmoothingEnabled(),
+            .falloffTiles = static_cast<float>(settings.falloffTiles.value),
         };
     }
 
@@ -84,7 +84,7 @@ std::optional<ConstantGradeRequest> BuildConstantGradeRequest(
             .endTileZ = centerZ,
             .widthTiles = static_cast<float>(effectiveWidthTiles),
             .gradePercent = settings.gradePercent.value,
-            .sideSmoothing = settings.IsSideSmoothingEnabled(),
+            .falloffTiles = static_cast<float>(settings.falloffTiles.value),
         };
     }
 
@@ -97,7 +97,7 @@ std::optional<ConstantGradeRequest> BuildConstantGradeRequest(
         .endTileZ = dragState.currentZ,
         .widthTiles = static_cast<float>(effectiveWidthTiles),
         .gradePercent = settings.gradePercent.value,
-        .sideSmoothing = settings.IsSideSmoothingEnabled(),
+        .falloffTiles = static_cast<float>(settings.falloffTiles.value),
     };
 }
 

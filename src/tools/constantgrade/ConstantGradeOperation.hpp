@@ -15,7 +15,7 @@ struct ConstantGradeRequest {
     std::optional<float> gradePercent{};
     std::optional<float> startHeight{};
     std::optional<float> endHeight{};
-    bool sideSmoothing{true};
+    float falloffTiles{0.0f};
 };
 
 struct ConstantGradePreview {
@@ -24,8 +24,10 @@ struct ConstantGradePreview {
         int vertexZ{};
         float currentHeight{};
         float predictedHeight{};
+        float influence{};
 
         [[nodiscard]] float Delta() const noexcept { return predictedHeight - currentHeight; }
+        [[nodiscard]] bool IsCore() const noexcept { return influence >= 1.0f; }
     };
 
     int minTileX{};
@@ -38,7 +40,7 @@ struct ConstantGradePreview {
     int affectedMaxTileZ{};
     int pathLengthTiles{};
     int requestedWidthTiles{};
-    int effectiveWidthTiles{};
+    float falloffTiles{};
     float pathAngleDegrees{};
     float gradePercent{};
     float startHeight{};
@@ -55,6 +57,7 @@ struct ConstantGradePreview {
     [[nodiscard]] const VertexDelta* FindVertex(int vertexX, int vertexZ) const noexcept;
     [[nodiscard]] float InfluenceAtTile(int tileX, int tileZ) const noexcept;
     [[nodiscard]] bool IsSelectedTile(int tileX, int tileZ) const noexcept;
+    [[nodiscard]] bool IsCoreTile(int tileX, int tileZ) const noexcept;
 };
 
 class ConstantGradeOperation : public TerrainOperator {
@@ -78,8 +81,8 @@ private:
         float gradePerTile{};
         float gradePercent{};
         float angleDegrees{};
+        float falloffTiles{};
         int requestedWidthTiles{};
-        int effectiveWidthTiles{};
         int negativeOffset{};
         int positiveOffset{};
     };

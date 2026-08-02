@@ -156,7 +156,7 @@ void ConstantGradeRenderer::BuildFill_(const ConstantGradePreview& preview, cons
 void ConstantGradeRenderer::BuildOutline_(const ConstantGradePreview& preview, const DWORD color) {
     for (int tileZ = preview.minTileZ; tileZ <= preview.maxTileZ; ++tileZ) {
         for (int tileX = preview.minTileX; tileX <= preview.maxTileX; ++tileX) {
-            if (!preview.IsSelectedTile(tileX, tileZ)) continue;
+            if (!preview.IsCoreTile(tileX, tileZ)) continue;
 
             const auto* aV = preview.FindVertex(tileX, tileZ);
             const auto* bV = preview.FindVertex(tileX + 1, tileZ);
@@ -169,16 +169,18 @@ void ConstantGradeRenderer::BuildOutline_(const ConstantGradePreview& preview, c
             const OverlayVertex c{WorldXFromVertex(cV->vertexX), cV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(cV->vertexZ), color};
             const OverlayVertex d{WorldXFromVertex(dV->vertexX), dV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(dV->vertexZ), color};
 
-            if (!preview.IsSelectedTile(tileX, tileZ - 1)) EmitLine(a, b, kOutlineThickness, color, kLayerOutline);
-            if (!preview.IsSelectedTile(tileX + 1, tileZ)) EmitLine(b, c, kOutlineThickness, color, kLayerOutline);
-            if (!preview.IsSelectedTile(tileX, tileZ + 1)) EmitLine(c, d, kOutlineThickness, color, kLayerOutline);
-            if (!preview.IsSelectedTile(tileX - 1, tileZ)) EmitLine(d, a, kOutlineThickness, color, kLayerOutline);
+            if (!preview.IsCoreTile(tileX, tileZ - 1)) EmitLine(a, b, kOutlineThickness, color, kLayerOutline);
+            if (!preview.IsCoreTile(tileX + 1, tileZ)) EmitLine(b, c, kOutlineThickness, color, kLayerOutline);
+            if (!preview.IsCoreTile(tileX, tileZ + 1)) EmitLine(c, d, kOutlineThickness, color, kLayerOutline);
+            if (!preview.IsCoreTile(tileX - 1, tileZ)) EmitLine(d, a, kOutlineThickness, color, kLayerOutline);
         }
     }
 }
 
 void ConstantGradeRenderer::BuildMarkers_(const ConstantGradePreview& preview) {
     for (const auto& vertex : preview.vertices) {
+        if (!vertex.IsCore()) continue;
+
         const DWORD color = NodeColorForDelta(vertex.Delta());
         const float worldX = WorldXFromVertex(vertex.vertexX);
         const float worldZ = WorldZFromVertex(vertex.vertexZ);

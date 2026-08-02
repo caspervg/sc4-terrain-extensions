@@ -34,8 +34,11 @@ void ConstantGradeTool::RegisterArguments(args::Group& commands) {
 	mAutoHeight = std::make_unique<args::ValueFlag<bool>>(*mCommand, "auto",
 		"Auto-detect heights",
 		args::Matcher{ 'a' }, false);
+	mFalloffTiles = std::make_unique<args::ValueFlag<float>>(*mCommand, "falloff",
+		"Blend distance in tiles outside the graded band",
+		args::Matcher{"falloff"}, 3.0f);
 	mHardEdges = std::make_unique<args::Flag>(*mCommand, "hard-edges",
-		"Disable side smoothing across the tool width",
+		"Grade the band with no blend into surrounding terrain",
 		args::Matcher{"hard-edges"});
 }
 
@@ -53,13 +56,13 @@ void ConstantGradeTool::Execute(const args::ArgumentParser& parser) {
 	float startHeight = args::get(*mStartHeight);
 	float endHeight = args::get(*mEndHeight);
 	bool autoHeight = args::get(*mAutoHeight);
-	const bool sideSmoothing = !static_cast<bool>(*mHardEdges);
+	const float falloffTiles = static_cast<bool>(*mHardEdges) ? 0.0f : args::get(*mFalloffTiles);
 
-	LOG_INFO("Creating constant grade path from tile ({},{}) to ({},{}), width: {:.1f} tiles",
-		startTileX, startTileZ, endTileX, endTileZ, widthTiles);
+	LOG_INFO("Creating constant grade path from tile ({},{}) to ({},{}), width: {:.1f} tiles, falloff: {:.1f} tiles",
+		startTileX, startTileZ, endTileX, endTileZ, widthTiles, falloffTiles);
 
 	CreateConstantGradePath(startTileX, startTileZ, endTileX, endTileZ,
-		widthTiles, gradePercent, startHeight, endHeight, autoHeight, sideSmoothing);
+		widthTiles, gradePercent, startHeight, endHeight, autoHeight, falloffTiles);
 }
 
 const char* ConstantGradeTool::GetName() const {
@@ -72,7 +75,7 @@ const char* ConstantGradeTool::GetDescription() const {
 
 const char* ConstantGradeTool::GetUsage() const {
 	return "constantgrade <startx> <startz> <endx> <endz> [--width=<tiles>] [--grade=<percent>] "
-		"[--start=<height>] [--end=<height>] [--auto] [--hard-edges]";
+		"[--start=<height>] [--end=<height>] [--auto] [--falloff=<tiles>] [--hard-edges]";
 }
 
 void ConstantGradeTool::CreateConstantGradePath(
@@ -85,7 +88,7 @@ void ConstantGradeTool::CreateConstantGradePath(
 	float startH,
 	float endH,
 	bool autoHeight,
-	bool sideSmoothing) const {
+	float falloffTiles) const {
 	ConstantGradeOperation operation(terrain_);
 	const ConstantGradeRequest request{
 		.startTileX = startTileX,
@@ -98,7 +101,7 @@ void ConstantGradeTool::CreateConstantGradePath(
 		.endHeight = (!autoHeight && gradePercent <= -999.0f && endH > -999.0f)
 			? std::optional<float>(endH)
 			: std::nullopt,
-		.sideSmoothing = sideSmoothing,
+		.falloffTiles = falloffTiles,
 	};
 
 	if (!operation.Apply(request)) {

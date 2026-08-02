@@ -16,14 +16,12 @@ ConstantGradeSettings::ConstantGradeSettings() {
         {.alt = true, .shift = false, .ctrl = false}
     ));
 
-    auto smoothingDescriptor = sideSmoothing.Describe(
-        "Side smoothing", "",
+    auto falloffDescriptor = falloffTiles.Describe(
+        "Edge falloff", "",
         {.alt = false, .shift = false, .ctrl = true}
     );
-    smoothingDescriptor.GetDisplayValue = [this]() {
-        return IsSideSmoothingEnabled() ? std::string("on") : std::string("off");
-    };
-    parameters.Add(std::move(smoothingDescriptor));
+    falloffDescriptor.GetDisplayValue = [this]() { return FalloffLabel(); };
+    parameters.Add(std::move(falloffDescriptor));
 
     auto widthDescriptor = lineWidthTiles.Describe(
         "Line width", "",
@@ -58,10 +56,17 @@ std::string ConstantGradeSettings::LineWidthLabel() const {
     return std::format("{} tiles", lineWidthTiles.value);
 }
 
+std::string ConstantGradeSettings::FalloffLabel() const {
+    if (falloffTiles.value <= 0) {
+        return "hard edges";
+    }
+    return std::format("{} tiles", falloffTiles.value);
+}
+
 std::string ConstantGradeSettings::ValueLabel() const {
     return std::format(
-        "grade {:.1f}% | smoothing {} | shape {}",
+        "grade {:.1f}% | falloff {} | shape {}",
         gradePercent.value,
-        IsSideSmoothingEnabled() ? "on" : "off",
+        FalloffLabel(),
         ShapeLabel());
 }

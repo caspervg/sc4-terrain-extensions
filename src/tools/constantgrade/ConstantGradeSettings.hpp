@@ -19,10 +19,10 @@ struct ConstantGradeSettings {
         .maxValue = 25.0f,
         .step = 0.5f
     };
-    TypedParameter<int> sideSmoothing{
-        .value = 1,
+    TypedParameter<int32_t> falloffTiles{
+        .value = 3,
         .minValue = 0,
-        .maxValue = 1,
+        .maxValue = 16,
         .step = 1
     };
     TypedParameter<int32_t> lineWidthTiles{
@@ -36,10 +36,10 @@ struct ConstantGradeSettings {
 
     ToolParameterSet parameters;
 
-    [[nodiscard]] bool IsSideSmoothingEnabled() const noexcept { return sideSmoothing.value != 0; }
     [[nodiscard]] bool IsLineMode() const noexcept { return shape == ConstantGradeShapeMode::Line; }
     void CycleShape(int32_t delta) noexcept;
     [[nodiscard]] const char* ShapeLabel() const noexcept;
     [[nodiscard]] std::string LineWidthLabel() const;
+    [[nodiscard]] std::string FalloffLabel() const;
     [[nodiscard]] std::string ValueLabel() const;
 };
