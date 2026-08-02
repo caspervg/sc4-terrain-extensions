@@ -29,10 +29,11 @@ public:
     bool OnMouseDownR(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod) override;
     bool OnMouseWheel(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod, int32_t delta) override;
     bool OnKeyDown(StatefulDragViewInputControl& ctrl, int32_t vk, uint32_t mod) override;
+    bool OnKeyUp(StatefulDragViewInputControl& ctrl, int32_t vk, uint32_t mod) override;
 
 private:
     bool RebuildPreview_(StatefulDragViewInputControl& ctrl, uint32_t modifiers);
-    std::optional<ConstantGradeRequest> BuildRequest_() const;
+    bool SyncSnapAngle_(uint32_t modifiers);
 
     ConstantGradeSettings& settings_;
     ConstantGradeOperation& operation_;

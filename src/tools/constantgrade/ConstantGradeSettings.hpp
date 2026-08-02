@@ -1,8 +1,14 @@
 #pragma once
 
+#include <cstdint>
 #include <string>
 
 #include "tools/ToolParameter.hpp"
+
+enum class ConstantGradeShapeMode : uint8_t {
+    Rectangle,
+    Line,
+};
 
 struct ConstantGradeSettings {
     ConstantGradeSettings();
@@ -19,9 +25,21 @@ struct ConstantGradeSettings {
         .maxValue = 1,
         .step = 1
     };
+    TypedParameter<int32_t> lineWidthTiles{
+        .value = 1,
+        .minValue = 1,
+        .maxValue = 16,
+        .step = 1
+    };
+
+    ConstantGradeShapeMode shape{ConstantGradeShapeMode::Rectangle};
 
     ToolParameterSet parameters;
 
     [[nodiscard]] bool IsSideSmoothingEnabled() const noexcept { return sideSmoothing.value != 0; }
+    [[nodiscard]] bool IsLineMode() const noexcept { return shape == ConstantGradeShapeMode::Line; }
+    void CycleShape(int32_t delta) noexcept;
+    [[nodiscard]] const char* ShapeLabel() const noexcept;
+    [[nodiscard]] std::string LineWidthLabel() const;
     [[nodiscard]] std::string ValueLabel() const;
 };

@@ -106,8 +106,10 @@ void ConstantGradeRenderer::ClearAll() {
 }
 
 void ConstantGradeRenderer::BuildGround_(const ConstantGradePreview& preview) {
-    for (int tileZ = preview.affectedMinTileZ; tileZ <= preview.affectedMaxTileZ; ++tileZ) {
-        for (int tileX = preview.affectedMinTileX; tileX <= preview.affectedMaxTileX; ++tileX) {
+    for (int tileZ = preview.minTileZ; tileZ <= preview.maxTileZ; ++tileZ) {
+        for (int tileX = preview.minTileX; tileX <= preview.maxTileX; ++tileX) {
+            if (!preview.IsSelectedTile(tileX, tileZ)) continue;
+
             const auto* v00 = preview.FindVertex(tileX, tileZ);
             const auto* v10 = preview.FindVertex(tileX + 1, tileZ);
             const auto* v01 = preview.FindVertex(tileX, tileZ + 1);
@@ -125,8 +127,10 @@ void ConstantGradeRenderer::BuildGround_(const ConstantGradePreview& preview) {
 }
 
 void ConstantGradeRenderer::BuildFill_(const ConstantGradePreview& preview, const DWORD) {
-    for (int tileZ = preview.affectedMinTileZ; tileZ <= preview.affectedMaxTileZ; ++tileZ) {
-        for (int tileX = preview.affectedMinTileX; tileX <= preview.affectedMaxTileX; ++tileX) {
+    for (int tileZ = preview.minTileZ; tileZ <= preview.maxTileZ; ++tileZ) {
+        for (int tileX = preview.minTileX; tileX <= preview.maxTileX; ++tileX) {
+            if (!preview.IsSelectedTile(tileX, tileZ)) continue;
+
             const auto* v00 = preview.FindVertex(tileX, tileZ);
             const auto* v10 = preview.FindVertex(tileX + 1, tileZ);
             const auto* v01 = preview.FindVertex(tileX, tileZ + 1);
@@ -150,21 +154,27 @@ void ConstantGradeRenderer::BuildFill_(const ConstantGradePreview& preview, cons
 }
 
 void ConstantGradeRenderer::BuildOutline_(const ConstantGradePreview& preview, const DWORD color) {
-    const auto* aV = preview.FindVertex(preview.affectedMinTileX, preview.affectedMinTileZ);
-    const auto* bV = preview.FindVertex(preview.affectedMaxTileX + 1, preview.affectedMinTileZ);
-    const auto* cV = preview.FindVertex(preview.affectedMaxTileX + 1, preview.affectedMaxTileZ + 1);
-    const auto* dV = preview.FindVertex(preview.affectedMinTileX, preview.affectedMaxTileZ + 1);
-    if (!aV || !bV || !cV || !dV) return;
+    for (int tileZ = preview.minTileZ; tileZ <= preview.maxTileZ; ++tileZ) {
+        for (int tileX = preview.minTileX; tileX <= preview.maxTileX; ++tileX) {
+            if (!preview.IsSelectedTile(tileX, tileZ)) continue;
 
-    const OverlayVertex a{WorldXFromVertex(aV->vertexX), aV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(aV->vertexZ), color};
-    const OverlayVertex b{WorldXFromVertex(bV->vertexX), bV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(bV->vertexZ), color};
-    const OverlayVertex c{WorldXFromVertex(cV->vertexX), cV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(cV->vertexZ), color};
-    const OverlayVertex d{WorldXFromVertex(dV->vertexX), dV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(dV->vertexZ), color};
+            const auto* aV = preview.FindVertex(tileX, tileZ);
+            const auto* bV = preview.FindVertex(tileX + 1, tileZ);
+            const auto* cV = preview.FindVertex(tileX + 1, tileZ + 1);
+            const auto* dV = preview.FindVertex(tileX, tileZ + 1);
+            if (!aV || !bV || !cV || !dV) continue;
 
-    EmitLine(a, b, kOutlineThickness, color, kLayerOutline);
-    EmitLine(b, c, kOutlineThickness, color, kLayerOutline);
-    EmitLine(c, d, kOutlineThickness, color, kLayerOutline);
-    EmitLine(d, a, kOutlineThickness, color, kLayerOutline);
+            const OverlayVertex a{WorldXFromVertex(aV->vertexX), aV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(aV->vertexZ), color};
+            const OverlayVertex b{WorldXFromVertex(bV->vertexX), bV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(bV->vertexZ), color};
+            const OverlayVertex c{WorldXFromVertex(cV->vertexX), cV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(cV->vertexZ), color};
+            const OverlayVertex d{WorldXFromVertex(dV->vertexX), dV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(dV->vertexZ), color};
+
+            if (!preview.IsSelectedTile(tileX, tileZ - 1)) EmitLine(a, b, kOutlineThickness, color, kLayerOutline);
+            if (!preview.IsSelectedTile(tileX + 1, tileZ)) EmitLine(b, c, kOutlineThickness, color, kLayerOutline);
+            if (!preview.IsSelectedTile(tileX, tileZ + 1)) EmitLine(c, d, kOutlineThickness, color, kLayerOutline);
+            if (!preview.IsSelectedTile(tileX - 1, tileZ)) EmitLine(d, a, kOutlineThickness, color, kLayerOutline);
+        }
+    }
 }
 
 void ConstantGradeRenderer::BuildMarkers_(const ConstantGradePreview& preview) {

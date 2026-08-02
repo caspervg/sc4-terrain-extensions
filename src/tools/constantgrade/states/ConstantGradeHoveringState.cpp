@@ -7,6 +7,11 @@
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "../ConstantGradeRenderer.hpp"
 #include "../ConstantGradeSettings.hpp"
+#include "tools/ToolParameter.hpp"
+
+namespace {
+constexpr int32_t kToggleShapeKey = 0x44; // D
+}
 
 ConstantGradeHoveringState::ConstantGradeHoveringState(
     ConstantGradeSettings& settings,
@@ -42,7 +47,7 @@ bool ConstantGradeHoveringState::OnMouseDownL(
     StatefulDragViewInputControl& ctrl,
     const int32_t x,
     const int32_t z,
-    const uint32_t) {
+    const uint32_t mod) {
     int32_t tileX = 0;
     int32_t tileZ = 0;
     if (!ctrl.ScreenToTile(x, z, tileX, tileZ)) return false;
@@ -51,6 +56,7 @@ bool ConstantGradeHoveringState::OnMouseDownL(
     dragState_.startZ = tileZ;
     dragState_.currentX = tileX;
     dragState_.currentZ = tileZ;
+    dragState_.snapAngle = (mod & ModifierCombo::kShift) != 0;
     ctrl.TransitionTo(ControlStateId::Selecting);
     return true;
 }
@@ -77,6 +83,12 @@ bool ConstantGradeHoveringState::OnKeyDown(
         return true;
     }
 
+    if (vk == kToggleShapeKey) {
+        settings_.CycleShape(1);
+        UpdateHintText_(ctrl, mod);
+        return true;
+    }
+
     UpdateHintText_(ctrl, mod);
     return false;
 }
@@ -85,9 +97,10 @@ void ConstantGradeHoveringState::UpdateHintText_(
     StatefulDragViewInputControl& ctrl,
     const uint32_t modifiers) const {
     const std::string body = std::format(
-        "Drag to create constant grade path\n{}\n{}",
+        "Drag to create constant grade path\n{}\n{}\nD: toggle rectangle/line{}",
         settings_.ValueLabel(),
-        settings_.parameters.BuildHintText(modifiers));
+        settings_.parameters.BuildHintText(modifiers),
+        settings_.IsLineMode() ? "\nHold Shift while dragging: snap to 45 deg" : "");
     ctrl.SetCursorText(
         StatefulDragViewInputControl::kPrimaryCursorSlot,
         cRZBaseString("Constant grade"),

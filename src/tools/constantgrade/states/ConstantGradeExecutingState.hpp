@@ -4,7 +4,7 @@
 #include "../ConstantGradeDragState.hpp"
 
 class ConstantGradeOperation;
-class ConstantGradeSettings;
+struct ConstantGradeSettings;
 
 class ConstantGradeExecutingState final : public IControlState {
 public:
