@@ -10,6 +10,45 @@ void DragToolManager::Register(std::unique_ptr<IDragTool> tool) {
 	tools_.push_back(std::move(tool));
 }
 
+int32_t DragToolManager::FindToolIndex_(const uint32_t cheatId) const {
+	for (auto i = 0; i < tools_.size(); ++i) {
+		if (tools_[i]->GetCheatId() == cheatId) {
+			return static_cast<int32_t>(i);
+		}
+	}
+	return -1;
+}
+
+bool DragToolManager::ActivateIndex_(
+	const int32_t idx,
+	cISC4City* city,
+	cISC4View3DWin* view3d,
+	cIGZWinMgr* winManager,
+	cIGZImGuiService* imguiService,
+	OverlayDrawManager& overlayManager,
+	SnapshotManager* snapshotManager) {
+	if (activeToolIdx_ >= 0) {
+		DeactivateCurrent_(view3d);
+	}
+
+	IDragTool* candidate = tools_[idx].get();
+	candidate->Activate(city, view3d, winManager, imguiService, overlayManager, snapshotManager);
+	if (auto* control = candidate->GetInputControl()) {
+		activeToolIdx_ = idx;
+		view3d_ = view3d;
+		control->SetDeactivateCallback([this]() {
+			activeToolIdx_ = -1;
+			view3d_ = nullptr;
+		});
+		return true;
+	}
+
+	LOG_WARN("DragToolManager: activation of '{}' did not produce an input control", candidate->GetCheatName());
+	activeToolIdx_ = -1;
+	view3d_ = nullptr;
+	return false;
+}
+
 bool DragToolManager::TryActivate(
 	const uint32_t cheatId,
 	cISC4City* city,
@@ -18,43 +57,29 @@ bool DragToolManager::TryActivate(
 	cIGZImGuiService* imguiService,
 	OverlayDrawManager& overlayManager,
 	SnapshotManager* snapshotManager) {
-	int32_t candidateIdx = -1;
-	for (auto i = 0; i < tools_.size(); ++i) {
-		if (tools_[i]->GetCheatId() == cheatId) {
-			candidateIdx = i;
-			break;
-		}
-	}
-
+	const int32_t candidateIdx = FindToolIndex_(cheatId);
 	if (candidateIdx < 0) return false;
-
-	IDragTool* candidate = tools_[candidateIdx].get();
 
 	if (activeToolIdx_ == candidateIdx) {
 		DeactivateCurrent_(view3d);
 		return true;
 	}
 
-	if (activeToolIdx_ >= 0) {
-		DeactivateCurrent_(view3d);
-	}
+	return ActivateIndex_(candidateIdx, city, view3d, winManager, imguiService, overlayManager, snapshotManager);
+}
 
-	candidate->Activate(city, view3d, winManager, imguiService, overlayManager, snapshotManager);
-	if (auto* control = candidate->GetInputControl()) {
-		activeToolIdx_ = candidateIdx;
-		view3d_ = view3d;
-		control->SetDeactivateCallback([this]() {
-			activeToolIdx_ = -1;
-			view3d_ = nullptr;
-		});
-	} else {
-		LOG_WARN("DragToolManager: activation of '{}' did not produce an input control", candidate->GetCheatName());
-		activeToolIdx_ = -1;
-		view3d_ = nullptr;
-		return false;
-	}
+bool DragToolManager::ActivateTool(
+	const uint32_t cheatId,
+	cISC4City* city,
+	cISC4View3DWin* view3d,
+	cIGZWinMgr* winManager,
+	cIGZImGuiService* imguiService,
+	OverlayDrawManager& overlayManager,
+	SnapshotManager* snapshotManager) {
+	const int32_t candidateIdx = FindToolIndex_(cheatId);
+	if (candidateIdx < 0) return false;
 
-	return true;
+	return ActivateIndex_(candidateIdx, city, view3d, winManager, imguiService, overlayManager, snapshotManager);
 }
 
 void DragToolManager::DeactivateAll() {

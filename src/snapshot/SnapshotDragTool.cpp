@@ -37,6 +37,7 @@ public:
 	}
 
 	void Activate() override {
+		StatefulDragViewInputControl::Activate();
 		TransitionTo(ControlStateId::Hovering);
 	}
 
@@ -53,6 +54,11 @@ SnapshotDragTool::SnapshotDragTool(SnapshotManager& mgr, SnapshotPreviewRenderer
 
 SnapshotDragTool::~SnapshotDragTool() {
 	Deactivate();
+}
+
+void SnapshotDragTool::SetRestoreIndex(int index) {
+	const auto* snap = mgr_.Get(index);
+	dragState_.restoreId = snap ? snap->id : 0;
 }
 
 void SnapshotDragTool::Activate(
@@ -95,14 +101,20 @@ void SnapshotDragTool::ActivateDirect(
 	newControl->AddRef();
 	control_.reset(newControl);
 
-	control_->Init();
+	if (!control_->Init()) {
+		LOG_ERROR("SnapshotDragTool::Activate: control Init failed");
+		Deactivate();
+		return;
+	}
+
 	view3d_ = view3d;
 	drawMgr_ = &drawMgr;
 
-	// Set deactivate callback BEFORE activating (SC4 may call Deactivate during SetCurrentViewInputControl)
-	control_->SetDeactivateCallback([this]() {
-		// Just clean up our state, don't call Deactivate() recursively
-		LOG_DEBUG("SnapshotDragTool: deactivate callback fired");
+	// Owner cleanup callback (manager owns the plain deactivate callback). Set BEFORE
+	// activating since SC4 may call Deactivate during SetCurrentViewInputControl.
+	control_->SetOwnerDeactivateCallback([this]() {
+		LOG_DEBUG("SnapshotDragTool: owner deactivate callback fired");
+		mgr_.SetPreviewIndex(-1);
 		renderer_.ClearAll();
 		view3d_ = nullptr;
 	});
@@ -110,12 +122,16 @@ void SnapshotDragTool::ActivateDirect(
 		Deactivate();
 	});
 
-	view3d->SetCurrentViewInputControl(
+	if (!view3d->SetCurrentViewInputControl(
 		control_.get(),
-		cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl);
+		cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl)) {
+		LOG_ERROR("SnapshotDragTool::Activate: SetCurrentViewInputControl failed");
+		Deactivate();
+		return;
+	}
 	control_->Activate();
 
-	LOG_INFO("SnapshotDragTool: Activated for snapshot index {}", dragState_.restoreIndex);
+	LOG_INFO("SnapshotDragTool: Activated for snapshot id {}", dragState_.restoreId);
 }
 
 void SnapshotDragTool::Deactivate() {
@@ -128,6 +144,7 @@ void SnapshotDragTool::Deactivate() {
 	control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
 	control_->FinalizeClose();
 	control_->SetDeactivateCallback(nullptr);
+	control_->SetOwnerDeactivateCallback(nullptr);
 
 	if (view3d_) {
 		cISC4ViewInputControl* currentControl = view3d_->GetCurrentViewInputControl();

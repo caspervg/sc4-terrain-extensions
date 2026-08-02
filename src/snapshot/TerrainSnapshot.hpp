@@ -5,6 +5,7 @@
 #include <vector>
 
 struct TerrainSnapshot {
+    uint32_t id{0}; // Stable, unique per capture; 0 = invalid
     std::string name;
     std::string description;
     std::chrono::system_clock::time_point timestamp;

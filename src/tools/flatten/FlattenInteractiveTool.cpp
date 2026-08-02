@@ -40,6 +40,7 @@ public:
     }
 
     void Activate() override {
+        StatefulDragViewInputControl::Activate();
         TransitionTo(ControlStateId::Hovering);
     }
 
@@ -94,7 +95,12 @@ void FlattenInteractiveTool::Activate(
     newControl->AddRef();
     control_.reset(newControl);
 
-    control_->Init();
+    if (!control_->Init()) {
+        LOG_ERROR("FlattenInteractiveTool::Activate: control Init failed");
+        Deactivate();
+        return;
+    }
+
     view3d_ = view3d;
     drawMgr_ = &drawMgr;
     drawMgr_->Register(renderer_.get());
@@ -111,11 +117,15 @@ void FlattenInteractiveTool::Activate(
                 "Auto-captured before flatten operation");
         });
     }
-    control_->Activate();
 
-    view3d->SetCurrentViewInputControl(
+    if (!view3d->SetCurrentViewInputControl(
         control_.get(),
-        cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl);
+        cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl)) {
+        LOG_ERROR("FlattenInteractiveTool::Activate: SetCurrentViewInputControl failed");
+        Deactivate();
+        return;
+    }
+    control_->Activate();
 
     LOG_INFO("FlattenInteractiveTool: activated");
 }
@@ -123,11 +133,11 @@ void FlattenInteractiveTool::Activate(
 void FlattenInteractiveTool::Deactivate() {
     if (control_) {
         control_->SetCloseCallback(nullptr);
-        control_->SetOwnerDeactivateCallback(nullptr);
         control_->ClearSelections();
         control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
         control_->FinalizeClose();
         control_->SetDeactivateCallback(nullptr);
+        control_->SetOwnerDeactivateCallback(nullptr);
     }
 
     if (control_ && view3d_) {

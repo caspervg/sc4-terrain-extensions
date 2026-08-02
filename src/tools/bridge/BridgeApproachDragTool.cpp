@@ -37,6 +37,7 @@ public:
 	}
 
 	void Activate() override {
+		StatefulDragViewInputControl::Activate();
 		TransitionTo(ControlStateId::Hovering);
 	}
 
@@ -91,7 +92,12 @@ void BridgeApproachDragTool::Activate(
 	newControl->AddRef();
 	control_.reset(newControl);
 
-	control_->Init();
+	if (!control_->Init()) {
+		LOG_ERROR("BridgeApproachDragTool::Activate: control Init failed");
+		Deactivate();
+		return;
+	}
+
 	view3d_ = view3d;
 	drawMgr_ = &drawMgr;
 	drawMgr.Register(renderer_.get());
@@ -115,11 +121,15 @@ void BridgeApproachDragTool::Activate(
 				"Auto-captured before bridge approach operation");
 		});
 	}
-	control_->Activate();
 
-	view3d->SetCurrentViewInputControl(
+	if (!view3d->SetCurrentViewInputControl(
 		control_.get(),
-		cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl);
+		cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl)) {
+		LOG_ERROR("BridgeApproachDragTool::Activate: SetCurrentViewInputControl failed");
+		Deactivate();
+		return;
+	}
+	control_->Activate();
 
 	LOG_INFO("BridgeApproachDragTool: Activated");
 }
@@ -127,11 +137,11 @@ void BridgeApproachDragTool::Activate(
 void BridgeApproachDragTool::Deactivate() {
 	if (control_) {
 		control_->SetCloseCallback(nullptr);
-		control_->SetOwnerDeactivateCallback(nullptr);
 		control_->ClearSelections();
 		control_->ClearCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot);
 		control_->FinalizeClose();
 		control_->SetDeactivateCallback(nullptr);
+		control_->SetOwnerDeactivateCallback(nullptr);
 	}
 
 	if (control_ && view3d_) {

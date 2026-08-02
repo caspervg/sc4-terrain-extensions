@@ -5,6 +5,7 @@
 #include "cRZBaseString.h"
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "tools/ToolParameter.hpp"
+#include "utils/Logger.h"
 
 namespace {
 constexpr int32_t kTabKey = 0x09;
@@ -49,7 +50,11 @@ FlattenSelectingState::FlattenSelectingState(
 
 void FlattenSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
     dragState_.selectionCommitted = false;
-    ctrl.BeginCapture();
+    if (!ctrl.BeginCapture()) {
+        LOG_WARN("FlattenSelectingState: failed to acquire mouse capture; aborting selection");
+        ctrl.TransitionTo(ControlStateId::Hovering);
+        return;
+    }
     RebuildPreview_(ctrl, 0);
 }
 
@@ -87,13 +92,18 @@ bool FlattenSelectingState::OnMouseUpL(StatefulDragViewInputControl& ctrl, int32
         dragState_.currentZ = tileZ;
     }
 
+    if (!operation_.BuildPreview(BuildRequest_()).has_value()) {
+        ctrl.TransitionTo(ControlStateId::Hovering);
+        return true;
+    }
+
     dragState_.selectionCommitted = true;
     ctrl.TransitionTo(ControlStateId::Executing);
     return true;
 }
 
 bool FlattenSelectingState::OnMouseDownR(StatefulDragViewInputControl& ctrl, int32_t, int32_t, uint32_t) {
-    //ctrl.TransitionTo(ControlStateId::Hovering);
+    ctrl.TransitionTo(ControlStateId::Hovering);
     return false;
 }
 

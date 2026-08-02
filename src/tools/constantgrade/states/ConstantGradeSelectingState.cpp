@@ -9,6 +9,7 @@
 #include "tools/bridge/BridgeApproachGeometry.hpp"
 #include "../ConstantGradeRenderer.hpp"
 #include "../ConstantGradeSettings.hpp"
+#include "utils/Logger.h"
 
 ConstantGradeSelectingState::ConstantGradeSelectingState(
     ConstantGradeSettings& settings,
@@ -22,7 +23,11 @@ ConstantGradeSelectingState::ConstantGradeSelectingState(
 }
 
 void ConstantGradeSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
-    ctrl.BeginCapture();
+    if (!ctrl.BeginCapture()) {
+        LOG_WARN("ConstantGradeSelectingState: failed to acquire mouse capture; aborting selection");
+        ctrl.TransitionTo(ControlStateId::Hovering);
+        return;
+    }
     RebuildPreview_(ctrl, 0);
 }
 
@@ -60,7 +65,8 @@ bool ConstantGradeSelectingState::OnMouseUpL(
         dragState_.currentZ = tileZ;
     }
 
-    if (!BuildRequest_().has_value()) {
+    const auto request = BuildRequest_();
+    if (!request.has_value() || !operation_.BuildPreview(*request).has_value()) {
         ctrl.TransitionTo(ControlStateId::Hovering);
         return true;
     }
@@ -74,7 +80,7 @@ bool ConstantGradeSelectingState::OnMouseDownR(
     int32_t,
     int32_t,
     uint32_t) {
-    //ctrl.TransitionTo(ControlStateId::Hovering);
+    ctrl.TransitionTo(ControlStateId::Hovering);
     return false;
 }
 

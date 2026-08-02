@@ -43,6 +43,7 @@ bool SnapshotManager::Capture(cISTETerrain* terrain, const std::string& name, co
 	const uint32_t cz = terrain->CellCountZ() + 1;
 
 	TerrainSnapshot snap;
+	snap.id = nextId_++;
 	snap.name = name;
 	snap.description = desc;
 	snap.timestamp = std::chrono::system_clock::now();
@@ -113,9 +114,9 @@ void SnapshotManager::RestoreFull(int index, cISTETerrain* terrain) {
 		rect.topLeftX, rect.topLeftY, rect.bottomRightX, rect.bottomRightY);
 }
 
-void SnapshotManager::RestoreRegion(int index, cISTETerrain* terrain,
+void SnapshotManager::RestoreRegion(uint32_t snapshotId, cISTETerrain* terrain,
                                      int minX, int minZ, int maxX, int maxZ) {
-	const auto* snap = Get(index);
+	const auto* snap = GetById(snapshotId);
 	if (!snap || !terrain) return;
 
 	// Clamp to snapshot bounds (vertex coords).
@@ -192,6 +193,22 @@ void SnapshotManager::Clear() {
 const TerrainSnapshot* SnapshotManager::Get(int index) const {
 	if (index < 0 || static_cast<size_t>(index) >= snapshots_.size()) return nullptr;
 	return &snapshots_[index];
+}
+
+const TerrainSnapshot* SnapshotManager::GetById(uint32_t id) const {
+	if (id == 0) return nullptr;
+	for (const auto& snap : snapshots_) {
+		if (snap.id == id) return &snap;
+	}
+	return nullptr;
+}
+
+int SnapshotManager::IndexOfId(uint32_t id) const {
+	if (id == 0) return -1;
+	for (size_t i = 0; i < snapshots_.size(); ++i) {
+		if (snapshots_[i].id == id) return static_cast<int>(i);
+	}
+	return -1;
 }
 
 bool SnapshotManager::TerrainDiffersFromLatest(cISTETerrain* terrain) const {

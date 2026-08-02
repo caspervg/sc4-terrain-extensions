@@ -22,7 +22,7 @@ public:
 
     StatefulDragViewInputControl* GetInputControl() override;
 
-    void SetRestoreIndex(int index) { dragState_.restoreIndex = index; }
+    void SetRestoreIndex(int index);
 
     // Activate without going through cheat system (called from panel)
     void ActivateDirect(cISC4City* city, cISC4View3DWin* view3d, cIGZWinMgr* winMgr,

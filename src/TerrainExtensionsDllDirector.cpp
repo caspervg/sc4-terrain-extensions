@@ -383,7 +383,9 @@ void TerrainExtensionsDllDirector::PostCityInit_(
                 // Partial restore callback: activate drag tool
                 if (!snapshotDragTool_ || !city_ || !view3d_ || !winMgr_) return;
                 snapshotDragTool_->SetRestoreIndex(snapshotIndex);
-                snapshotDragTool_->ActivateDirect(city_, view3d_, winMgr_, overlayDrawManager_);
+                dragToolManager_.ActivateTool(
+                    snapshotDragTool_->GetCheatId(), city_, view3d_, winMgr_,
+                    imguiService_, overlayDrawManager_, &snapshotManager_);
             });
 
         const auto desc = ImGuiPanelAdapter<SnapshotPanel>::MakeDesc(

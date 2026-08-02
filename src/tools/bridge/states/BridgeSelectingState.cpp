@@ -10,6 +10,7 @@
 #include "tools/bridge/BridgePlacement.hpp"
 #include "tools/bridge/BridgeToolSettings.hpp"
 #include "viz/BridgeApproachRenderer.hpp"
+#include "utils/Logger.h"
 
 namespace {
 
@@ -49,7 +50,11 @@ BridgeSelectingState::BridgeSelectingState(BridgeToolSettings& settings,
 	, dragState_(dragState) {}
 
 void BridgeSelectingState::OnEnter(StatefulDragViewInputControl& ctrl) {
-	ctrl.BeginCapture();
+	if (!ctrl.BeginCapture()) {
+		LOG_WARN("BridgeSelectingState: failed to acquire mouse capture; aborting selection");
+		ctrl.TransitionTo(ControlStateId::Hovering);
+		return;
+	}
 	settings_.widthTiles.value = settings_.widthTiles.minValue;
 
 	const std::string body = std::format(
@@ -72,7 +77,7 @@ bool BridgeSelectingState::OnMouseMove(StatefulDragViewInputControl& ctrl, int32
 }
 
 bool BridgeSelectingState::OnMouseDownR(StatefulDragViewInputControl& ctrl, int32_t x, int32_t z, uint32_t mod) {
-	//ctrl.TransitionTo(ControlStateId::Hovering);
+	ctrl.TransitionTo(ControlStateId::Hovering);
 	return false;
 }
 
@@ -131,10 +136,10 @@ void BridgeSelectingState::RebuildPreview_(StatefulDragViewInputControl& ctrl, c
 	renderer_.ShowHoverTile(ctrl.GetTerrain(), dragState_.currentX, dragState_.currentZ);
 
 	const std::string statusText = isValid
-		? "Release to place | Right-click to cancel"
+		? std::string("Release to place | Right-click to cancel")
 		: (widthTooWide
-			? "Too wide - max 10 tiles | Right-click to cancel"
-			: "Too short - drag further | Right-click to cancel");
+			? std::format("Too wide - max {} tiles | Right-click to cancel", settings_.widthTiles.maxValue)
+			: std::string("Too short - drag further | Right-click to cancel"));
 	const std::string body = std::format("{}\n{}", statusText, settings_.parameters.BuildHintText(modifiers));
 
 	ctrl.SetCursorText(StatefulDragViewInputControl::kPrimaryCursorSlot, "Bridge Builder", body);
