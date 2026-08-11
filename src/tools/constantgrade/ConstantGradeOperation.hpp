@@ -15,7 +15,7 @@ struct ConstantGradeRequest {
     std::optional<float> gradePercent{};
     std::optional<float> startHeight{};
     std::optional<float> endHeight{};
-    bool sideSmoothing{true};
+    float falloffTiles{0.0f};
 };
 
 struct ConstantGradePreview {
@@ -24,8 +24,10 @@ struct ConstantGradePreview {
         int vertexZ{};
         float currentHeight{};
         float predictedHeight{};
+        float influence{};
 
         [[nodiscard]] float Delta() const noexcept { return predictedHeight - currentHeight; }
+        [[nodiscard]] bool IsCore() const noexcept { return influence >= 1.0f; }
     };
 
     int minTileX{};
@@ -36,15 +38,26 @@ struct ConstantGradePreview {
     int affectedMinTileZ{};
     int affectedMaxTileX{};
     int affectedMaxTileZ{};
-    bool slopeInX{};
     int pathLengthTiles{};
-    int effectiveWidthTiles{};
+    int requestedWidthTiles{};
+    float falloffTiles{};
+    float pathAngleDegrees{};
     float gradePercent{};
     float startHeight{};
     float endHeight{};
     std::vector<VertexDelta> vertices{};
 
+    int minVertexX{};
+    int minVertexZ{};
+    int vertexSpanX{};
+    std::vector<int32_t> vertexIndex{};
+
+    std::vector<float> tileInfluence{};
+
     [[nodiscard]] const VertexDelta* FindVertex(int vertexX, int vertexZ) const noexcept;
+    [[nodiscard]] float InfluenceAtTile(int tileX, int tileZ) const noexcept;
+    [[nodiscard]] bool IsSelectedTile(int tileX, int tileZ) const noexcept;
+    [[nodiscard]] bool IsCoreTile(int tileX, int tileZ) const noexcept;
 };
 
 class ConstantGradeOperation : public TerrainOperator {
@@ -58,20 +71,26 @@ private:
     struct PathInfo {
         int tileDx{};
         int tileDz{};
-        int pathLengthTiles{};
-        bool slopeInX{};
-        float stepX{};
-        float stepZ{};
+        float length{};
+        float unitX{};
+        float unitZ{};
+        float normalX{};
+        float normalZ{};
         float startHeight{};
         float endHeight{};
-        float heightStep{};
-        int widthRadius{};
+        float gradePerTile{};
         float gradePercent{};
+        float angleDegrees{};
+        float falloffTiles{};
+        int requestedWidthTiles{};
+        int negativeOffset{};
+        int positiveOffset{};
     };
 
     [[nodiscard]] std::optional<PathInfo> BuildPathInfo_(const ConstantGradeRequest& request) const;
     [[nodiscard]] bool IsInBounds_(int tileX, int tileZ) const noexcept;
+    [[nodiscard]] int ClampTileX_(int tileX) const noexcept;
+    [[nodiscard]] int ClampTileZ_(int tileZ) const noexcept;
 
-    static int VertexIndex_(int x, int z, int minVertexX, int vertexWidth) noexcept;
-    static float LerpHeight_(float currentHeight, float targetHeight, float influence) noexcept;
+    static int Index_(int offsetX, int offsetZ, int spanX) noexcept;
 };

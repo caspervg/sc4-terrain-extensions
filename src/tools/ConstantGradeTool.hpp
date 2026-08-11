@@ -9,7 +9,7 @@ class ConstantGradeTool : public TerrainTool {
 private:
 	std::unique_ptr<args::Command> mCommand;
 	std::unique_ptr<args::Positional<int>> mStartTileX, mStartTileZ, mEndTileX, mEndTileZ;
-	std::unique_ptr<args::ValueFlag<float>> mWidthTiles, mGradePercent, mStartHeight, mEndHeight;
+	std::unique_ptr<args::ValueFlag<float>> mWidthTiles, mGradePercent, mStartHeight, mEndHeight, mFalloffTiles;
 	std::unique_ptr<args::ValueFlag<bool>> mAutoHeight;
 	std::unique_ptr<args::Flag> mHardEdges;
 
@@ -36,5 +36,5 @@ private:
 		float startH,
 		float endH,
 		bool autoHeight,
-		bool sideSmoothing) const;
+		float falloffTiles) const;
 };
