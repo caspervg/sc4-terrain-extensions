@@ -51,6 +51,7 @@ private:
     void CaptureTerrainSnapshotIfPending_();
 
     static void DrawOverlayCallback_(DrawServicePass pass, bool begin, void* pThis);
+    static void DrawOverlaysD3D11_(void* data);
 
     void ShowMessageBox_(const std::string& title, const std::string& message) const;
     std::vector<std::string> SplitString_(const std::string& input);

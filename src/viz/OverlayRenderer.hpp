@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include <cstdint>
+
 struct IDirect3DDevice7;
 struct IDirectDrawSurface7;
 
@@ -22,6 +24,9 @@ public:
     [[nodiscard]] bool HasVisibleGeometry() const;
     void ClearLayer(uint32_t layerId);
     void SetLayerVisible(uint32_t layerId, bool visible);
+
+/// Appends all vertices of visible, non-empty layers to out (backend-agnostic).
+    void AppendVisibleVertices(std::vector<OverlayVertex>& out) const;
 
 protected:
     bool HasLayer(uint32_t layerId) const;

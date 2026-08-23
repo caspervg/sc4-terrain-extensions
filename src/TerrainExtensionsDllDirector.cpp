@@ -51,6 +51,9 @@
 #include "controls/StatefulDragViewInputControl.hpp"
 #include "public/cIGZDrawService.h"
 #include "viz/D3D7StateGuard.hpp"
+#include "viz/D3D11OverlayBackend.hpp"
+
+#include <d3d11.h>
 
 
 static constexpr uint32_t kTerrainExtensionsDirectorID     = 0x2099E7AB; // your actual ID
@@ -621,6 +624,29 @@ bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
 
 // ── Draw callback ─────────────────────────────────────────────────────────────
 
+void TerrainExtensionsDllDirector::DrawOverlaysD3D11_(void* data) {
+    auto* director = static_cast<TerrainExtensionsDllDirector*>(data);
+    if (!director || !director->imguiService_) return;
+
+    ID3D11Device* device = nullptr;
+    ID3D11DeviceContext* context = nullptr;
+    IDXGISwapChain* swapChain = nullptr;
+    ID3D11RenderTargetView* renderTarget = nullptr;
+    if (!director->imguiService_->AcquireD3D11Interfaces(
+            &device, &context, &swapChain, &renderTarget)) {
+        return;
+    }
+
+    d3d11overlay::DrawFrame(
+        device, context, swapChain, renderTarget,
+        director->overlayDrawManager_, director->cameraService_);
+
+    device->Release();
+    context->Release();
+    swapChain->Release();
+    renderTarget->Release();
+}
+
 void TerrainExtensionsDllDirector::CaptureTerrainSnapshotIfPending_()
 {
     if (!terrainSnapshotPending_) {
@@ -678,10 +704,24 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
     if (pass != DrawServicePass::PostDynamic || begin) return;
 
     const auto pDirector = static_cast<TerrainExtensionsDllDirector*>(pThis);
+
+    // Per-frame bookkeeping shared by both graphics backends.
+    pDirector->CaptureTerrainSnapshotIfPending_();
+
+    const bool needsSlopeUpdate =
+        pDirector->city_
+        && pDirector->cameraService_
+        && pDirector->slopeRenderer_.IsEnabled();
+
     IDirect3DDevice7* device = nullptr;
     IDirectDraw7*     dd     = nullptr;
 
-    if (pDirector->imguiService_ && pDirector->imguiService_->AcquireD3DInterfaces(&device, &dd)) {
+    const bool haveD3D7 = pDirector->imguiService_
+        && pDirector->imguiService_->AcquireD3DInterfaces(&device, &dd);
+
+    if (!haveD3D7) {
+        // SCGL-D3D11 backend: no DX7 device exists. Refresh overlays and draw
+        // through the D3D11 backend from the ImGui frame callback.
         if (pDirector->terrainRefreshPending_) {
             pDirector->terrainRefreshPending_ = false;
             if (pDirector->city_) {
@@ -695,12 +735,38 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
                 LOG_DEBUG("DrawOverlayCallback_: refreshed terrain overlays after terrain redisplay message");
             }
         }
-        pDirector->CaptureTerrainSnapshotIfPending_();
 
-        const bool needsSlopeUpdate =
-            pDirector->city_
-            && pDirector->cameraService_
-            && pDirector->slopeRenderer_.IsEnabled();
+        if (needsSlopeUpdate) {
+            cISTETerrain* terrain = pDirector->city_->GetTerrain();
+            pDirector->slopeRenderer_.UpdateView(terrain, pDirector->cameraService_, nullptr);
+        }
+
+        if ((needsSlopeUpdate || pDirector->overlayDrawManager_.HasVisibleGeometry())
+            && pDirector->imguiService_)
+        {
+            if (!pDirector->imguiService_->QueueRender(&DrawOverlaysD3D11_, pDirector, nullptr)) {
+                LOG_WARN("DrawOverlayCallback_: QueueRender for D3D11 overlay failed");
+            }
+        }
+        return;
+    }
+
+    if (pDirector->terrainRefreshPending_) {
+        pDirector->terrainRefreshPending_ = false;
+        if (pDirector->city_) {
+            cISTETerrain* terrain = pDirector->city_->GetTerrain();
+            if (pDirector->contourRenderer_.IsEnabled()) {
+                pDirector->contourRenderer_.Rebuild(terrain);
+            }
+            if (pDirector->slopeRenderer_.IsEnabled()) {
+                pDirector->slopeRenderer_.Rebuild(terrain);
+            }
+            LOG_DEBUG("DrawOverlayCallback_: refreshed terrain overlays after terrain redisplay message");
+        }
+    }
+
+    // D3D7 backend overlay draw.
+    {
         const bool needsOverlayDraw =
             needsSlopeUpdate || pDirector->overlayDrawManager_.HasVisibleGeometry();
 
@@ -758,8 +824,6 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
         }
         device->Release();
         dd->Release();
-    } else {
-        LOG_WARN("DrawOverlayCallback_: AcquireD3DInterfaces failed, skipping overlay draw");
     }
 
     if (pDirector->imguiService_

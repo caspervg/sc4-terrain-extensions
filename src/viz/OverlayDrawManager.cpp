@@ -25,6 +25,14 @@ bool OverlayDrawManager::HasVisibleGeometry() const {
 	return false;
 }
 
+void OverlayDrawManager::CollectVisibleVertices(std::vector<OverlayVertex>& out) const {
+	for (const auto* renderer : renderers_) {
+		if (renderer) {
+			renderer->AppendVisibleVertices(out);
+		}
+	}
+}
+
 void OverlayDrawManager::DrawAll(IDirect3DDevice7* device) {
 	for (auto* renderer : renderers_) {
 		if (renderer) {

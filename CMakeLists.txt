@@ -152,7 +152,7 @@ if(SC4_IMGUI_LINK_TARGET)
 endif()
 
 if(WIN32)
-    list(APPEND SC4_DLL_LINK_LIBS kernel32 user32 Version dxgi ddraw dxguid)
+    list(APPEND SC4_DLL_LINK_LIBS kernel32 user32 Version dxgi ddraw d3d11 d3dcompiler dxguid)
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${SC4_DLL_LINK_LIBS})

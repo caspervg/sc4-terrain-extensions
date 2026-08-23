@@ -74,6 +74,15 @@ bool OverlayRenderer::HasVisibleGeometry() const {
 	return false;
 }
 
+void OverlayRenderer::AppendVisibleVertices(std::vector<OverlayVertex>& out) const {
+	for (const auto& [id, layer] : layers_) {
+		(void)id;
+		if (layer.visible && !layer.vertices.empty()) {
+			out.insert(out.end(), layer.vertices.begin(), layer.vertices.end());
+		}
+	}
+}
+
 void OverlayRenderer::Draw(IDirect3DDevice7* device) {
 	if (!device || !HasVisibleGeometry()) return;
 
