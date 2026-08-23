@@ -368,3 +368,6 @@ vcpkg_installed/
 .idea/
 *.iml
 .ai
+.agents
+.codex
+.claude
