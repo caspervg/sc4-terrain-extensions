@@ -713,44 +713,6 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
         && pDirector->cameraService_
         && pDirector->slopeRenderer_.IsEnabled();
 
-    IDirect3DDevice7* device = nullptr;
-    IDirectDraw7*     dd     = nullptr;
-
-    const bool haveD3D7 = pDirector->imguiService_
-        && pDirector->imguiService_->AcquireD3DInterfaces(&device, &dd);
-
-    if (!haveD3D7) {
-        // SCGL-D3D11 backend: no DX7 device exists. Refresh overlays and draw
-        // through the D3D11 backend from the ImGui frame callback.
-        if (pDirector->terrainRefreshPending_) {
-            pDirector->terrainRefreshPending_ = false;
-            if (pDirector->city_) {
-                cISTETerrain* terrain = pDirector->city_->GetTerrain();
-                if (pDirector->contourRenderer_.IsEnabled()) {
-                    pDirector->contourRenderer_.Rebuild(terrain);
-                }
-                if (pDirector->slopeRenderer_.IsEnabled()) {
-                    pDirector->slopeRenderer_.Rebuild(terrain);
-                }
-                LOG_DEBUG("DrawOverlayCallback_: refreshed terrain overlays after terrain redisplay message");
-            }
-        }
-
-        if (needsSlopeUpdate) {
-            cISTETerrain* terrain = pDirector->city_->GetTerrain();
-            pDirector->slopeRenderer_.UpdateView(terrain, pDirector->cameraService_, nullptr);
-        }
-
-        if ((needsSlopeUpdate || pDirector->overlayDrawManager_.HasVisibleGeometry())
-            && pDirector->imguiService_)
-        {
-            if (!pDirector->imguiService_->QueueRender(&DrawOverlaysD3D11_, pDirector, nullptr)) {
-                LOG_WARN("DrawOverlayCallback_: QueueRender for D3D11 overlay failed");
-            }
-        }
-        return;
-    }
-
     if (pDirector->terrainRefreshPending_) {
         pDirector->terrainRefreshPending_ = false;
         if (pDirector->city_) {
@@ -765,8 +727,26 @@ void TerrainExtensionsDllDirector::DrawOverlayCallback_(
         }
     }
 
-    // D3D7 backend overlay draw.
-    {
+    IDirect3DDevice7* device = nullptr;
+    IDirectDraw7*     dd     = nullptr;
+
+    const bool haveD3D7 = pDirector->imguiService_
+        && pDirector->imguiService_->AcquireD3DInterfaces(&device, &dd);
+
+    if (!haveD3D7) {
+        if (needsSlopeUpdate) {
+            cISTETerrain* terrain = pDirector->city_->GetTerrain();
+            pDirector->slopeRenderer_.UpdateView(terrain, pDirector->cameraService_, nullptr);
+        }
+
+        if ((needsSlopeUpdate || pDirector->overlayDrawManager_.HasVisibleGeometry())
+            && pDirector->imguiService_)
+        {
+            if (!pDirector->imguiService_->QueueRender(&DrawOverlaysD3D11_, pDirector, nullptr)) {
+                LOG_WARN("DrawOverlayCallback_: QueueRender for D3D11 overlay failed");
+            }
+        }
+    } else {
         const bool needsOverlayDraw =
             needsSlopeUpdate || pDirector->overlayDrawManager_.HasVisibleGeometry();
 

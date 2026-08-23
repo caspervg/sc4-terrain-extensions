@@ -12,7 +12,7 @@ namespace {
 
 struct Vertex {
     float x, y, z;
-    std::uint32_t color; // D3DCOLOR (ARGB) read as B8G8R8A8_UNORM
+    std::uint32_t color;
 };
 
 constexpr char kShaderSource[] = R"(
@@ -21,22 +21,20 @@ struct VSIn { float3 pos : POSITION; float4 color : COLOR0; };
 struct PSIn { float4 pos : SV_Position; float4 color : COLOR0; };
 PSIn vs(VSIn i) {
     PSIn o;
-    o.pos = mul(float4(i.pos, 1.0), gViewProj);
+    o.pos = mul(gViewProj, float4(i.pos, 1.0));
     o.color = i.color;
     return o;
 }
 float4 ps(PSIn i) : SV_Target { return i.color; }
 )";
 
-// Lazily-created D3D11 pipeline objects, rebuilt if the device changes
-// (e.g. after SCGL device loss / regeneration).
 struct Pipeline {
     ID3D11Device* device = nullptr;
     ID3D11VertexShader* vs = nullptr;
     ID3D11PixelShader* ps = nullptr;
     ID3D11InputLayout* layout = nullptr;
-    ID3D11Buffer* constantBuffer = nullptr; // 16 floats, VP matrix
-    ID3D11Buffer* vertexBuffer = nullptr;   // dynamic, grows as needed
+    ID3D11Buffer* constantBuffer = nullptr;
+    ID3D11Buffer* vertexBuffer = nullptr;
     std::size_t vertexCapacity = 0;
     ID3D11RasterizerState* rasterizer = nullptr;
     ID3D11BlendState* blend = nullptr;
@@ -111,7 +109,6 @@ bool CreatePipeline(ID3D11Device* device) {
         hr = device->CreateBuffer(&desc, nullptr, &g_pipeline.constantBuffer);
     }
 
-    // Overlay triangle windings are arbitrary (DX7 path drew with CULL_NONE).
     if (SUCCEEDED(hr)) {
         D3D11_RASTERIZER_DESC rs{};
         rs.FillMode = D3D11_FILL_SOLID;
@@ -148,7 +145,6 @@ bool EnsureVertexBuffer(ID3D11Device* device, std::size_t vertexCount) {
         return true;
     }
 
-    // ponytail: grow-by-doubling only, no ring buffering; fine for overlay-sized batches.
     std::size_t capacity = g_pipeline.vertexCapacity ? g_pipeline.vertexCapacity : 4096;
     while (capacity < vertexCount) capacity *= 2;
 
@@ -170,42 +166,31 @@ bool EnsureVertexBuffer(ID3D11Device* device, std::size_t vertexCount) {
     return true;
 }
 
-/// Builds the combined view-projection matrix for the active renderer camera.
-///
-/// Layouts verified in the Windows 1.1.641 binary:
-/// - cS3DCamera::ViewXform  (0x7FFED0): transform at camera + 0x60
-///     - rotation 3x3 (row-major) at transform + 0x04
-///     - translation at transform + 0x28, uniform scale at transform + 0x34
-/// - cS3DCamera::ProjectionMatrix (0x7FFEF0): 16 floats (row-major, row-vector
-///   convention) at camera + 0x9c
-/// Matches cS3DCamera::Project (0x7FFF10), which maps clip NDC to screen with
-/// y flipped exactly like a D3D11 viewport, so clip coords can be passed through.
 bool BuildViewProj(cIGZS3DCameraService* cameras, float outVP[16]) {
     const S3DCameraHandle handle = cameras->WrapActiveRendererCamera();
     if (!handle.ptr) {
         return false;
     }
 
+    // Windows 1.1.641 cS3DCamera::ViewXform/ProjectionMatrix return +0x60/+0x9c.
     auto* cam = static_cast<std::uint8_t*>(handle.ptr);
     const float* r = reinterpret_cast<const float*>(cam + 0x60 + 0x04);
     const float* t = reinterpret_cast<const float*>(cam + 0x60 + 0x28);
     const float s = *reinterpret_cast<const float*>(cam + 0x60 + 0x34);
     const float* p = reinterpret_cast<const float*>(cam + 0x9c);
 
-    // View matrix (row-vector convention): v' = ((v * R) * scale) + translation
     float view[16] = {
-        s * r[0], s * r[1], s * r[2], 0.0f,
-        s * r[3], s * r[4], s * r[5], 0.0f,
-        s * r[6], s * r[7], s * r[8], 0.0f,
-        t[0], t[1], t[2], 1.0f,
+        s * r[0], s * r[1], s * r[2], t[0],
+        s * r[3], s * r[4], s * r[5], t[1],
+        s * r[6], s * r[7], s * r[8], t[2],
+        0.0f, 0.0f, 0.0f, 1.0f,
     };
 
-    // outVP = view * proj (both row-major)
     for (int row = 0; row < 4; ++row) {
         for (int col = 0; col < 4; ++col) {
             float sum = 0.0f;
             for (int k = 0; k < 4; ++k) {
-                sum += view[row * 4 + k] * p[k * 4 + col];
+                sum += p[row * 4 + k] * view[k * 4 + col];
             }
             outVP[row * 4 + col] = sum;
         }
@@ -251,7 +236,6 @@ void DrawFrame(
         return;
     }
 
-    // Upload vertices
     D3D11_MAPPED_SUBRESOURCE mapped{};
     if (FAILED(context->Map(g_pipeline.vertexBuffer, 0, D3D11_MAP_WRITE_DISCARD,
                             0, &mapped))) {
@@ -263,7 +247,6 @@ void DrawFrame(
     }
     context->Unmap(g_pipeline.vertexBuffer, 0);
 
-    // Update constants
     if (FAILED(context->Map(g_pipeline.constantBuffer, 0, D3D11_MAP_WRITE_DISCARD,
                             0, &mapped))) {
         return;
@@ -271,7 +254,6 @@ void DrawFrame(
     memcpy(mapped.pData, vp, sizeof(vp));
     context->Unmap(g_pipeline.constantBuffer, 0);
 
-    // State: alpha blend, no culling, no depth (matches the DX7 overlay render state).
     constexpr FLOAT kBlendFactor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     context->OMSetBlendState(g_pipeline.blend, kBlendFactor, 0xFFFFFFFFu);
     context->RSSetState(g_pipeline.rasterizer);
@@ -309,13 +291,6 @@ void DrawFrame(
 
     context->Draw(static_cast<UINT>(vertices.size()), 0);
 
-    static bool sLoggedOnce = false;
-    if (!sLoggedOnce) {
-        sLoggedOnce = true;
-        LOG_DEBUG(
-            "D3D11OverlayBackend: first draw vertices={} vp00={} vp33={}",
-            vertices.size(), vp[0], vp[15]);
-    }
 }
 
 } // namespace d3d11overlay
