@@ -38,6 +38,8 @@ struct Pipeline {
     ID3D11Buffer* constantBuffer = nullptr; // 16 floats, VP matrix
     ID3D11Buffer* vertexBuffer = nullptr;   // dynamic, grows as needed
     std::size_t vertexCapacity = 0;
+    ID3D11RasterizerState* rasterizer = nullptr;
+    ID3D11BlendState* blend = nullptr;
 
     void Release() {
         if (vs) vs->Release();
@@ -45,6 +47,8 @@ struct Pipeline {
         if (layout) layout->Release();
         if (constantBuffer) constantBuffer->Release();
         if (vertexBuffer) vertexBuffer->Release();
+        if (rasterizer) rasterizer->Release();
+        if (blend) blend->Release();
         *this = {};
     }
 };
@@ -105,6 +109,27 @@ bool CreatePipeline(ID3D11Device* device) {
         desc.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
         desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
         hr = device->CreateBuffer(&desc, nullptr, &g_pipeline.constantBuffer);
+    }
+
+    // Overlay triangle windings are arbitrary (DX7 path drew with CULL_NONE).
+    if (SUCCEEDED(hr)) {
+        D3D11_RASTERIZER_DESC rs{};
+        rs.FillMode = D3D11_FILL_SOLID;
+        rs.CullMode = D3D11_CULL_NONE;
+        hr = device->CreateRasterizerState(&rs, &g_pipeline.rasterizer);
+    }
+
+    if (SUCCEEDED(hr)) {
+        D3D11_BLEND_DESC bs{};
+        bs.RenderTarget[0].BlendEnable = TRUE;
+        bs.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
+        bs.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
+        bs.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
+        bs.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
+        bs.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
+        bs.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
+        bs.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
+        hr = device->CreateBlendState(&bs, &g_pipeline.blend);
     }
 
     if (FAILED(hr)) {
@@ -246,32 +271,24 @@ void DrawFrame(
     memcpy(mapped.pData, vp, sizeof(vp));
     context->Unmap(g_pipeline.constantBuffer, 0);
 
-    // State: alpha blend, no depth (matches the DX7 overlay render state).
-    ID3D11BlendState* blendState = nullptr;
-    D3D11_BLEND_DESC blendDesc{};
-    blendDesc.RenderTarget[0].BlendEnable = TRUE;
-    blendDesc.RenderTarget[0].SrcBlend = D3D11_BLEND_SRC_ALPHA;
-    blendDesc.RenderTarget[0].DestBlend = D3D11_BLEND_INV_SRC_ALPHA;
-    blendDesc.RenderTarget[0].BlendOp = D3D11_BLEND_OP_ADD;
-    blendDesc.RenderTarget[0].SrcBlendAlpha = D3D11_BLEND_ONE;
-    blendDesc.RenderTarget[0].DestBlendAlpha = D3D11_BLEND_INV_SRC_ALPHA;
-    blendDesc.RenderTarget[0].BlendOpAlpha = D3D11_BLEND_OP_ADD;
-    blendDesc.RenderTarget[0].RenderTargetWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
-    device->CreateBlendState(&blendDesc, &blendState);
-
-    // ponytail: blend state recreated per frame (~trivial); cache if it ever shows up.
+    // State: alpha blend, no culling, no depth (matches the DX7 overlay render state).
     constexpr FLOAT kBlendFactor[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-    context->OMSetBlendState(blendState, kBlendFactor, 0xFFFFFFFFu);
-    if (blendState) blendState->Release();
+    context->OMSetBlendState(g_pipeline.blend, kBlendFactor, 0xFFFFFFFFu);
+    context->RSSetState(g_pipeline.rasterizer);
 
     context->OMSetRenderTargets(1, &renderTargetView, nullptr);
 
     D3D11_TEXTURE2D_DESC backBufferDesc{};
     ID3D11Texture2D* backBuffer = nullptr;
-    if (SUCCEEDED(swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
-                                       reinterpret_cast<void**>(&backBuffer)))) {
-        backBuffer->GetDesc(&backBufferDesc);
-        backBuffer->Release();
+    if (FAILED(swapChain->GetBuffer(0, __uuidof(ID3D11Texture2D),
+                                    reinterpret_cast<void**>(&backBuffer)))) {
+        LOG_WARN("D3D11OverlayBackend: failed to query swap chain back buffer");
+        return;
+    }
+    backBuffer->GetDesc(&backBufferDesc);
+    backBuffer->Release();
+    if (backBufferDesc.Width == 0 || backBufferDesc.Height == 0) {
+        return;
     }
     D3D11_VIEWPORT viewport{0.0f, 0.0f,
                             static_cast<FLOAT>(backBufferDesc.Width),
@@ -291,6 +308,14 @@ void DrawFrame(
     context->VSSetConstantBuffers(0, 1, &cb);
 
     context->Draw(static_cast<UINT>(vertices.size()), 0);
+
+    static bool sLoggedOnce = false;
+    if (!sLoggedOnce) {
+        sLoggedOnce = true;
+        LOG_DEBUG(
+            "D3D11OverlayBackend: first draw vertices={} vp00={} vp33={}",
+            vertices.size(), vp[0], vp[15]);
+    }
 }
 
 } // namespace d3d11overlay
