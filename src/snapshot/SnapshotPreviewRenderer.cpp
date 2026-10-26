@@ -6,22 +6,22 @@
 #include <cmath>
 #include <vector>
 
-DWORD SnapshotPreviewRenderer::NodeColorForDelta(const float delta) {
+uint32_t SnapshotPreviewRenderer::NodeColorForDelta(const float delta) {
 	const float magnitude = std::min(std::abs(delta), 20.0f) / 20.0f;
 	const uint8_t alpha = static_cast<uint8_t>(128 + magnitude * 110.0f);
 
 	if (delta > 0.05f) {
 		const uint8_t green = static_cast<uint8_t>(165 + magnitude * 70.0f);
-		return (static_cast<DWORD>(alpha) << 24)
+		return (static_cast<uint32_t>(alpha) << 24)
 			| (0x20u << 16)
-			| (static_cast<DWORD>(green) << 8)
+			| (static_cast<uint32_t>(green) << 8)
 			| 0x48u;
 	}
 
 	if (delta < -0.05f) {
 		const uint8_t red = static_cast<uint8_t>(185 + magnitude * 55.0f);
-		return (static_cast<DWORD>(alpha) << 24)
-			| (static_cast<DWORD>(red) << 16)
+		return (static_cast<uint32_t>(alpha) << 24)
+			| (static_cast<uint32_t>(red) << 16)
 			| (0x48u << 8)
 			| 0x48u;
 	}
@@ -94,31 +94,31 @@ void SnapshotPreviewRenderer::Rebuild(const TerrainSnapshot& snapshot, cISTETerr
 				kGroundColor, kLayerGround);
 
 			// Fill: per-tile rail lines at snapshot height, colored by avg delta
-			const DWORD fillColor = NodeColorForDelta((d00 + d10 + d01 + d11) * 0.25f);
-			EmitLine({wx0, s00 + kOverlayHeightOffset, wz0, fillColor},
+			const uint32_t fillColor = NodeColorForDelta((d00 + d10 + d01 + d11) * 0.25f);
+			EmitScreenLine({wx0, s00 + kOverlayHeightOffset, wz0, fillColor},
 			         {wx1, s10 + kOverlayHeightOffset, wz0, fillColor},
 			         kRailThickness, fillColor, kLayerFill);
-			EmitLine({wx1, s10 + kOverlayHeightOffset, wz0, fillColor},
+			EmitScreenLine({wx1, s10 + kOverlayHeightOffset, wz0, fillColor},
 			         {wx1, s11 + kOverlayHeightOffset, wz1, fillColor},
 			         kRailThickness, fillColor, kLayerFill);
-			EmitLine({wx1, s11 + kOverlayHeightOffset, wz1, fillColor},
+			EmitScreenLine({wx1, s11 + kOverlayHeightOffset, wz1, fillColor},
 			         {wx0, s01 + kOverlayHeightOffset, wz1, fillColor},
 			         kRailThickness, fillColor, kLayerFill);
-			EmitLine({wx0, s01 + kOverlayHeightOffset, wz1, fillColor},
+			EmitScreenLine({wx0, s01 + kOverlayHeightOffset, wz1, fillColor},
 			         {wx0, s00 + kOverlayHeightOffset, wz0, fillColor},
 			         kRailThickness, fillColor, kLayerFill);
 
 			// Outline: thicker border only on edges bordering an unchanged tile
 			const float ol = kOverlayHeightOffset + 0.02f;
-			const DWORD outColor = NodeColorForDelta((d00 + d10 + d01 + d11) * 0.25f);
+			const uint32_t outColor = NodeColorForDelta((d00 + d10 + d01 + d11) * 0.25f);
 			if (!isTileChanged(tx, tz - 1))
-				EmitLine({wx0, s00+ol, wz0, outColor}, {wx1, s10+ol, wz0, outColor}, kOutlineThickness, outColor, kLayerOutline);
+				EmitScreenLine({wx0, s00+ol, wz0, outColor}, {wx1, s10+ol, wz0, outColor}, kOutlineThickness, outColor, kLayerOutline);
 			if (!isTileChanged(tx + 1, tz))
-				EmitLine({wx1, s10+ol, wz0, outColor}, {wx1, s11+ol, wz1, outColor}, kOutlineThickness, outColor, kLayerOutline);
+				EmitScreenLine({wx1, s10+ol, wz0, outColor}, {wx1, s11+ol, wz1, outColor}, kOutlineThickness, outColor, kLayerOutline);
 			if (!isTileChanged(tx, tz + 1))
-				EmitLine({wx1, s11+ol, wz1, outColor}, {wx0, s01+ol, wz1, outColor}, kOutlineThickness, outColor, kLayerOutline);
+				EmitScreenLine({wx1, s11+ol, wz1, outColor}, {wx0, s01+ol, wz1, outColor}, kOutlineThickness, outColor, kLayerOutline);
 			if (!isTileChanged(tx - 1, tz))
-				EmitLine({wx0, s01+ol, wz1, outColor}, {wx0, s00+ol, wz0, outColor}, kOutlineThickness, outColor, kLayerOutline);
+				EmitScreenLine({wx0, s01+ol, wz1, outColor}, {wx0, s00+ol, wz0, outColor}, kOutlineThickness, outColor, kLayerOutline);
 		}
 	}
 
@@ -132,14 +132,14 @@ void SnapshotPreviewRenderer::Rebuild(const TerrainSnapshot& snapshot, cISTETerr
 			const float wz      = z * kTileSize;
 			const float groundY = curH[idx(x, z)] + 0.03f;
 			const float snapY   = snapH[idx(x, z)] + kOverlayHeightOffset;
-			const DWORD color   = NodeColorForDelta(d);
+			const uint32_t color   = NodeColorForDelta(d);
 
-			EmitLine({wx, groundY, wz, color}, {wx, snapY, wz, color},
+			EmitScreenLine({wx, groundY, wz, color}, {wx, snapY, wz, color},
 			         kMarkerThickness, color, kLayerMarkers);
-			EmitLine({wx - kNodeCrossSize, snapY, wz, color},
+			EmitScreenLine({wx - kNodeCrossSize, snapY, wz, color},
 			         {wx + kNodeCrossSize, snapY, wz, color},
 			         kMarkerThickness, color, kLayerMarkers);
-			EmitLine({wx, snapY, wz - kNodeCrossSize, color},
+			EmitScreenLine({wx, snapY, wz - kNodeCrossSize, color},
 			         {wx, snapY, wz + kNodeCrossSize, color},
 			         kMarkerThickness, color, kLayerMarkers);
 		}

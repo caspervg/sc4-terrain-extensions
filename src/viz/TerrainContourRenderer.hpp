@@ -34,6 +34,8 @@ public:
 
     static constexpr uint32_t kLayerContours = 0;
 
+    TerrainContourRenderer() { ConfigureLayer(kLayerContours, DrawServicePass::PreDynamic, kMapStyle); }
+
     void SetEnabled(bool enabled, cISTETerrain* terrain);
     [[nodiscard]] bool IsEnabled() const { return enabled_; }
 
@@ -54,7 +56,7 @@ private:
     static constexpr int kLabelEveryMajorSegments = 2;
 
     static bool ValidateConfig_(const ContourRenderConfig& config, std::string* error = nullptr);
-    static DWORD ContourColor_(float normalizedHeight, bool major, const ContourRenderConfig& config);
+    static uint32_t ContourColor_(float normalizedHeight, bool major, const ContourRenderConfig& config);
     static uint32_t LerpColor_(uint32_t a, uint32_t b, float t);
     static bool IsMajorLevel_(float level, int contourIndex, const ContourRenderConfig& config);
     static std::string FormatLevelLabel_(float levelMeters);

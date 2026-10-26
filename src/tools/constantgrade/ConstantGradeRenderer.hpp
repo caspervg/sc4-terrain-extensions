@@ -20,7 +20,7 @@ public:
 
 private:
     void BuildGround_(const ConstantGradePreview& preview);
-    void BuildFill_(const ConstantGradePreview& preview, DWORD color);
-    void BuildOutline_(const ConstantGradePreview& preview, DWORD color);
+    void BuildFill_(const ConstantGradePreview& preview, uint32_t color);
+    void BuildOutline_(const ConstantGradePreview& preview, uint32_t color);
     void BuildMarkers_(const ConstantGradePreview& preview);
 };

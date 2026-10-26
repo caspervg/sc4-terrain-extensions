@@ -22,8 +22,8 @@ public:
 
 private:
     void BuildGround_(const FlattenPreview& preview);
-    void BuildFill_(const FlattenPreview& preview, DWORD color);
-    void BuildOutline_(const FlattenPreview& preview, DWORD color);
-    void BuildMarkers_(cISTETerrain* terrain, const FlattenPreview& preview, DWORD color);
+    void BuildFill_(const FlattenPreview& preview, uint32_t color);
+    void BuildOutline_(const FlattenPreview& preview, uint32_t color);
+    void BuildMarkers_(cISTETerrain* terrain, const FlattenPreview& preview, uint32_t color);
     void BuildReferenceTile_(cISTETerrain* terrain, const FlattenPreview& preview);
 };

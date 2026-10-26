@@ -5,15 +5,14 @@
 #include <cmath>
 
 #include "cISTETerrain.h"
-#include "public/cIGZS3DCameraService.h"
 #include "utils/Logger.h"
 
 namespace {
-DWORD PackColor(const uint8_t a, const uint8_t r, const uint8_t g, const uint8_t b) {
-    return (static_cast<DWORD>(a) << 24)
-        | (static_cast<DWORD>(r) << 16)
-        | (static_cast<DWORD>(g) << 8)
-        | static_cast<DWORD>(b);
+uint32_t PackColor(const uint8_t a, const uint8_t r, const uint8_t g, const uint8_t b) {
+    return (static_cast<uint32_t>(a) << 24)
+        | (static_cast<uint32_t>(r) << 16)
+        | (static_cast<uint32_t>(g) << 8)
+        | static_cast<uint32_t>(b);
 }
 
 uint32_t LerpColor(const uint32_t a, const uint32_t b, const float tRaw) {
@@ -106,7 +105,7 @@ void TerrainSlopeRenderer::Rebuild(cISTETerrain* terrain) {
                 continue;
             }
 
-            const DWORD color = GradeColor_(grade, config_);
+            const uint32_t color = GradeColor_(grade, config_);
             const float wx0 = static_cast<float>(x0) * kTileSize;
             const float wz0 = static_cast<float>(z0) * kTileSize;
             const float wx1 = static_cast<float>(x1) * kTileSize;
@@ -126,17 +125,6 @@ void TerrainSlopeRenderer::Rebuild(cISTETerrain* terrain) {
         config_.mode == SlopeRenderMode::PlaneGrade ? "plane-grade" : "max-edge-grade",
         config_.opacity,
         config_.minGrade);
-}
-
-void TerrainSlopeRenderer::UpdateView(
-    cISTETerrain* terrain,
-    cIGZS3DCameraService* cameraService,
-    IDirect3DDevice7* device) {
-    (void)cameraService;
-    (void)device;
-    if (enabled_ && terrain && !HasLayer(kLayerSlope)) {
-        Rebuild(terrain);
-    }
 }
 
 void TerrainSlopeRenderer::ClearAll() {
@@ -183,7 +171,7 @@ float TerrainSlopeRenderer::ComputePlaneGrade_(const float h00, const float h10,
     return std::sqrt(dzdx * dzdx + dzdz * dzdz) * 100.0f;
 }
 
-DWORD TerrainSlopeRenderer::GradeColor_(const float gradePercent, const SlopeRenderConfig& config) {
+uint32_t TerrainSlopeRenderer::GradeColor_(const float gradePercent, const SlopeRenderConfig& config) {
     const uint8_t alpha = static_cast<uint8_t>(std::round(std::clamp(config.opacity, 0.0f, 1.0f) * 255.0f));
     const auto& t = config.thresholds;
     constexpr uint32_t c0 = 0x4CA46D;
@@ -214,8 +202,8 @@ DWORD TerrainSlopeRenderer::GradeColor_(const float gradePercent, const SlopeRen
         rgb = LerpColor(c4, c5, s);
     }
 
-    return (static_cast<DWORD>(alpha) << 24)
-        | (static_cast<DWORD>((rgb >> 16) & 0xFFu) << 16)
-        | (static_cast<DWORD>((rgb >> 8) & 0xFFu) << 8)
-        | static_cast<DWORD>(rgb & 0xFFu);
+    return (static_cast<uint32_t>(alpha) << 24)
+        | (static_cast<uint32_t>((rgb >> 16) & 0xFFu) << 16)
+        | (static_cast<uint32_t>((rgb >> 8) & 0xFFu) << 8)
+        | static_cast<uint32_t>(rgb & 0xFFu);
 }

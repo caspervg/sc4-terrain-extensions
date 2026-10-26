@@ -8,13 +8,13 @@ constexpr float kTileSize = 16.0f;
 constexpr float kGroundHeightOffset = 0.05f;
 constexpr float kHoverHeightOffset = 0.09f;
 constexpr float kOverlayHeightOffset = 0.20f;
-constexpr float kHoverThickness = 1.0f;
-constexpr float kMarkerThickness = 0.65f;
-constexpr float kOutlineThickness = 1.25f;
-constexpr float kRailThickness = 0.50f;
+constexpr float kHoverThickness = 2.5f;
+constexpr float kMarkerThickness = 2.0f;
+constexpr float kOutlineThickness = 3.0f;
+constexpr float kRailThickness = 1.5f;
 constexpr float kCrossSize = 1.55f;
-constexpr DWORD kGroundColor = 0x4A9A9A9Au;
-constexpr DWORD kHoverColor = 0xD0101010u;
+constexpr uint32_t kGroundColor = 0x4A9A9A9Au;
+constexpr uint32_t kHoverColor = 0xD0101010u;
 
 float WorldXFromVertex(const int vertexX) {
     return static_cast<float>(vertexX) * kTileSize;
@@ -24,7 +24,7 @@ float WorldZFromVertex(const int vertexZ) {
     return static_cast<float>(vertexZ) * kTileSize;
 }
 
-DWORD ColorForDelta(const float delta) {
+uint32_t ColorForDelta(const float delta) {
     if (delta > 0.25f) {
         return 0xD030C050;
     }
@@ -34,22 +34,22 @@ DWORD ColorForDelta(const float delta) {
     return 0xD0D0D0D0;
 }
 
-DWORD NodeColorForDelta(const float delta) {
+uint32_t NodeColorForDelta(const float delta) {
     const float magnitude = std::min(std::abs(delta), 20.0f) / 20.0f;
     const uint8_t alpha = static_cast<uint8_t>(128 + magnitude * 110.0f);
 
     if (delta > 0.05f) {
         const uint8_t green = static_cast<uint8_t>(165 + magnitude * 70.0f);
-        return (static_cast<DWORD>(alpha) << 24)
+        return (static_cast<uint32_t>(alpha) << 24)
             | (0x20u << 16)
-            | (static_cast<DWORD>(green) << 8)
+            | (static_cast<uint32_t>(green) << 8)
             | 0x48u;
     }
 
     if (delta < -0.05f) {
         const uint8_t red = static_cast<uint8_t>(185 + magnitude * 55.0f);
-        return (static_cast<DWORD>(alpha) << 24)
-            | (static_cast<DWORD>(red) << 16)
+        return (static_cast<uint32_t>(alpha) << 24)
+            | (static_cast<uint32_t>(red) << 16)
             | (0x48u << 8)
             | 0x48u;
     }
@@ -67,7 +67,7 @@ void ConstantGradeRenderer::Update(cISTETerrain* terrain, const ConstantGradePre
 
     ClearLayer(kLayerHover);
     const float delta = preview.endHeight - preview.startHeight;
-    const DWORD color = ColorForDelta(delta);
+    const uint32_t color = ColorForDelta(delta);
 
     ClearAll();
     BuildGround_(preview);
@@ -87,10 +87,10 @@ void ConstantGradeRenderer::ShowHoverTile(cISTETerrain* terrain, const int tileX
     const OverlayVertex c{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), kHoverColor};
     const OverlayVertex d{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), kHoverColor};
 
-    EmitLine(a, b, kHoverThickness, kHoverColor, kLayerHover);
-    EmitLine(b, c, kHoverThickness, kHoverColor, kLayerHover);
-    EmitLine(c, d, kHoverThickness, kHoverColor, kLayerHover);
-    EmitLine(d, a, kHoverThickness, kHoverColor, kLayerHover);
+    EmitScreenLine(a, b, kHoverThickness, kHoverColor, kLayerHover);
+    EmitScreenLine(b, c, kHoverThickness, kHoverColor, kLayerHover);
+    EmitScreenLine(c, d, kHoverThickness, kHoverColor, kLayerHover);
+    EmitScreenLine(d, a, kHoverThickness, kHoverColor, kLayerHover);
 }
 
 void ConstantGradeRenderer::ClearHoverTile() {
@@ -126,7 +126,7 @@ void ConstantGradeRenderer::BuildGround_(const ConstantGradePreview& preview) {
     }
 }
 
-void ConstantGradeRenderer::BuildFill_(const ConstantGradePreview& preview, const DWORD) {
+void ConstantGradeRenderer::BuildFill_(const ConstantGradePreview& preview, const uint32_t) {
     for (int tileZ = preview.minTileZ; tileZ <= preview.maxTileZ; ++tileZ) {
         for (int tileX = preview.minTileX; tileX <= preview.maxTileX; ++tileX) {
             if (!preview.IsSelectedTile(tileX, tileZ)) continue;
@@ -137,7 +137,7 @@ void ConstantGradeRenderer::BuildFill_(const ConstantGradePreview& preview, cons
             const auto* v11 = preview.FindVertex(tileX + 1, tileZ + 1);
             if (!v00 || !v10 || !v01 || !v11) continue;
 
-            const DWORD edgeColor = NodeColorForDelta(
+            const uint32_t edgeColor = NodeColorForDelta(
                 (v00->Delta() + v10->Delta() + v01->Delta() + v11->Delta()) * 0.25f);
 
             const OverlayVertex p00{WorldXFromVertex(v00->vertexX), v00->predictedHeight + kOverlayHeightOffset, WorldZFromVertex(v00->vertexZ), edgeColor};
@@ -145,15 +145,15 @@ void ConstantGradeRenderer::BuildFill_(const ConstantGradePreview& preview, cons
             const OverlayVertex p01{WorldXFromVertex(v01->vertexX), v01->predictedHeight + kOverlayHeightOffset, WorldZFromVertex(v01->vertexZ), edgeColor};
             const OverlayVertex p11{WorldXFromVertex(v11->vertexX), v11->predictedHeight + kOverlayHeightOffset, WorldZFromVertex(v11->vertexZ), edgeColor};
 
-            EmitLine(p00, p10, kRailThickness, edgeColor, kLayerFill);
-            EmitLine(p10, p11, kRailThickness, edgeColor, kLayerFill);
-            EmitLine(p11, p01, kRailThickness, edgeColor, kLayerFill);
-            EmitLine(p01, p00, kRailThickness, edgeColor, kLayerFill);
+            EmitScreenLine(p00, p10, kRailThickness, edgeColor, kLayerFill);
+            EmitScreenLine(p10, p11, kRailThickness, edgeColor, kLayerFill);
+            EmitScreenLine(p11, p01, kRailThickness, edgeColor, kLayerFill);
+            EmitScreenLine(p01, p00, kRailThickness, edgeColor, kLayerFill);
         }
     }
 }
 
-void ConstantGradeRenderer::BuildOutline_(const ConstantGradePreview& preview, const DWORD color) {
+void ConstantGradeRenderer::BuildOutline_(const ConstantGradePreview& preview, const uint32_t color) {
     for (int tileZ = preview.minTileZ; tileZ <= preview.maxTileZ; ++tileZ) {
         for (int tileX = preview.minTileX; tileX <= preview.maxTileX; ++tileX) {
             if (!preview.IsCoreTile(tileX, tileZ)) continue;
@@ -169,10 +169,10 @@ void ConstantGradeRenderer::BuildOutline_(const ConstantGradePreview& preview, c
             const OverlayVertex c{WorldXFromVertex(cV->vertexX), cV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(cV->vertexZ), color};
             const OverlayVertex d{WorldXFromVertex(dV->vertexX), dV->predictedHeight + kOverlayHeightOffset + 0.02f, WorldZFromVertex(dV->vertexZ), color};
 
-            if (!preview.IsCoreTile(tileX, tileZ - 1)) EmitLine(a, b, kOutlineThickness, color, kLayerOutline);
-            if (!preview.IsCoreTile(tileX + 1, tileZ)) EmitLine(b, c, kOutlineThickness, color, kLayerOutline);
-            if (!preview.IsCoreTile(tileX, tileZ + 1)) EmitLine(c, d, kOutlineThickness, color, kLayerOutline);
-            if (!preview.IsCoreTile(tileX - 1, tileZ)) EmitLine(d, a, kOutlineThickness, color, kLayerOutline);
+            if (!preview.IsCoreTile(tileX, tileZ - 1)) EmitScreenLine(a, b, kOutlineThickness, color, kLayerOutline);
+            if (!preview.IsCoreTile(tileX + 1, tileZ)) EmitScreenLine(b, c, kOutlineThickness, color, kLayerOutline);
+            if (!preview.IsCoreTile(tileX, tileZ + 1)) EmitScreenLine(c, d, kOutlineThickness, color, kLayerOutline);
+            if (!preview.IsCoreTile(tileX - 1, tileZ)) EmitScreenLine(d, a, kOutlineThickness, color, kLayerOutline);
         }
     }
 }
@@ -181,25 +181,25 @@ void ConstantGradeRenderer::BuildMarkers_(const ConstantGradePreview& preview) {
     for (const auto& vertex : preview.vertices) {
         if (!vertex.IsCore()) continue;
 
-        const DWORD color = NodeColorForDelta(vertex.Delta());
+        const uint32_t color = NodeColorForDelta(vertex.Delta());
         const float worldX = WorldXFromVertex(vertex.vertexX);
         const float worldZ = WorldZFromVertex(vertex.vertexZ);
         const float currentHeight = vertex.currentHeight + 0.03f;
         const float predictedHeight = vertex.predictedHeight + kOverlayHeightOffset;
 
         if (std::abs(vertex.Delta()) > 0.05f) {
-            EmitLine({worldX, currentHeight, worldZ, color},
+            EmitScreenLine({worldX, currentHeight, worldZ, color},
                      {worldX, predictedHeight, worldZ, color},
                      kMarkerThickness,
                      color,
                      kLayerMarkers);
         }
-        EmitLine({worldX - kCrossSize, predictedHeight, worldZ, color},
+        EmitScreenLine({worldX - kCrossSize, predictedHeight, worldZ, color},
                  {worldX + kCrossSize, predictedHeight, worldZ, color},
                  kMarkerThickness,
                  color,
                  kLayerMarkers);
-        EmitLine({worldX, predictedHeight, worldZ - kCrossSize, color},
+        EmitScreenLine({worldX, predictedHeight, worldZ - kCrossSize, color},
                  {worldX, predictedHeight, worldZ + kCrossSize, color},
                  kMarkerThickness,
                  color,

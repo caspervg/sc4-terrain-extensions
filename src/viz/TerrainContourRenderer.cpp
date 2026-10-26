@@ -105,7 +105,7 @@ void TerrainContourRenderer::Rebuild(cISTETerrain* terrain) {
         const float normalized = (maxHeight > minHeight)
             ? std::clamp((level - minHeight) / (maxHeight - minHeight), 0.0f, 1.0f)
             : 0.5f;
-        const DWORD color = ContourColor_(normalized, major, config_);
+        const uint32_t color = ContourColor_(normalized, major, config_);
 
         for (uint32_t tz = 0; tz < cellsZ; ++tz) {
             for (uint32_t tx = 0; tx < cellsX; ++tx) {
@@ -271,7 +271,7 @@ bool TerrainContourRenderer::ValidateConfig_(const ContourRenderConfig& config, 
     return true;
 }
 
-DWORD TerrainContourRenderer::ContourColor_(const float normalizedHeight, const bool major, const ContourRenderConfig& config) {
+uint32_t TerrainContourRenderer::ContourColor_(const float normalizedHeight, const bool major, const ContourRenderConfig& config) {
     constexpr uint32_t lowColor = 0x5C67C8;  // blue
     constexpr uint32_t midColor = 0x66A45F;  // green
     constexpr uint32_t highColor = 0xC39B6A; // tan
@@ -289,10 +289,10 @@ DWORD TerrainContourRenderer::ContourColor_(const float normalizedHeight, const 
 
     const float opacity = std::clamp(major ? config.majorOpacity : config.minorOpacity, 0.0f, 1.0f);
     const uint8_t alpha = static_cast<uint8_t>(std::round(opacity * 255.0f));
-    return (static_cast<DWORD>(alpha) << 24)
-        | (static_cast<DWORD>((rgb >> 16) & 0xFFu) << 16)
-        | (static_cast<DWORD>((rgb >> 8) & 0xFFu) << 8)
-        | static_cast<DWORD>(rgb & 0xFFu);
+    return (static_cast<uint32_t>(alpha) << 24)
+        | (static_cast<uint32_t>((rgb >> 16) & 0xFFu) << 16)
+        | (static_cast<uint32_t>((rgb >> 8) & 0xFFu) << 8)
+        | static_cast<uint32_t>(rgb & 0xFFu);
 }
 
 uint32_t TerrainContourRenderer::LerpColor_(const uint32_t a, const uint32_t b, const float tRaw) {

@@ -7,20 +7,20 @@ namespace {
 constexpr float kGroundHeightOffset = 0.05f;
 constexpr float kHoverHeightOffset = 0.09f;
 constexpr float kOverlayHeightOffset = 0.20f;
-constexpr float kHoverThickness = 1.0f;
-constexpr float kMarkerThickness = 0.65f;
-constexpr float kOutlineThickness = 1.25f;
-constexpr float kRailThickness = 0.50f;
-constexpr float kDeckThickness = 0.65f;
+constexpr float kHoverThickness = 2.5f;
+constexpr float kMarkerThickness = 2.0f;
+constexpr float kOutlineThickness = 3.0f;
+constexpr float kRailThickness = 1.5f;
+constexpr float kDeckThickness = 2.0f;
 constexpr float kNodeCrossSize = 1.55f;
-constexpr float kRungThickness = 0.90f;
-constexpr float kSideStrutThickness = 0.50f;
+constexpr float kRungThickness = 2.5f;
+constexpr float kSideStrutThickness = 1.5f;
 constexpr float kOutsideTileOffset = 16.0f;
-constexpr DWORD kGroundColor = 0x4A9A9A9Au;
-constexpr DWORD kHoverColor = 0xD0101010u;
-constexpr DWORD kInvalidColor = 0xD0C84A4Au;
+constexpr uint32_t kGroundColor = 0x4A9A9A9Au;
+constexpr uint32_t kHoverColor = 0xD0101010u;
+constexpr uint32_t kInvalidColor = 0xD0C84A4Au;
 
-DWORD ColorForDelta(const float delta) {
+uint32_t ColorForDelta(const float delta) {
     if (delta > 0.25f) {
         return 0xD030C050;
     }
@@ -30,22 +30,22 @@ DWORD ColorForDelta(const float delta) {
     return 0xD0D0D0D0;
 }
 
-DWORD NodeColorForDelta(const float delta) {
+uint32_t NodeColorForDelta(const float delta) {
     const float magnitude = std::min(std::abs(delta), 20.0f) / 20.0f;
     const uint8_t alpha = static_cast<uint8_t>(128 + magnitude * 110.0f);
 
     if (delta > 0.05f) {
         const uint8_t green = static_cast<uint8_t>(165 + magnitude * 70.0f);
-        return (static_cast<DWORD>(alpha) << 24)
+        return (static_cast<uint32_t>(alpha) << 24)
             | (0x20u << 16)
-            | (static_cast<DWORD>(green) << 8)
+            | (static_cast<uint32_t>(green) << 8)
             | 0x48u;
     }
 
     if (delta < -0.05f) {
         const uint8_t red = static_cast<uint8_t>(185 + magnitude * 55.0f);
-        return (static_cast<DWORD>(alpha) << 24)
-            | (static_cast<DWORD>(red) << 16)
+        return (static_cast<uint32_t>(alpha) << 24)
+            | (static_cast<uint32_t>(red) << 16)
             | (0x48u << 8)
             | 0x48u;
     }
@@ -89,10 +89,10 @@ void BridgeApproachRenderer::ShowHoverTile(cISTETerrain* terrain, const int tile
     const OverlayVertex c{(tileX + 1) * 16.0f, terrain->GetAltitudeAtVertex(tileX + 1, tileZ + 1) + kHoverHeightOffset, (tileZ + 1) * 16.0f, kHoverColor};
     const OverlayVertex d{tileX * 16.0f, terrain->GetAltitudeAtVertex(tileX, tileZ + 1) + kHoverHeightOffset, (tileZ + 1) * 16.0f, kHoverColor};
 
-    EmitLine(a, b, kHoverThickness, kHoverColor, kLayerHover);
-    EmitLine(b, c, kHoverThickness, kHoverColor, kLayerHover);
-    EmitLine(c, d, kHoverThickness, kHoverColor, kLayerHover);
-    EmitLine(d, a, kHoverThickness, kHoverColor, kLayerHover);
+    EmitScreenLine(a, b, kHoverThickness, kHoverColor, kLayerHover);
+    EmitScreenLine(b, c, kHoverThickness, kHoverColor, kLayerHover);
+    EmitScreenLine(c, d, kHoverThickness, kHoverColor, kLayerHover);
+    EmitScreenLine(d, a, kHoverThickness, kHoverColor, kLayerHover);
 }
 
 void BridgeApproachRenderer::ClearHoverTile() {
@@ -178,7 +178,7 @@ void BridgeApproachRenderer::BuildApproachLayer_(
     const float leftEndTerrain = SampleBoundaryTerrainHeight_(terrain, p.bridgeEndWorldX - p.perpX * halfWidth, p.bridgeEndWorldZ - p.perpZ * halfWidth, -p.perpX, -p.perpZ);
     const float rightEndTerrain = SampleBoundaryTerrainHeight_(terrain, p.bridgeEndWorldX + p.perpX * halfWidth, p.bridgeEndWorldZ + p.perpZ * halfWidth, p.perpX, p.perpZ);
     const float deckDelta = p.bridgeHeight - ((leftStartTerrain + rightStartTerrain + leftEndTerrain + rightEndTerrain) * 0.25f);
-    const DWORD deckColor = isValid ? ColorForDelta(deckDelta) : kInvalidColor;
+    const uint32_t deckColor = isValid ? ColorForDelta(deckDelta) : kInvalidColor;
 
     const OverlayVertex v1 = {
         p.bridgeStartWorldX - p.perpX * halfWidth,
@@ -205,10 +205,10 @@ void BridgeApproachRenderer::BuildApproachLayer_(
         deckColor
     };
 
-    EmitLine(v1, v2, kOutlineThickness, deckColor, kLayerOutline);
-    EmitLine(v2, v3, kDeckThickness, deckColor, kLayerOutline);
-    EmitLine(v3, v4, kOutlineThickness, deckColor, kLayerOutline);
-    EmitLine(v4, v1, kDeckThickness, deckColor, kLayerOutline);
+    EmitScreenLine(v1, v2, kOutlineThickness, deckColor, kLayerOutline);
+    EmitScreenLine(v2, v3, kDeckThickness, deckColor, kLayerOutline);
+    EmitScreenLine(v3, v4, kOutlineThickness, deckColor, kLayerOutline);
+    EmitScreenLine(v4, v1, kDeckThickness, deckColor, kLayerOutline);
 
     if (BridgeApproachGeometry::IncludesStartApproach(sideMode)) {
         BuildSingleApproachGeometry_(
@@ -400,49 +400,49 @@ void BridgeApproachRenderer::BuildSingleApproachGeometry_(
             return NodeColorForDelta((a + b) * 0.5f);
         };
 
-        const DWORD centerColor = lineColor(centerY0 - centerTerrain0, centerY1 - centerTerrain1);
-        const DWORD leftColor = lineColor(leftY0 - leftTerrain0, leftY1 - leftTerrain1);
-        const DWORD rightColor = lineColor(rightY0 - rightTerrain0, rightY1 - rightTerrain1);
-        const DWORD leftToeColor = lineColor(leftY0 - leftToeY0, leftY1 - leftToeY1);
-        const DWORD rightToeColor = lineColor(rightY0 - rightToeY0, rightY1 - rightToeY1);
+        const uint32_t centerColor = lineColor(centerY0 - centerTerrain0, centerY1 - centerTerrain1);
+        const uint32_t leftColor = lineColor(leftY0 - leftTerrain0, leftY1 - leftTerrain1);
+        const uint32_t rightColor = lineColor(rightY0 - rightTerrain0, rightY1 - rightTerrain1);
+        const uint32_t leftToeColor = lineColor(leftY0 - leftToeY0, leftY1 - leftToeY1);
+        const uint32_t rightToeColor = lineColor(rightY0 - rightToeY0, rightY1 - rightToeY1);
 
-        EmitLine({x0, centerY0 + kOverlayHeightOffset, z0, centerColor},
+        EmitScreenLine({x0, centerY0 + kOverlayHeightOffset, z0, centerColor},
                  {x1, centerY1 + kOverlayHeightOffset, z1, centerColor},
                  kRailThickness, centerColor, layerId);
-        EmitLine({leftX0, leftY0 + kOverlayHeightOffset, leftZ0, leftColor},
+        EmitScreenLine({leftX0, leftY0 + kOverlayHeightOffset, leftZ0, leftColor},
                  {leftX1, leftY1 + kOverlayHeightOffset, leftZ1, leftColor},
                  kRailThickness, leftColor, layerId);
-        EmitLine({rightX0, rightY0 + kOverlayHeightOffset, rightZ0, rightColor},
+        EmitScreenLine({rightX0, rightY0 + kOverlayHeightOffset, rightZ0, rightColor},
                  {rightX1, rightY1 + kOverlayHeightOffset, rightZ1, rightColor},
                  kRailThickness, rightColor, layerId);
-        EmitLine({leftToeX0, leftToeY0 + kOverlayHeightOffset, leftToeZ0, leftToeColor},
+        EmitScreenLine({leftToeX0, leftToeY0 + kOverlayHeightOffset, leftToeZ0, leftToeColor},
                  {leftToeX1, leftToeY1 + kOverlayHeightOffset, leftToeZ1, leftToeColor},
                  kRailThickness, leftToeColor, layerId);
-        EmitLine({rightToeX0, rightToeY0 + kOverlayHeightOffset, rightToeZ0, rightToeColor},
+        EmitScreenLine({rightToeX0, rightToeY0 + kOverlayHeightOffset, rightToeZ0, rightToeColor},
                  {rightToeX1, rightToeY1 + kOverlayHeightOffset, rightToeZ1, rightToeColor},
                  kRailThickness, rightToeColor, layerId);
 
         if ((i % 4) == 0 || i == (steps - 1)) {
-            const DWORD rungColor = forceInvalid
+            const uint32_t rungColor = forceInvalid
                 ? kInvalidColor
                 : NodeColorForDelta(((leftY0 - leftTerrain0) + (rightY0 - rightTerrain0)) * 0.5f);
-            EmitLine({leftX0, leftY0 + kOverlayHeightOffset, leftZ0, rungColor},
+            EmitScreenLine({leftX0, leftY0 + kOverlayHeightOffset, leftZ0, rungColor},
                      {rightX0, rightY0 + kOverlayHeightOffset, rightZ0, rungColor},
                      kRungThickness, rungColor, layerId);
         }
 
         if ((i % 2) == 0 || i == (steps - 1)) {
-            const DWORD leftStrutColor = forceInvalid
+            const uint32_t leftStrutColor = forceInvalid
                 ? kInvalidColor
                 : NodeColorForDelta(leftY0 - leftToeY0);
-            const DWORD rightStrutColor = forceInvalid
+            const uint32_t rightStrutColor = forceInvalid
                 ? kInvalidColor
                 : NodeColorForDelta(rightY0 - rightToeY0);
 
-            EmitLine({leftX0, leftY0 + kOverlayHeightOffset, leftZ0, leftStrutColor},
+            EmitScreenLine({leftX0, leftY0 + kOverlayHeightOffset, leftZ0, leftStrutColor},
                      {leftToeX0, leftToeY0 + kOverlayHeightOffset, leftToeZ0, leftStrutColor},
                      kSideStrutThickness, leftStrutColor, layerId);
-            EmitLine({rightX0, rightY0 + kOverlayHeightOffset, rightZ0, rightStrutColor},
+            EmitScreenLine({rightX0, rightY0 + kOverlayHeightOffset, rightZ0, rightStrutColor},
                      {rightToeX0, rightToeY0 + kOverlayHeightOffset, rightToeZ0, rightStrutColor},
                      kSideStrutThickness, rightStrutColor, layerId);
         }
@@ -454,9 +454,9 @@ void BridgeApproachRenderer::EmitNodeMarker_(
     const float worldZ,
     const float currentHeight,
     const float predictedHeight,
-    const DWORD color) {
+    const uint32_t color) {
     if (std::abs(predictedHeight - currentHeight) > 0.05f) {
-        EmitLine(
+        EmitScreenLine(
             {worldX, currentHeight + 0.03f, worldZ, color},
             {worldX, predictedHeight + kOverlayHeightOffset, worldZ, color},
             kMarkerThickness,
@@ -464,13 +464,13 @@ void BridgeApproachRenderer::EmitNodeMarker_(
             kLayerMarkers);
     }
 
-    EmitLine(
+    EmitScreenLine(
         {worldX - kNodeCrossSize, predictedHeight + kOverlayHeightOffset, worldZ, color},
         {worldX + kNodeCrossSize, predictedHeight + kOverlayHeightOffset, worldZ, color},
         kMarkerThickness,
         color,
         kLayerMarkers);
-    EmitLine(
+    EmitScreenLine(
         {worldX, predictedHeight + kOverlayHeightOffset, worldZ - kNodeCrossSize, color},
         {worldX, predictedHeight + kOverlayHeightOffset, worldZ + kNodeCrossSize, color},
         kMarkerThickness,

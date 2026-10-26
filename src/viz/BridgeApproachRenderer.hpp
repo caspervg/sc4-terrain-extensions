@@ -1,6 +1,4 @@
 #pragma once
-#define WIN32_LEAN_AND_MEAN
-#include <d3d.h>
 
 #include "cISTETerrain.h"
 #include "tools/bridge/BridgeApproachGeometry.hpp"
@@ -75,7 +73,7 @@ private:
         float worldZ,
         float currentHeight,
         float predictedHeight,
-        DWORD color);
+        uint32_t color);
 
     void BuildSingleHeightMarkers_(
         cISTETerrain* terrain,

@@ -10,19 +10,19 @@ constexpr float kTileSize = 16.0f;
 constexpr float kGroundHeightOffset = 0.05f;
 constexpr float kHoverHeightOffset = 0.09f;
 constexpr float kOverlayHeightOffset = 0.20f;
-constexpr float kHoverThickness = 1.0f;
-constexpr float kReferenceThickness = 1.9f;
-constexpr float kReferenceGuideThickness = 0.90f;
-constexpr float kMarkerThickness = 0.65f;
-constexpr float kOutlineThickness = 1.25f;
-constexpr float kRailThickness = 0.50f;
+constexpr float kHoverThickness = 2.5f;
+constexpr float kReferenceThickness = 4.0f;
+constexpr float kReferenceGuideThickness = 2.0f;
+constexpr float kMarkerThickness = 2.0f;
+constexpr float kOutlineThickness = 3.0f;
+constexpr float kRailThickness = 1.5f;
 constexpr float kNodeCrossSize = 1.55f;
-constexpr DWORD kGroundColor = 0x4A9A9A9Au;
-constexpr DWORD kHoverColor = 0xD0101010u;
-constexpr DWORD kReferenceColor = 0xF0D89A28u;
-constexpr DWORD kReferenceFillColor = 0xA0D89A28u;
+constexpr uint32_t kGroundColor = 0x4A9A9A9Au;
+constexpr uint32_t kHoverColor = 0xD0101010u;
+constexpr uint32_t kReferenceColor = 0xF0D89A28u;
+constexpr uint32_t kReferenceFillColor = 0xA0D89A28u;
 
-DWORD ColorForDelta(const float delta) {
+uint32_t ColorForDelta(const float delta) {
     if (delta > 0.25f) {
         return 0xD030C050;
     }
@@ -32,22 +32,22 @@ DWORD ColorForDelta(const float delta) {
     return 0xD0D0D0D0;
 }
 
-DWORD NodeColorForDelta(const float delta) {
+uint32_t NodeColorForDelta(const float delta) {
     const float magnitude = std::min(std::abs(delta), 20.0f) / 20.0f;
     const uint8_t alpha = static_cast<uint8_t>(128 + magnitude * 110.0f);
 
     if (delta > 0.05f) {
         const uint8_t green = static_cast<uint8_t>(165 + magnitude * 70.0f);
-        return (static_cast<DWORD>(alpha) << 24)
+        return (static_cast<uint32_t>(alpha) << 24)
             | (0x20u << 16)
-            | (static_cast<DWORD>(green) << 8)
+            | (static_cast<uint32_t>(green) << 8)
             | 0x48u;
     }
 
     if (delta < -0.05f) {
         const uint8_t red = static_cast<uint8_t>(185 + magnitude * 55.0f);
-        return (static_cast<DWORD>(alpha) << 24)
-            | (static_cast<DWORD>(red) << 16)
+        return (static_cast<uint32_t>(alpha) << 24)
+            | (static_cast<uint32_t>(red) << 16)
             | (0x48u << 8)
             | 0x48u;
     }
@@ -72,7 +72,7 @@ void FlattenRenderer::Update(cISTETerrain* terrain, const FlattenPreview& previe
 
     ClearLayer(kLayerHover);
     const float delta = preview.targetHeight - preview.averageHeight;
-    const DWORD color = ColorForDelta(delta);
+    const uint32_t color = ColorForDelta(delta);
 
     ClearAll();
     BuildGround_(preview);
@@ -88,17 +88,17 @@ void EmitTileHoverOutline(
     cISTETerrain* terrain,
     const int tileX,
     const int tileZ,
-    const DWORD color,
+    const uint32_t color,
     const float thickness) {
     const OverlayVertex a{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ) + kHoverHeightOffset, WorldZFromVertex(tileZ), color};
     const OverlayVertex b{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ) + kHoverHeightOffset, WorldZFromVertex(tileZ), color};
     const OverlayVertex c{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), color};
     const OverlayVertex d{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ + 1) + kHoverHeightOffset, WorldZFromVertex(tileZ + 1), color};
 
-    renderer.EmitLine(a, b, thickness, color, FlattenRenderer::kLayerHover);
-    renderer.EmitLine(b, c, thickness, color, FlattenRenderer::kLayerHover);
-    renderer.EmitLine(c, d, thickness, color, FlattenRenderer::kLayerHover);
-    renderer.EmitLine(d, a, thickness, color, FlattenRenderer::kLayerHover);
+    renderer.EmitScreenLine(a, b, thickness, color, FlattenRenderer::kLayerHover);
+    renderer.EmitScreenLine(b, c, thickness, color, FlattenRenderer::kLayerHover);
+    renderer.EmitScreenLine(c, d, thickness, color, FlattenRenderer::kLayerHover);
+    renderer.EmitScreenLine(d, a, thickness, color, FlattenRenderer::kLayerHover);
 }
 }
 
@@ -158,7 +158,7 @@ void FlattenRenderer::BuildGround_(const FlattenPreview& preview) {
     }
 }
 
-void FlattenRenderer::BuildFill_(const FlattenPreview& preview, const DWORD color) {
+void FlattenRenderer::BuildFill_(const FlattenPreview& preview, const uint32_t color) {
     for (int tileZ = preview.affectedMinTileZ; tileZ <= preview.affectedMaxTileZ; ++tileZ) {
         for (int tileX = preview.affectedMinTileX; tileX <= preview.affectedMaxTileX; ++tileX) {
             if (!preview.IsSelectedTile(tileX, tileZ)) {
@@ -173,7 +173,7 @@ void FlattenRenderer::BuildFill_(const FlattenPreview& preview, const DWORD colo
                 continue;
             }
 
-            const DWORD edgeColor = NodeColorForDelta(
+            const uint32_t edgeColor = NodeColorForDelta(
                 (v00->Delta() + v10->Delta() + v01->Delta() + v11->Delta()) * 0.25f);
 
             const OverlayVertex p00{WorldXFromVertex(v00->vertexX), v00->predictedHeight + kOverlayHeightOffset, WorldZFromVertex(v00->vertexZ), edgeColor};
@@ -181,15 +181,15 @@ void FlattenRenderer::BuildFill_(const FlattenPreview& preview, const DWORD colo
             const OverlayVertex p01{WorldXFromVertex(v01->vertexX), v01->predictedHeight + kOverlayHeightOffset, WorldZFromVertex(v01->vertexZ), edgeColor};
             const OverlayVertex p11{WorldXFromVertex(v11->vertexX), v11->predictedHeight + kOverlayHeightOffset, WorldZFromVertex(v11->vertexZ), edgeColor};
 
-            EmitLine(p00, p10, kRailThickness, edgeColor, kLayerFill);
-            EmitLine(p10, p11, kRailThickness, edgeColor, kLayerFill);
-            EmitLine(p11, p01, kRailThickness, edgeColor, kLayerFill);
-            EmitLine(p01, p00, kRailThickness, edgeColor, kLayerFill);
+            EmitScreenLine(p00, p10, kRailThickness, edgeColor, kLayerFill);
+            EmitScreenLine(p10, p11, kRailThickness, edgeColor, kLayerFill);
+            EmitScreenLine(p11, p01, kRailThickness, edgeColor, kLayerFill);
+            EmitScreenLine(p01, p00, kRailThickness, edgeColor, kLayerFill);
         }
     }
 }
 
-void FlattenRenderer::BuildOutline_(const FlattenPreview& preview, const DWORD color) {
+void FlattenRenderer::BuildOutline_(const FlattenPreview& preview, const uint32_t color) {
     for (int tileZ = preview.minTileZ; tileZ <= preview.maxTileZ; ++tileZ) {
         for (int tileX = preview.minTileX; tileX <= preview.maxTileX; ++tileX) {
             if (!preview.IsSelectedTile(tileX, tileZ)) {
@@ -230,31 +230,31 @@ void FlattenRenderer::BuildOutline_(const FlattenPreview& preview, const DWORD c
             };
 
             if (!preview.IsSelectedTile(tileX, tileZ - 1)) {
-                EmitLine(a, b, kOutlineThickness, color, kLayerOutline);
+                EmitScreenLine(a, b, kOutlineThickness, color, kLayerOutline);
             }
             if (!preview.IsSelectedTile(tileX + 1, tileZ)) {
-                EmitLine(b, c, kOutlineThickness, color, kLayerOutline);
+                EmitScreenLine(b, c, kOutlineThickness, color, kLayerOutline);
             }
             if (!preview.IsSelectedTile(tileX, tileZ + 1)) {
-                EmitLine(c, d, kOutlineThickness, color, kLayerOutline);
+                EmitScreenLine(c, d, kOutlineThickness, color, kLayerOutline);
             }
             if (!preview.IsSelectedTile(tileX - 1, tileZ)) {
-                EmitLine(d, a, kOutlineThickness, color, kLayerOutline);
+                EmitScreenLine(d, a, kOutlineThickness, color, kLayerOutline);
             }
         }
     }
 }
 
-void FlattenRenderer::BuildMarkers_(cISTETerrain*, const FlattenPreview& preview, const DWORD) {
+void FlattenRenderer::BuildMarkers_(cISTETerrain*, const FlattenPreview& preview, const uint32_t) {
     for (const auto& vertex : preview.vertices) {
-        const DWORD nodeColor = NodeColorForDelta(vertex.Delta());
+        const uint32_t nodeColor = NodeColorForDelta(vertex.Delta());
         const float worldX = WorldXFromVertex(vertex.vertexX);
         const float worldZ = WorldZFromVertex(vertex.vertexZ);
         const float currentHeight = vertex.currentHeight + 0.03f;
         const float predictedHeight = vertex.predictedHeight + kOverlayHeightOffset;
 
         if (std::abs(vertex.Delta()) > 0.05f) {
-            EmitLine(
+            EmitScreenLine(
                 {worldX, currentHeight, worldZ, nodeColor},
                 {worldX, predictedHeight, worldZ, nodeColor},
                 kMarkerThickness,
@@ -262,13 +262,13 @@ void FlattenRenderer::BuildMarkers_(cISTETerrain*, const FlattenPreview& preview
                 kLayerMarkers);
         }
 
-        EmitLine(
+        EmitScreenLine(
             {worldX - kNodeCrossSize, predictedHeight, worldZ, nodeColor},
             {worldX + kNodeCrossSize, predictedHeight, worldZ, nodeColor},
             kMarkerThickness,
             nodeColor,
             kLayerMarkers);
-        EmitLine(
+        EmitScreenLine(
             {worldX, predictedHeight, worldZ - kNodeCrossSize, nodeColor},
             {worldX, predictedHeight, worldZ + kNodeCrossSize, nodeColor},
             kMarkerThickness,
@@ -295,18 +295,18 @@ void FlattenRenderer::BuildReferenceTile_(cISTETerrain* terrain, const FlattenPr
 
     EmitQuad(a, b, c, d, kReferenceFillColor, kLayerReference);
 
-    EmitLine(a, b, kReferenceThickness, kReferenceColor, kLayerReference);
-    EmitLine(b, c, kReferenceThickness, kReferenceColor, kLayerReference);
-    EmitLine(c, d, kReferenceThickness, kReferenceColor, kLayerReference);
-    EmitLine(d, a, kReferenceThickness, kReferenceColor, kLayerReference);
+    EmitScreenLine(a, b, kReferenceThickness, kReferenceColor, kLayerReference);
+    EmitScreenLine(b, c, kReferenceThickness, kReferenceColor, kLayerReference);
+    EmitScreenLine(c, d, kReferenceThickness, kReferenceColor, kLayerReference);
+    EmitScreenLine(d, a, kReferenceThickness, kReferenceColor, kLayerReference);
 
     const OverlayVertex groundA{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ) + 0.03f, WorldZFromVertex(tileZ), kReferenceColor};
     const OverlayVertex groundB{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ) + 0.03f, WorldZFromVertex(tileZ), kReferenceColor};
     const OverlayVertex groundC{WorldXFromVertex(tileX + 1), terrain->GetAltitudeAtVertex(tileX + 1, tileZ + 1) + 0.03f, WorldZFromVertex(tileZ + 1), kReferenceColor};
     const OverlayVertex groundD{WorldXFromVertex(tileX), terrain->GetAltitudeAtVertex(tileX, tileZ + 1) + 0.03f, WorldZFromVertex(tileZ + 1), kReferenceColor};
 
-    EmitLine(groundA, a, kReferenceGuideThickness, kReferenceColor, kLayerReference);
-    EmitLine(groundB, b, kReferenceGuideThickness, kReferenceColor, kLayerReference);
-    EmitLine(groundC, c, kReferenceGuideThickness, kReferenceColor, kLayerReference);
-    EmitLine(groundD, d, kReferenceGuideThickness, kReferenceColor, kLayerReference);
+    EmitScreenLine(groundA, a, kReferenceGuideThickness, kReferenceColor, kLayerReference);
+    EmitScreenLine(groundB, b, kReferenceGuideThickness, kReferenceColor, kLayerReference);
+    EmitScreenLine(groundC, c, kReferenceGuideThickness, kReferenceColor, kLayerReference);
+    EmitScreenLine(groundD, d, kReferenceGuideThickness, kReferenceColor, kLayerReference);
 }
