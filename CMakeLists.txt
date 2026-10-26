@@ -6,15 +6,13 @@ endif()
 
 project(SC4TerrainExtensions VERSION 1.0.0 LANGUAGES CXX)
 
-if(NOT WIN32)
-    message(STATUS "SC4TerrainExtensions DLL is only built on Win32. Skipping target.")
+# SimCity 4 only loads 32-bit DLLs.
+if(NOT WIN32 OR NOT CMAKE_SIZEOF_VOID_P EQUAL 4)
+    message(STATUS "SC4TerrainExtensions DLL is only built for 32-bit Windows. Skipping target.")
     return()
 endif()
 
-set(SC4_RENDER_SERVICES_ROOT "${CMAKE_SOURCE_DIR}/vendor/sc4-render-services" CACHE PATH "Path to sc4-render-services")
-set(IMGUI_PUBLIC_DIR "${SC4_RENDER_SERVICES_ROOT}/src")
-set(IMGUI_INCLUDE_DIR "${SC4_RENDER_SERVICES_ROOT}/vendor/d3d7imgui/ImGui")
-set(IMGUI_LIB_DIR "${SC4_RENDER_SERVICES_ROOT}" CACHE PATH "Path containing imgui.lib from sc4-render-services build")
+set(SC4RS_ROOT "${CMAKE_SOURCE_DIR}/vendor/sc4-render-services" CACHE PATH "Path to sc4-render-services")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -34,11 +32,6 @@ endif()
 add_subdirectory(vendor/spdlog)
 add_subdirectory(vendor/args)
 add_subdirectory(vendor/mINI)
-
-option(SC4_BUILD_RENDER_SERVICES "Build vendor/sc4-render-services targets (imgui.dll + samples)" OFF)
-if(SC4_BUILD_RENDER_SERVICES)
-    add_subdirectory(vendor/sc4-render-services EXCLUDE_FROM_ALL)
-endif()
 
 include(FetchContent)
 set(WIL_BUILD_TESTS FALSE)
@@ -69,8 +62,12 @@ list(REMOVE_ITEM GZCOM_SOURCES
     "${GZCOM_DIR}/src/cGZExtraExtraCheatsDllDirector.cpp"
 )
 
-add_library(terrain_gzcom2 STATIC ${GZCOM_SOURCES} ${GZCOM_HEADERS})
-target_include_directories(terrain_gzcom2 PUBLIC "${GZCOM_DIR}/include")
+add_library(gzcom2 STATIC ${GZCOM_SOURCES} ${GZCOM_HEADERS})
+target_include_directories(gzcom2 PUBLIC "${GZCOM_DIR}/include")
+
+# Builds SC4RenderServices from the submodule, reusing gzcom2 and spdlog::spdlog from this project.
+# EXCLUDE_FROM_ALL keeps its other targets out of the build.
+add_subdirectory(${SC4RS_ROOT} ${CMAKE_CURRENT_BINARY_DIR}/sc4-render-services EXCLUDE_FROM_ALL)
 
 set(SC4_DLL_BASICS_DIR "${CMAKE_SOURCE_DIR}/vendor/sc4-dll-basics")
 file(GLOB_RECURSE SC4_DLL_BASICS_HEADERS CONFIGURE_DEPENDS
@@ -85,42 +82,6 @@ add_library(sc4_dll_basics STATIC ${SC4_DLL_BASICS_SOURCES} ${SC4_DLL_BASICS_HEA
 target_include_directories(sc4_dll_basics PUBLIC "${SC4_DLL_BASICS_DIR}/include")
 target_link_libraries(sc4_dll_basics PUBLIC WIL::WIL)
 
-# Public API from sc4-render-services (headers only).
-add_library(sc4_render_services_api INTERFACE)
-target_include_directories(sc4_render_services_api INTERFACE
-    "${IMGUI_PUBLIC_DIR}"
-    "${IMGUI_INCLUDE_DIR}"
-)
-
-set(SC4_IMGUI_LINK_TARGET "")
-if(TARGET imgui)
-    set(SC4_IMGUI_LINK_TARGET imgui)
-    message(STATUS "Using in-tree imgui target from vendor/sc4-render-services")
-else()
-    find_library(IMGUI_LIB NAMES imgui
-        PATHS
-            "${IMGUI_LIB_DIR}"
-            "${IMGUI_LIB_DIR}/Release"
-            "${IMGUI_LIB_DIR}/Debug"
-            "${IMGUI_LIB_DIR}/build/Release"
-            "${IMGUI_LIB_DIR}/build/Debug"
-            "${IMGUI_LIB_DIR}/cmake-build-debug-visual-studio/Debug"
-            "${IMGUI_LIB_DIR}/cmake-build-release-visual-studio/Release"
-        NO_DEFAULT_PATH
-    )
-
-    if(IMGUI_LIB)
-        add_library(sc4_render_services_imgui UNKNOWN IMPORTED GLOBAL)
-        set_target_properties(sc4_render_services_imgui PROPERTIES
-            IMPORTED_LOCATION "${IMGUI_LIB}"
-        )
-        set(SC4_IMGUI_LINK_TARGET sc4_render_services_imgui)
-        message(STATUS "Using external imgui.lib: ${IMGUI_LIB}")
-    else()
-        message(WARNING "imgui.lib not found in sc4-render-services build locations. Build may fail if imgui symbols are referenced.")
-    endif()
-endif()
-
 file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
@@ -134,6 +95,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     "${CMAKE_SOURCE_DIR}/src"
     "${GZCOM_DIR}/include"
     "${SC4_DLL_BASICS_DIR}/include"
+    "${SC4RS_ROOT}/src"
 )
 
 set(SC4_DLL_LINK_LIBS
@@ -142,20 +104,18 @@ set(SC4_DLL_LINK_LIBS
     args
     mINI
     nlohmann_json
-    terrain_gzcom2
+    gzcom2
     sc4_dll_basics
-    sc4_render_services_api
+    kernel32
+    user32
+    Version
 )
 
-if(SC4_IMGUI_LINK_TARGET)
-    list(APPEND SC4_DLL_LINK_LIBS ${SC4_IMGUI_LINK_TARGET})
-endif()
-
-if(WIN32)
-    list(APPEND SC4_DLL_LINK_LIBS kernel32 user32 Version dxgi ddraw dxguid)
-endif()
-
 target_link_libraries(${PROJECT_NAME} PRIVATE ${SC4_DLL_LINK_LIBS})
+
+# ImGui is compiled into SC4RenderServices.dll and exported from it, so link that. The import is
+# delay-loaded: the game may load this plugin before SC4RenderServices.dll.
+sc4rs_use_imgui(${PROJECT_NAME})
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
     OUTPUT_NAME "SC4TerrainExtensions"
@@ -189,7 +149,7 @@ if(WIN32)
 
     set(SC4_PLUGINS_DIR "$ENV{USERPROFILE}/Documents/SimCity 4/Plugins")
 
-    if(SC4_INSTALL_DIR)
+    if(SC4_INSTALL_DIR AND NOT DEFINED ENV{CI})
         message(STATUS "Found SC4 installation at: ${SC4_INSTALL_DIR}")
 
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
