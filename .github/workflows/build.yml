@@ -12,6 +12,9 @@ on:
 env:
   DLL_ARTIFACT_NAME: SC4TerrainExtensions-dll-${{ github.sha }}
 
+permissions:
+  contents: read
+
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
