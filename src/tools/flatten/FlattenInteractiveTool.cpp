@@ -64,7 +64,6 @@ void FlattenInteractiveTool::Activate(
     cISC4City* city,
     cISC4View3DWin* view3d,
     cIGZWinMgr* windowMgr,
-    cIGZImGuiService*,
     OverlayDrawManager& drawMgr,
     SnapshotManager* snapshots) {
     if (!city || !view3d || !windowMgr) {

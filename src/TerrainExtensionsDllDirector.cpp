@@ -42,15 +42,11 @@
 
 #include <algorithm>
 #include <cfloat>
-#include <new>
 #include <sstream>
-#include <d3d.h>
-#include <ddraw.h>
 #include <windows.h>
 
 #include "controls/StatefulDragViewInputControl.hpp"
-#include "public/cIGZDrawService.h"
-#include "viz/D3D7StateGuard.hpp"
+#include "public/cIGZWorldDrawService.h"
 
 
 static constexpr uint32_t kTerrainExtensionsDirectorID     = 0x2099E7AB; // your actual ID
@@ -70,114 +66,10 @@ static constexpr uint32_t kSC4MessagePreCityShutdown = 0x26D31EC2;
 static constexpr uint32_t kSC4MessageTerrainRedisplayed = 0x870BC918;
 static constexpr uint32_t kTerrainAutoSnapshotQuietPeriodMs = 3000;
 static constexpr uint32_t kTerrainAutoSnapshotMinIntervalMs = 30000;
-
-namespace {
-enum class OverlayCameraResetStatus {
-    DrawServiceMissing = 0,
-    DrawContextMissing,
-    CameraServiceMissing,
-    ActiveCameraApplied,
-    ModelViewFallback,
-    Count
-};
-
-const char* OverlayCameraResetStatusName(const OverlayCameraResetStatus status) {
-    switch (status) {
-    case OverlayCameraResetStatus::DrawServiceMissing:
-        return "draw-service-missing";
-    case OverlayCameraResetStatus::DrawContextMissing:
-        return "draw-context-missing";
-    case OverlayCameraResetStatus::CameraServiceMissing:
-        return "camera-service-missing";
-    case OverlayCameraResetStatus::ActiveCameraApplied:
-        return "active-camera-applied";
-    case OverlayCameraResetStatus::ModelViewFallback:
-        return "model-view-fallback";
-    default:
-        return "unknown";
-    }
-}
-
-void LogOverlayCameraResetStatus(
-    const OverlayCameraResetStatus status,
-    const void* drawContext,
-    const void* camera) {
-    static bool sLogged[static_cast<int>(OverlayCameraResetStatus::Count)]{};
-    const auto index = static_cast<int>(status);
-    if (index < 0 || index >= static_cast<int>(OverlayCameraResetStatus::Count) || sLogged[index]) {
-        return;
-    }
-
-    sLogged[index] = true;
-    LOG_DEBUG(
-        "DrawOverlayCallback_: camera reset path={} drawContext={} camera={}",
-        OverlayCameraResetStatusName(status),
-        drawContext,
-        camera);
-}
-
-struct ContourLabelRenderPayload {
-    cIGZS3DCameraService* cameraService{};
-    std::vector<TerrainContourRenderer::LabelAnchor> labels{};
-};
-
-void CleanupContourLabelsImGui(void* data) {
-    auto* payload = static_cast<ContourLabelRenderPayload*>(data);
-    if (!payload) return;
-    delete payload;
-}
-
-void RenderContourLabelsImGui(void* data) {
-    auto* payload = static_cast<ContourLabelRenderPayload*>(data);
-    if (!payload || !payload->cameraService || payload->labels.empty()) {
-        return;
-    }
-
-    const S3DCameraHandle cameraHandle = payload->cameraService->WrapActiveRendererCamera();
-    if (!cameraHandle.ptr) return;
-
-    ImDrawList* drawList = ImGui::GetBackgroundDrawList();
-    if (!drawList) {
-        payload->cameraService->DestroyCamera(cameraHandle);
-        return;
-    }
-
-    constexpr ImU32 kOutlineColor = IM_COL32(0, 0, 0, 190);
-    constexpr uint8_t kBaseAlpha = 230;
-    constexpr float kLabelFontScale = 1.15f;
-
-    for (const auto& label : payload->labels) {
-        float screenX = 0.0f;
-        float screenY = 0.0f;
-        float depth = 0.0f;
-        if (!payload->cameraService->WorldToScreen(
-            cameraHandle,
-            label.worldX, label.worldY, label.worldZ,
-            screenX, screenY, &depth)) {
-            continue;
-        }
-
-        const float fade = std::clamp(1.0f / (1.0f + depth * 0.0015f), 0.35f, 1.0f);
-        const uint8_t alpha = static_cast<uint8_t>(std::clamp(fade * kBaseAlpha, 40.0f, 255.0f));
-        const ImU32 textColor = IM_COL32(248, 248, 248, alpha);
-
-        ImFont* font = ImGui::GetFont();
-        const float fontSize = ImGui::GetFontSize() * kLabelFontScale;
-        const ImVec2 size = font
-            ? font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, label.text.c_str())
-            : ImGui::CalcTextSize(label.text.c_str());
-        const ImVec2 pos(screenX - size.x * 0.5f, screenY - size.y * 0.5f);
-
-        drawList->AddText(font, fontSize, ImVec2(pos.x + 1.0f, pos.y), kOutlineColor, label.text.c_str());
-        drawList->AddText(font, fontSize, ImVec2(pos.x - 1.0f, pos.y), kOutlineColor, label.text.c_str());
-        drawList->AddText(font, fontSize, ImVec2(pos.x, pos.y + 1.0f), kOutlineColor, label.text.c_str());
-        drawList->AddText(font, fontSize, ImVec2(pos.x, pos.y - 1.0f), kOutlineColor, label.text.c_str());
-        drawList->AddText(font, fontSize, pos, textColor, label.text.c_str());
-    }
-
-    payload->cameraService->DestroyCamera(cameraHandle);
-}
-}
+// Terrain edits send a redisplay message every frame; rebuilding the full-map overlays that often is wasted work.
+static constexpr uint32_t kTerrainOverlayRefreshIntervalMs = 200;
+static constexpr uint32_t kTerrainExtensionsTickServiceID = 0x7E5A9B40;
+static constexpr uint32_t kContourLabelPanelID = 0x7E5A9B30;
 
 TerrainExtensionsDllDirector::TerrainExtensionsDllDirector()
     : cheatCodeManager_(nullptr)
@@ -187,8 +79,8 @@ TerrainExtensionsDllDirector::TerrainExtensionsDllDirector()
     , messageServer_(nullptr)
     , imguiService_(nullptr)
     , cameraService_(nullptr)
-    , drawService_(nullptr)
-    , drawCallbackToken_(0)
+    , worldDrawService_(nullptr)
+    , tickService_(kTerrainExtensionsTickServiceID, [this] { OnTick_(); })
 {
     Logger::Initialize("SC4TerrainExtensions");
     LOG_INFO("SC4TerrainExtensions v{}", PLUGIN_VERSION_STR);
@@ -260,6 +152,63 @@ bool TerrainExtensionsDllDirector::PostAppInit() {
         messageServer_ = pMS2;
     }
 
+    if (mpFrameWork->GetSystemService(
+            kImGuiServiceID, GZIID_cIGZImGuiService,
+            reinterpret_cast<void**>(&imguiService_))) {
+        LOG_INFO("Acquired ImGui service");
+    } else {
+        LOG_WARN("ImGui service not available, panels and contour labels are disabled");
+    }
+
+    if (mpFrameWork->GetSystemService(
+            kS3DCameraServiceID, GZIID_cIGZS3DCameraService,
+            reinterpret_cast<void**>(&cameraService_))) {
+        LOG_INFO("Acquired S3D camera service");
+    } else {
+        LOG_WARN("S3D camera service not available, contour labels are disabled");
+    }
+
+    if (mpFrameWork->GetSystemService(
+            kWorldDrawServiceID, GZIID_cIGZWorldDrawService,
+            reinterpret_cast<void**>(&worldDrawService_))) {
+        LOG_INFO("Acquired world draw service");
+        overlayDrawManager_.SetWorldDrawService(worldDrawService_);
+    } else {
+        LOG_WARN("World draw service not available, overlays are not drawn");
+    }
+
+    // Terrain refreshes, auto-snapshots and overlay uploads run on this tick, outside input handlers.
+    if (tickService_.Init() && mpFrameWork->AddSystemService(&tickService_)
+        && mpFrameWork->AddToTick(&tickService_)) {
+        tickServiceRegistered_ = true;
+    } else {
+        LOG_WARN("Failed to register the tick service");
+    }
+
+    return true;
+}
+
+bool TerrainExtensionsDllDirector::PostAppShutdown() {
+    if (tickServiceRegistered_) {
+        mpFrameWork->RemoveFromTick(&tickService_);
+        mpFrameWork->RemoveSystemService(&tickService_);
+        tickServiceRegistered_ = false;
+    }
+    tickService_.Shutdown();
+
+    overlayDrawManager_.SetWorldDrawService(nullptr);
+    if (worldDrawService_) {
+        worldDrawService_->Release();
+        worldDrawService_ = nullptr;
+    }
+    if (cameraService_) {
+        cameraService_->Release();
+        cameraService_ = nullptr;
+    }
+    if (imguiService_) {
+        imguiService_->Release();
+        imguiService_ = nullptr;
+    }
     return true;
 }
 
@@ -322,40 +271,9 @@ void TerrainExtensionsDllDirector::PostCityInit_(
         LOG_ERROR("PostCityInit: cheat code manager not initialized");
     }
 
-    // Acquire services
-    if (mpFrameWork->GetSystemService(
-            kImGuiServiceID, GZIID_cIGZImGuiService,
-            reinterpret_cast<void**>(&imguiService_)))
-    {
-        LOG_INFO("Acquired ImGui service");
-
-        if (mpFrameWork->GetSystemService(
-                kS3DCameraServiceID, GZIID_cIGZS3DCameraService,
-                reinterpret_cast<void**>(&cameraService_))) {
-            LOG_INFO("Acquired S3D camera service");
-        } else {
-            LOG_WARN("S3D camera service not available");
-        }
-
-        if (mpFrameWork->GetSystemService(
-                kDrawServiceID, GZIID_cIGZDrawService,
-                reinterpret_cast<void**>(&drawService_)))
-        {
-            LOG_INFO("Acquired Draw service");
-            if (drawService_->RegisterDrawPassCallback(
-                    DrawServicePass::PostDynamic,
-                    &DrawOverlayCallback_, this,
-                    &drawCallbackToken_))
-            {
-                LOG_INFO("Registered draw pass callback");
-            } else {
-                LOG_WARN("RegisterDrawPassCallback failed");
-            }
-        } else {
-            LOG_WARN("Draw service not available");
-        }
-    } else {
-        LOG_WARN("ImGui service not available");
+    SC4GraphicsDriverInfo driver{};
+    if (imguiService_ && imguiService_->GetActiveDriverInfo(driver)) {
+        LOG_INFO("Graphics driver: {}", driver.name);
     }
 
     // Build tool subsystems
@@ -384,8 +302,7 @@ void TerrainExtensionsDllDirector::PostCityInit_(
                 if (!snapshotDragTool_ || !city_ || !view3d_ || !winMgr_) return;
                 snapshotDragTool_->SetRestoreIndex(snapshotIndex);
                 dragToolManager_.ActivateTool(
-                    snapshotDragTool_->GetCheatId(), city_, view3d_, winMgr_,
-                    imguiService_, overlayDrawManager_, &snapshotManager_);
+                    snapshotDragTool_->GetCheatId(), city_, view3d_, winMgr_, overlayDrawManager_, &snapshotManager_);
             });
 
         const auto desc = ImGuiPanelAdapter<SnapshotPanel>::MakeDesc(
@@ -397,6 +314,18 @@ void TerrainExtensionsDllDirector::PostCityInit_(
             LOG_INFO("Registered snapshot panel");
         } else {
             LOG_WARN("Failed to register snapshot panel");
+        }
+    }
+
+    if (imguiService_ && cameraService_) {
+        ImGuiPanelDesc desc{};
+        desc.id = kContourLabelPanelID;
+        desc.visible = true;
+        desc.on_render = &RenderContourLabels_;
+        desc.data = this;
+        contourLabelPanelRegistered_ = imguiService_->RegisterPanel(desc);
+        if (!contourLabelPanelRegistered_) {
+            LOG_WARN("Failed to register contour label panel");
         }
     }
 }
@@ -444,11 +373,16 @@ void TerrainExtensionsDllDirector::PreCityShutdown_(
         snapshotPanelRegistered_ = false;
         snapshotPanelVisible_ = false;
     }
+    if (imguiService_ && contourLabelPanelRegistered_) {
+        imguiService_->UnregisterPanel(kContourLabelPanelID);
+        contourLabelPanelRegistered_ = false;
+    }
     snapshotPanel_.reset();
     snapshotManager_.Clear();
     snapshotRenderer_.ClearAll();
     contourRenderer_.SetEnabled(false, nullptr);
     terrainRefreshPending_ = false;
+    terrainOverlayLastRefreshTick_ = 0;
     terrainSnapshotPending_ = false;
     terrainAutoSnapshotLastTick_ = 0;
     terrainAutoSnapshotLastMessageTick_ = 0;
@@ -460,11 +394,6 @@ void TerrainExtensionsDllDirector::PreCityShutdown_(
     overlayDrawManager_.Unregister(&contourRenderer_);
     overlayDrawManager_.Unregister(&slopeRenderer_);
     snapshotDragTool_ = nullptr;
-
-    if (drawService_ && drawCallbackToken_) {
-        drawService_->UnregisterDrawPassCallback(drawCallbackToken_);
-        drawCallbackToken_ = 0;
-    }
 
     cISC4View3DWin* localView3D = view3d_;
     view3d_ = nullptr;
@@ -520,8 +449,7 @@ void TerrainExtensionsDllDirector::ProcessCheat_(
 
     // Try drag tools first — each tool knows its own cheat ID
     if (dragToolManager_.TryActivate(
-            cheatID, city_, view3d_, winMgr_,
-            imguiService_, overlayDrawManager_, &snapshotManager_))
+            cheatID, city_, view3d_, winMgr_, overlayDrawManager_, &snapshotManager_))
     {
         return;
     }
@@ -586,21 +514,21 @@ bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
         LOG_INFO("Terrain catalog item 0x{:08X}: activating flatten tool", itemId);
         return dragToolManager_.TryActivate(
             TerrainCatalogHook::ItemId::Flatten,
-            city_, view3d_, winMgr_, imguiService_,
+            city_, view3d_, winMgr_,
             overlayDrawManager_, &snapshotManager_);
 
     case TerrainCatalogHook::ItemId::BridgeApproach:
         LOG_INFO("Terrain catalog item 0x{:08X}: activating bridge approach tool", itemId);
         return dragToolManager_.TryActivate(
             kTerrainExtensionsBridgeCheatID,
-            city_, view3d_, winMgr_, imguiService_,
+            city_, view3d_, winMgr_,
             overlayDrawManager_, &snapshotManager_);
 
     case TerrainCatalogHook::ItemId::ConstantGrade:
         LOG_INFO("Terrain catalog item 0x{:08X}: activating constant grade tool", itemId);
         return dragToolManager_.TryActivate(
             TerrainCatalogHook::ItemId::ConstantGrade,
-            city_, view3d_, winMgr_, imguiService_,
+            city_, view3d_, winMgr_,
             overlayDrawManager_, &snapshotManager_);
     case TerrainCatalogHook::ItemId::BlueprintCapture:
     case TerrainCatalogHook::ItemId::BlueprintExport:
@@ -619,7 +547,7 @@ bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
     }
 }
 
-// ── Draw callback ─────────────────────────────────────────────────────────────
+// ── Tick ─────────────────────────────────────────────────────────────
 
 void TerrainExtensionsDllDirector::CaptureTerrainSnapshotIfPending_()
 {
@@ -672,117 +600,71 @@ void TerrainExtensionsDllDirector::CaptureTerrainSnapshotIfPending_()
         "Captured after terrain redisplay message 0x870BC918");
 }
 
-void TerrainExtensionsDllDirector::DrawOverlayCallback_(
-    const DrawServicePass pass, const bool begin, void* pThis)
+void TerrainExtensionsDllDirector::OnTick_()
 {
-    if (pass != DrawServicePass::PostDynamic || begin) return;
-
-    const auto pDirector = static_cast<TerrainExtensionsDllDirector*>(pThis);
-    IDirect3DDevice7* device = nullptr;
-    IDirectDraw7*     dd     = nullptr;
-
-    if (pDirector->imguiService_ && pDirector->imguiService_->AcquireD3DInterfaces(&device, &dd)) {
-        if (pDirector->terrainRefreshPending_) {
-            pDirector->terrainRefreshPending_ = false;
-            if (pDirector->city_) {
-                cISTETerrain* terrain = pDirector->city_->GetTerrain();
-                if (pDirector->contourRenderer_.IsEnabled()) {
-                    pDirector->contourRenderer_.Rebuild(terrain);
-                }
-                if (pDirector->slopeRenderer_.IsEnabled()) {
-                    pDirector->slopeRenderer_.Rebuild(terrain);
-                }
-                LOG_DEBUG("DrawOverlayCallback_: refreshed terrain overlays after terrain redisplay message");
+    const uint32_t now = GetTickCount();
+    if (terrainRefreshPending_ && now - terrainOverlayLastRefreshTick_ >= kTerrainOverlayRefreshIntervalMs) {
+        terrainRefreshPending_ = false;
+        terrainOverlayLastRefreshTick_ = now;
+        if (city_) {
+            cISTETerrain* terrain = city_->GetTerrain();
+            if (contourRenderer_.IsEnabled()) {
+                contourRenderer_.Rebuild(terrain);
             }
-        }
-        pDirector->CaptureTerrainSnapshotIfPending_();
-
-        const bool needsSlopeUpdate =
-            pDirector->city_
-            && pDirector->cameraService_
-            && pDirector->slopeRenderer_.IsEnabled();
-        const bool needsOverlayDraw =
-            needsSlopeUpdate || pDirector->overlayDrawManager_.HasVisibleGeometry();
-
-        if (needsOverlayDraw) {
-            D3D7StateGuard guard(device);
-            if (pDirector->drawService_) {
-                const SC4DrawContextHandle drawContext =
-                    pDirector->drawService_->WrapActiveRendererDrawContext();
-                if (drawContext.ptr) {
-                    pDirector->drawService_->SetDefaultRenderStateUnilaterally(drawContext);
-                    if (pDirector->cameraService_) {
-                        const S3DCameraHandle camera =
-                            pDirector->cameraService_->WrapActiveRendererCamera();
-                        if (camera.ptr) {
-                            pDirector->drawService_->SetCamera(
-                                drawContext,
-                                reinterpret_cast<cS3DCamera*>(camera.ptr));
-                            LogOverlayCameraResetStatus(
-                                OverlayCameraResetStatus::ActiveCameraApplied,
-                                drawContext.ptr,
-                                camera.ptr);
-                        } else {
-                            pDirector->drawService_->SetModelViewTransformChanged(drawContext);
-                            pDirector->drawService_->ResetModelViewTransform(drawContext);
-                            LogOverlayCameraResetStatus(
-                                OverlayCameraResetStatus::ModelViewFallback,
-                                drawContext.ptr,
-                                nullptr);
-                        }
-                    } else {
-                        LogOverlayCameraResetStatus(
-                            OverlayCameraResetStatus::CameraServiceMissing,
-                            drawContext.ptr,
-                            nullptr);
-                    }
-                } else {
-                    LogOverlayCameraResetStatus(
-                        OverlayCameraResetStatus::DrawContextMissing,
-                        nullptr,
-                        nullptr);
-                }
-            } else {
-                LogOverlayCameraResetStatus(
-                    OverlayCameraResetStatus::DrawServiceMissing,
-                    nullptr,
-                    nullptr);
+            if (slopeRenderer_.IsEnabled()) {
+                slopeRenderer_.Rebuild(terrain);
             }
-            if (needsSlopeUpdate) {
-                pDirector->slopeRenderer_.UpdateView(
-                    pDirector->city_->GetTerrain(),
-                    pDirector->cameraService_,
-                    device);
-            }
-            pDirector->overlayDrawManager_.DrawAll(device);
-        }
-        device->Release();
-        dd->Release();
-    } else {
-        LOG_WARN("DrawOverlayCallback_: AcquireD3DInterfaces failed, skipping overlay draw");
-    }
-
-    if (pDirector->imguiService_
-        && pDirector->cameraService_
-        && pDirector->contourRenderer_.IsEnabled())
-    {
-        const auto& labels = pDirector->contourRenderer_.GetLabelAnchors();
-        if (!labels.empty()) {
-            auto* payload = new (std::nothrow) ContourLabelRenderPayload();
-            if (payload) {
-                payload->cameraService = pDirector->cameraService_;
-                payload->labels = labels; // Snapshot to avoid cross-frame mutations.
-
-                if (!pDirector->imguiService_->QueueRender(
-                    &RenderContourLabelsImGui,
-                    payload,
-                    &CleanupContourLabelsImGui))
-                {
-                    CleanupContourLabelsImGui(payload);
-                }
-            }
+            LOG_DEBUG("OnTick_: refreshed terrain overlays after terrain redisplay message");
         }
     }
+    CaptureTerrainSnapshotIfPending_();
+    overlayDrawManager_.UploadAll();
+}
+
+void TerrainExtensionsDllDirector::RenderContourLabels_(void* pThis)
+{
+    const auto* pDirector = static_cast<TerrainExtensionsDllDirector*>(pThis);
+    cIGZS3DCameraService* cameraService = pDirector->cameraService_;
+    const auto& labels = pDirector->contourRenderer_.GetLabelAnchors();
+    if (!pDirector->contourRenderer_.IsEnabled() || labels.empty() || !cameraService) return;
+
+    const S3DCameraHandle cameraHandle = cameraService->WrapActiveRendererCamera();
+    if (!cameraHandle.ptr) return;
+
+    ImDrawList* drawList = ImGui::GetBackgroundDrawList();
+    constexpr ImU32 kOutlineColor = IM_COL32(0, 0, 0, 190);
+    constexpr uint8_t kBaseAlpha = 230;
+    constexpr float kLabelFontScale = 1.15f;
+
+    ImFont* font = ImGui::GetFont();
+    const float fontSize = ImGui::GetFontSize() * kLabelFontScale;
+
+    for (const auto& label : labels) {
+        float screenX = 0.0f;
+        float screenY = 0.0f;
+        float depth = 0.0f;
+        if (!cameraService->WorldToScreen(
+            cameraHandle,
+            label.worldX, label.worldY, label.worldZ,
+            screenX, screenY, &depth)) {
+            continue;
+        }
+
+        const float fade = std::clamp(1.0f / (1.0f + depth * 0.0015f), 0.35f, 1.0f);
+        const uint8_t alpha = static_cast<uint8_t>(std::clamp(fade * kBaseAlpha, 40.0f, 255.0f));
+        const ImU32 textColor = IM_COL32(248, 248, 248, alpha);
+
+        const ImVec2 size = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, label.text.c_str());
+        const ImVec2 pos(screenX - size.x * 0.5f, screenY - size.y * 0.5f);
+
+        drawList->AddText(font, fontSize, ImVec2(pos.x + 1.0f, pos.y), kOutlineColor, label.text.c_str());
+        drawList->AddText(font, fontSize, ImVec2(pos.x - 1.0f, pos.y), kOutlineColor, label.text.c_str());
+        drawList->AddText(font, fontSize, ImVec2(pos.x, pos.y + 1.0f), kOutlineColor, label.text.c_str());
+        drawList->AddText(font, fontSize, ImVec2(pos.x, pos.y - 1.0f), kOutlineColor, label.text.c_str());
+        drawList->AddText(font, fontSize, pos, textColor, label.text.c_str());
+    }
+
+    cameraService->DestroyCamera(cameraHandle);
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────

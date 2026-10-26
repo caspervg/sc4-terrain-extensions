@@ -4,6 +4,7 @@
 #include "cRZMessage2COMDirector.h"
 #include "tools/TerrainToolRegistry.hpp"
 #include "core/DragToolManager.hpp"
+#include "core/FrameTickService.hpp"
 #include "viz/OverlayDrawManager.hpp"
 #include "viz/TerrainContourRenderer.hpp"
 #include "viz/TerrainSlopeRenderer.hpp"
@@ -13,13 +14,12 @@
 #include <cstdint>
 #include <string>
 
-enum class DrawServicePass : uint8_t;
 class cIGZMessageServer2;
 class cIGZMessage2Standard;
 class cIGZCheatCodeManager;
 class cIGZImGuiService;
 class cIGZS3DCameraService;
-class cIGZDrawService;
+class cIGZWorldDrawService;
 class cISC4City;
 class cISC4View3DWin;
 class cIGZWinMgr;
@@ -27,7 +27,6 @@ class SnapshotPanel;
 class SnapshotDragTool;
 class ContourMapTool;
 class SlopeMapTool;
-struct IDirect3DDevice7;
 
 class TerrainExtensionsDllDirector final : public cRZMessage2COMDirector {
 public:
@@ -38,6 +37,7 @@ public:
     bool     OnStart(cIGZCOM* pCOM) override;
     bool     DoMessage(cIGZMessage2* pMsg) override;
     bool     PostAppInit() override;
+    bool     PostAppShutdown() override;
 
     bool HandleCustomTerrainCatalogItem(uint32_t itemId, cISC4View3DWin* sourceView3D, bool activateTool);
 
@@ -50,7 +50,8 @@ private:
     void SetUpDragTools_   (cISC4City* pCity, cISC4View3DWin* pView3D);
     void CaptureTerrainSnapshotIfPending_();
 
-    static void DrawOverlayCallback_(DrawServicePass pass, bool begin, void* pThis);
+    void OnTick_();
+    static void RenderContourLabels_(void* pThis);
 
     void ShowMessageBox_(const std::string& title, const std::string& message) const;
     std::vector<std::string> SplitString_(const std::string& input);
@@ -62,8 +63,7 @@ private:
     cIGZMessageServer2*    messageServer_;
     cIGZImGuiService*      imguiService_;
     cIGZS3DCameraService*  cameraService_;
-    cIGZDrawService*       drawService_;
-    uint32_t               drawCallbackToken_;
+    cIGZWorldDrawService*  worldDrawService_;
 
     TerrainToolRegistry toolRegistry_;
     DragToolManager     dragToolManager_;
@@ -79,7 +79,11 @@ private:
     SnapshotDragTool*      snapshotDragTool_{nullptr}; // Owned by dragToolManager_
     bool                   snapshotPanelRegistered_{false};
     bool                   snapshotPanelVisible_{false};
+    bool                   contourLabelPanelRegistered_{false};
+    FrameTickService       tickService_;
+    bool                   tickServiceRegistered_{false};
     bool                   terrainRefreshPending_{false};
+    uint32_t               terrainOverlayLastRefreshTick_{0};
     bool                   terrainSnapshotPending_{false};
     uint32_t               terrainAutoSnapshotLastTick_{0};
     uint32_t               terrainAutoSnapshotLastMessageTick_{0};

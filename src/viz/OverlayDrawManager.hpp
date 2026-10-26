@@ -4,10 +4,12 @@
 
 class OverlayDrawManager {
 public:
+    // Registered renderers draw through this service; nullptr stops all drawing.
+    void SetWorldDrawService(cIGZWorldDrawService* service);
     void Register(OverlayRenderer* renderer);
     void Unregister(OverlayRenderer* renderer);
-    [[nodiscard]] bool HasVisibleGeometry() const;
-    void DrawAll(IDirect3DDevice7* device);
+    void UploadAll();
 private:
     std::vector<OverlayRenderer*> renderers_;
+    cIGZWorldDrawService* worldDraw_ = nullptr;
 };

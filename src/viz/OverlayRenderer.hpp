@@ -1,90 +1,61 @@
 #pragma once
-#define WIN32_LEAN_AND_MEAN
 #include <cstdint>
-#include <strsafe.h>
 #include <unordered_map>
 #include <vector>
 
-struct IDirect3DDevice7;
-struct IDirectDrawSurface7;
+#include "public/SC4WorldMeshBuilder.h"
+#include "public/cIGZWorldDrawService.h"
 
 struct OverlayVertex {
     float x, y, z;
-    DWORD color;
+    uint32_t color;
 };
 
+// Geometry handed to cIGZWorldDrawService layers, which draw it every frame on any graphics driver
+// until it changes. Emit/Clear calls only change the local copy; Upload() hands changed layers to
+// the service. Without a service the renderer keeps its geometry and draws nothing.
 class OverlayRenderer {
 public:
-    void EmitLine(const OverlayVertex& start, const OverlayVertex& end, float thickness, DWORD color, uint32_t layerId);
-    void EmitQuad(const OverlayVertex& a, const OverlayVertex& b, const OverlayVertex& c, const OverlayVertex& d, DWORD color, uint32_t layerId);
-    void Clear();
-    void Draw(IDirect3DDevice7* device);
-    [[nodiscard]] bool HasVisibleGeometry() const;
+    OverlayRenderer() = default;
+    virtual ~OverlayRenderer();
+    OverlayRenderer(const OverlayRenderer&) = delete;
+    OverlayRenderer& operator=(const OverlayRenderer&) = delete;
+
+    // Starts drawing through this service, or stops drawing with nullptr. Removes the layers made
+    // on the previous service, so call it with nullptr before that service goes away.
+    void SetWorldDrawService(cIGZWorldDrawService* service);
+    void Upload();
+
+    // A flat band `widthMeters` wide; vertical bands become two crossed bands.
+    void EmitLine(const OverlayVertex& start, const OverlayVertex& end, float widthMeters, uint32_t color, uint32_t layerId);
+    // A line that keeps its width in pixels on screen at every zoom level and faces the camera.
+    void EmitScreenLine(const OverlayVertex& start, const OverlayVertex& end, float widthPixels, uint32_t color, uint32_t layerId);
+    void EmitQuad(const OverlayVertex& a, const OverlayVertex& b, const OverlayVertex& c, const OverlayVertex& d, uint32_t color, uint32_t layerId);
     void ClearLayer(uint32_t layerId);
-    void SetLayerVisible(uint32_t layerId, bool visible);
 
 protected:
-    bool HasLayer(uint32_t layerId) const;
+    // Layers default to kOnTopStyle in the PostDynamic pass, like the old D3D7 overlay.
+    void ConfigureLayer(uint32_t layerId, DrawServicePass pass, const SC4WorldStyle& style);
+
+    static constexpr SC4WorldStyle kOnTopStyle{.depth = SC4WorldDepth::AlwaysOnTop};
+    static constexpr SC4WorldStyle kMapStyle{.depth = SC4WorldDepth::AlwaysOnTop, .fadeWithFog = true};
 
 private:
+    struct ScreenLine {
+        SC4WorldLineStyle style;
+        std::vector<SC4WorldVertex> points;
+    };
     struct Layer {
-        std::vector<OverlayVertex> vertices;
-        bool visible = true;
-    };
-    struct SavedRenderState {
-        DWORD zEnable;
-        DWORD zWrite;
-        DWORD zFunc;
-        DWORD lighting;
-        DWORD fogEnable;
-        DWORD rangeFogEnable;
-        DWORD alphaBlend;
-        DWORD alphaTest;
-        DWORD alphaFunc;
-        DWORD alphaRef;
-        DWORD stencilEnable;
-        DWORD srcBlend;
-        DWORD dstBlend;
-        DWORD cullMode;
-        DWORD zBias;
-        DWORD tss0ColorOp;
-        DWORD tss0ColorArg1;
-        DWORD tss0AlphaOp;
-        DWORD tss0AlphaArg1;
-        DWORD tss1ColorOp;
-        DWORD tss1AlphaOp;
-        IDirectDrawSurface7* texture0;
-        IDirectDrawSurface7* texture1;
-        bool okZEnable;
-        bool okZWrite;
-        bool okZFunc;
-        bool okLighting;
-        bool okFogEnable;
-        bool okRangeFogEnable;
-        bool okAlphaBlend;
-        bool okAlphaTest;
-        bool okAlphaFunc;
-        bool okAlphaRef;
-        bool okStencilEnable;
-        bool okSrcBlend;
-        bool okDstBlend;
-        bool okCullMode;
-        bool okZBias;
-        bool okTexture0;
-        bool okTexture1;
-        bool okTss0ColorOp;
-        bool okTss0ColorArg1;
-        bool okTss0AlphaOp;
-        bool okTss0AlphaArg1;
-        bool okTss1ColorOp;
-        bool okTss1AlphaOp;
+        SC4WorldMeshBuilder mesh;
+        std::vector<ScreenLine> lines;
+        DrawServicePass pass = DrawServicePass::PostDynamic;
+        SC4WorldStyle style = kOnTopStyle;
+        uint32_t id = 0;
+        bool dirty = false;
     };
 
-    Layer& GetOrCreateLayer_(uint32_t);
-    void SetupRenderState_(IDirect3DDevice7* device);
-    void RestoreRenderState_(IDirect3DDevice7* device);
+    void DestroyLayers_();
 
-private:
     std::unordered_map<uint32_t, Layer> layers_;
-    SavedRenderState savedState_{};
+    cIGZWorldDrawService* worldDraw_ = nullptr;
 };

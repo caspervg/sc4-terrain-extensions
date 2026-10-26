@@ -7,9 +7,6 @@
 #include <string>
 
 class cISTETerrain;
-class cIGZS3DCameraService;
-struct IDirect3DDevice7;
-struct S3DCameraHandle;
 
 enum class SlopeRenderMode {
     MaxEdgeGrade,
@@ -27,6 +24,8 @@ class TerrainSlopeRenderer : public OverlayRenderer {
 public:
     static constexpr uint32_t kLayerSlope = 0;
 
+    TerrainSlopeRenderer() { ConfigureLayer(kLayerSlope, DrawServicePass::PreDynamic, kMapStyle); }
+
     void SetEnabled(bool enabled, cISTETerrain* terrain);
     [[nodiscard]] bool IsEnabled() const noexcept { return enabled_; }
 
@@ -36,7 +35,6 @@ public:
     bool ResetConfig(cISTETerrain* terrain, bool rebuildIfEnabled = true, std::string* error = nullptr);
 
     void Rebuild(cISTETerrain* terrain);
-    void UpdateView(cISTETerrain* terrain, cIGZS3DCameraService* cameraService, IDirect3DDevice7* device);
     void ClearAll();
 
 private:
@@ -46,7 +44,7 @@ private:
     static bool ValidateConfig_(const SlopeRenderConfig& config, std::string* error = nullptr);
     static float ComputeMaxEdgeGrade_(float h00, float h10, float h01, float h11);
     static float ComputePlaneGrade_(float h00, float h10, float h01, float h11);
-    static DWORD GradeColor_(float gradePercent, const SlopeRenderConfig& config);
+    static uint32_t GradeColor_(float gradePercent, const SlopeRenderConfig& config);
 
 private:
     bool enabled_{false};

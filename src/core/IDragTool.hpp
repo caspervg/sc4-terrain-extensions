@@ -3,7 +3,6 @@
 
 #include "cIGZWin.h"
 
-class cIGZImGuiService;
 class StatefulDragViewInputControl;
 class OverlayDrawManager;
 class cISC4View3DWin;
@@ -16,8 +15,7 @@ public:
     virtual const char* GetCheatName() const = 0;
     virtual const uint32_t GetCheatId() const = 0;
 
-    virtual void Activate(cISC4City* city, cISC4View3DWin*, cIGZWinMgr*, cIGZImGuiService*,
-                          OverlayDrawManager&, SnapshotManager* snapshots) = 0;
+    virtual void Activate(cISC4City* city, cISC4View3DWin*, cIGZWinMgr*, OverlayDrawManager&, SnapshotManager* snapshots) = 0;
     virtual void Deactivate() = 0;
 
     virtual StatefulDragViewInputControl* GetInputControl() = 0;

@@ -12,6 +12,9 @@ on:
 env:
   DLL_ARTIFACT_NAME: SC4TerrainExtensions-dll-${{ github.sha }}
 
+permissions:
+  contents: read
+
 concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: true
@@ -26,12 +29,6 @@ jobs:
           submodules: recursive
           fetch-depth: 0
           fetch-tags: true
-
-      - name: Build sc4-render-services
-        working-directory: vendor/sc4-render-services
-        run: |
-          cmake -B build -G "Visual Studio 17 2022" -A Win32
-          cmake --build build --config Release --target imgui --parallel
 
       - name: Build DLL
         run: |
