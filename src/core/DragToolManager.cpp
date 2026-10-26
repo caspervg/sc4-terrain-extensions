@@ -24,7 +24,6 @@ bool DragToolManager::ActivateIndex_(
 	cISC4City* city,
 	cISC4View3DWin* view3d,
 	cIGZWinMgr* winManager,
-	cIGZImGuiService* imguiService,
 	OverlayDrawManager& overlayManager,
 	SnapshotManager* snapshotManager) {
 	if (activeToolIdx_ >= 0) {
@@ -32,7 +31,7 @@ bool DragToolManager::ActivateIndex_(
 	}
 
 	IDragTool* candidate = tools_[idx].get();
-	candidate->Activate(city, view3d, winManager, imguiService, overlayManager, snapshotManager);
+	candidate->Activate(city, view3d, winManager, overlayManager, snapshotManager);
 	if (auto* control = candidate->GetInputControl()) {
 		activeToolIdx_ = idx;
 		view3d_ = view3d;
@@ -54,7 +53,6 @@ bool DragToolManager::TryActivate(
 	cISC4City* city,
 	cISC4View3DWin* view3d,
 	cIGZWinMgr* winManager,
-	cIGZImGuiService* imguiService,
 	OverlayDrawManager& overlayManager,
 	SnapshotManager* snapshotManager) {
 	const int32_t candidateIdx = FindToolIndex_(cheatId);
@@ -65,7 +63,7 @@ bool DragToolManager::TryActivate(
 		return true;
 	}
 
-	return ActivateIndex_(candidateIdx, city, view3d, winManager, imguiService, overlayManager, snapshotManager);
+	return ActivateIndex_(candidateIdx, city, view3d, winManager, overlayManager, snapshotManager);
 }
 
 bool DragToolManager::ActivateTool(
@@ -73,13 +71,12 @@ bool DragToolManager::ActivateTool(
 	cISC4City* city,
 	cISC4View3DWin* view3d,
 	cIGZWinMgr* winManager,
-	cIGZImGuiService* imguiService,
 	OverlayDrawManager& overlayManager,
 	SnapshotManager* snapshotManager) {
 	const int32_t candidateIdx = FindToolIndex_(cheatId);
 	if (candidateIdx < 0) return false;
 
-	return ActivateIndex_(candidateIdx, city, view3d, winManager, imguiService, overlayManager, snapshotManager);
+	return ActivateIndex_(candidateIdx, city, view3d, winManager, overlayManager, snapshotManager);
 }
 
 void DragToolManager::DeactivateAll() {

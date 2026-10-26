@@ -14,9 +14,9 @@ class DragToolManager {
 public:
     void Register(std::unique_ptr<IDragTool> tool);
 
-    bool TryActivate(uint32_t cheatId, cISC4City*, cISC4View3DWin*, cIGZWinMgr*, cIGZImGuiService*, OverlayDrawManager&, SnapshotManager* snapshots = nullptr);
+    bool TryActivate(uint32_t cheatId, cISC4City*, cISC4View3DWin*, cIGZWinMgr*, OverlayDrawManager&, SnapshotManager* snapshots = nullptr);
 
-    bool ActivateTool(uint32_t cheatId, cISC4City*, cISC4View3DWin*, cIGZWinMgr*, cIGZImGuiService*, OverlayDrawManager&, SnapshotManager* snapshots = nullptr);
+    bool ActivateTool(uint32_t cheatId, cISC4City*, cISC4View3DWin*, cIGZWinMgr*, OverlayDrawManager&, SnapshotManager* snapshots = nullptr);
 
     void DeactivateAll();
     void Clear();
@@ -24,7 +24,7 @@ public:
     bool HasActiveTool() const noexcept { return activeToolIdx_ >= 0; }
 
 private:
-    bool ActivateIndex_(int32_t idx, cISC4City*, cISC4View3DWin*, cIGZWinMgr*, cIGZImGuiService*, OverlayDrawManager&, SnapshotManager* snapshots);
+    bool ActivateIndex_(int32_t idx, cISC4City*, cISC4View3DWin*, cIGZWinMgr*, OverlayDrawManager&, SnapshotManager* snapshots);
     int32_t FindToolIndex_(uint32_t cheatId) const;
     void DeactivateCurrent_(cISC4View3DWin* view3d);
     std::optional<IDragTool*> GetActiveTool_() const;

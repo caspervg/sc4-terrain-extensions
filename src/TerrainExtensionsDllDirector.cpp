@@ -384,8 +384,7 @@ void TerrainExtensionsDllDirector::PostCityInit_(
                 if (!snapshotDragTool_ || !city_ || !view3d_ || !winMgr_) return;
                 snapshotDragTool_->SetRestoreIndex(snapshotIndex);
                 dragToolManager_.ActivateTool(
-                    snapshotDragTool_->GetCheatId(), city_, view3d_, winMgr_,
-                    imguiService_, overlayDrawManager_, &snapshotManager_);
+                    snapshotDragTool_->GetCheatId(), city_, view3d_, winMgr_, overlayDrawManager_, &snapshotManager_);
             });
 
         const auto desc = ImGuiPanelAdapter<SnapshotPanel>::MakeDesc(
@@ -520,8 +519,7 @@ void TerrainExtensionsDllDirector::ProcessCheat_(
 
     // Try drag tools first — each tool knows its own cheat ID
     if (dragToolManager_.TryActivate(
-            cheatID, city_, view3d_, winMgr_,
-            imguiService_, overlayDrawManager_, &snapshotManager_))
+            cheatID, city_, view3d_, winMgr_, overlayDrawManager_, &snapshotManager_))
     {
         return;
     }
@@ -586,21 +584,21 @@ bool TerrainExtensionsDllDirector::HandleCustomTerrainCatalogItem(
         LOG_INFO("Terrain catalog item 0x{:08X}: activating flatten tool", itemId);
         return dragToolManager_.TryActivate(
             TerrainCatalogHook::ItemId::Flatten,
-            city_, view3d_, winMgr_, imguiService_,
+            city_, view3d_, winMgr_,
             overlayDrawManager_, &snapshotManager_);
 
     case TerrainCatalogHook::ItemId::BridgeApproach:
         LOG_INFO("Terrain catalog item 0x{:08X}: activating bridge approach tool", itemId);
         return dragToolManager_.TryActivate(
             kTerrainExtensionsBridgeCheatID,
-            city_, view3d_, winMgr_, imguiService_,
+            city_, view3d_, winMgr_,
             overlayDrawManager_, &snapshotManager_);
 
     case TerrainCatalogHook::ItemId::ConstantGrade:
         LOG_INFO("Terrain catalog item 0x{:08X}: activating constant grade tool", itemId);
         return dragToolManager_.TryActivate(
             TerrainCatalogHook::ItemId::ConstantGrade,
-            city_, view3d_, winMgr_, imguiService_,
+            city_, view3d_, winMgr_,
             overlayDrawManager_, &snapshotManager_);
     case TerrainCatalogHook::ItemId::BlueprintCapture:
     case TerrainCatalogHook::ItemId::BlueprintExport:
