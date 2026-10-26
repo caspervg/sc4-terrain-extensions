@@ -66,6 +66,8 @@ static constexpr uint32_t kSC4MessagePreCityShutdown = 0x26D31EC2;
 static constexpr uint32_t kSC4MessageTerrainRedisplayed = 0x870BC918;
 static constexpr uint32_t kTerrainAutoSnapshotQuietPeriodMs = 3000;
 static constexpr uint32_t kTerrainAutoSnapshotMinIntervalMs = 30000;
+// Terrain edits send a redisplay message every frame; rebuilding the full-map overlays that often is wasted work.
+static constexpr uint32_t kTerrainOverlayRefreshIntervalMs = 200;
 static constexpr uint32_t kTerrainExtensionsTickServiceID = 0x7E5A9B40;
 static constexpr uint32_t kContourLabelPanelID = 0x7E5A9B30;
 
@@ -380,6 +382,7 @@ void TerrainExtensionsDllDirector::PreCityShutdown_(
     snapshotRenderer_.ClearAll();
     contourRenderer_.SetEnabled(false, nullptr);
     terrainRefreshPending_ = false;
+    terrainOverlayLastRefreshTick_ = 0;
     terrainSnapshotPending_ = false;
     terrainAutoSnapshotLastTick_ = 0;
     terrainAutoSnapshotLastMessageTick_ = 0;
@@ -599,8 +602,10 @@ void TerrainExtensionsDllDirector::CaptureTerrainSnapshotIfPending_()
 
 void TerrainExtensionsDllDirector::OnTick_()
 {
-    if (terrainRefreshPending_) {
+    const uint32_t now = GetTickCount();
+    if (terrainRefreshPending_ && now - terrainOverlayLastRefreshTick_ >= kTerrainOverlayRefreshIntervalMs) {
         terrainRefreshPending_ = false;
+        terrainOverlayLastRefreshTick_ = now;
         if (city_) {
             cISTETerrain* terrain = city_->GetTerrain();
             if (contourRenderer_.IsEnabled()) {

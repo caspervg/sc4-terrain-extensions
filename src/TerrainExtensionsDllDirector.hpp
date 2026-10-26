@@ -83,6 +83,7 @@ private:
     FrameTickService       tickService_;
     bool                   tickServiceRegistered_{false};
     bool                   terrainRefreshPending_{false};
+    uint32_t               terrainOverlayLastRefreshTick_{0};
     bool                   terrainSnapshotPending_{false};
     uint32_t               terrainAutoSnapshotLastTick_{0};
     uint32_t               terrainAutoSnapshotLastMessageTick_{0};
