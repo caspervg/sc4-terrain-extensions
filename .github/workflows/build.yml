@@ -32,7 +32,7 @@ jobs:
 
       - name: Build DLL
         run: |
-          cmake --preset vs2022-win32-release
+          cmake --preset vs2022-win32-release "-DSC4TE_VERSION_TAG=${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '0.0.0-dev' }}"
           cmake --build --preset vs2022-win32-release-build --target SC4TerrainExtensions --parallel
 
       - name: Smoke test build outputs
