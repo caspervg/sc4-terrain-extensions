@@ -408,6 +408,9 @@ Section "Install"
   SetOutPath "$SC4PluginsDir"
   File "SC4TerrainExtensions.dll"
   File "SC4TerrainExtensions.dat"
+  SetOverwrite off
+  File "SC4TerrainExtensions.ini"
+  SetOverwrite on
 
   CreateDirectory "$SC4ToolsDir"
   SetOutPath "$SC4ToolsDir"

@@ -86,12 +86,24 @@ file(GLOB_RECURSE PROJECT_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
 )
 list(APPEND PROJECT_SOURCES "${CMAKE_SOURCE_DIR}/src/version.rc")
+
+# Stamped into the DLL's version resource. CI passes the release tag, e.g. v0.3.0.
+set(SC4TE_VERSION_TAG "0.0.0-dev" CACHE STRING "Version stamped into SC4TerrainExtensions.dll ([v]MAJOR.MINOR.PATCH[-suffix])")
+if(NOT SC4TE_VERSION_TAG MATCHES "^v?([0-9]+)\.([0-9]+)\.([0-9]+)")
+    message(FATAL_ERROR "SC4TE_VERSION_TAG must start with MAJOR.MINOR.PATCH, got '${SC4TE_VERSION_TAG}'")
+endif()
+set(SC4TE_VERSION_MAJOR ${CMAKE_MATCH_1})
+set(SC4TE_VERSION_MINOR ${CMAKE_MATCH_2})
+set(SC4TE_VERSION_PATCH ${CMAKE_MATCH_3})
+string(REGEX REPLACE "^v" "" SC4TE_VERSION_STRING "${SC4TE_VERSION_TAG}")
+configure_file("${CMAKE_SOURCE_DIR}/src/version.h.in" "${PROJECT_BINARY_DIR}/generated/version.h" @ONLY)
 set(SC4_DLL_DEF "${CMAKE_SOURCE_DIR}/SC4TerrainExtensions.def")
 
 add_library(${PROJECT_NAME} SHARED ${PROJECT_SOURCES} ${SC4_DLL_DEF})
 target_compile_definitions(${PROJECT_NAME} PRIVATE NOMINMAX)
 
 target_include_directories(${PROJECT_NAME} PRIVATE
+    "${PROJECT_BINARY_DIR}/generated"
     "${CMAKE_SOURCE_DIR}/src"
     "${GZCOM_DIR}/include"
     "${SC4_DLL_BASICS_DIR}/include"
@@ -109,6 +121,7 @@ set(SC4_DLL_LINK_LIBS
     kernel32
     user32
     Version
+    wininet
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${SC4_DLL_LINK_LIBS})
