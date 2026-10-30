@@ -121,6 +121,7 @@ set(SC4_DLL_LINK_LIBS
     kernel32
     user32
     Version
+    wininet
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE ${SC4_DLL_LINK_LIBS})

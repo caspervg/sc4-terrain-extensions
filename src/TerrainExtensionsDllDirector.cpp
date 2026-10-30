@@ -2,6 +2,7 @@
 
 #include "version.h"
 #include "utils/Logger.h"
+#include "utils/UpdateCheck.hpp"
 #include "cIGZApp.h"
 #include "cIGZCheatCodeManager.h"
 #include "cIGZFrameWork.h"
@@ -63,6 +64,7 @@ static constexpr std::string_view kTerrainExtensionsSlopeCheatString = "slope";
 static constexpr uint32_t kSC4MessageCheatIssued = 0x230E27AC;
 static constexpr uint32_t kSC4MessagePostCityInit = 0x26D31EC1;
 static constexpr uint32_t kSC4MessagePreCityShutdown = 0x26D31EC2;
+static constexpr uint32_t kSC4MessagePostRegionInit = 0xCBB5BB45;
 static constexpr uint32_t kSC4MessageTerrainRedisplayed = 0x870BC918;
 static constexpr uint32_t kTerrainAutoSnapshotQuietPeriodMs = 3000;
 static constexpr uint32_t kTerrainAutoSnapshotMinIntervalMs = 30000;
@@ -114,6 +116,9 @@ bool TerrainExtensionsDllDirector::DoMessage(cIGZMessage2* pMsg) {
     case kSC4MessagePreCityShutdown:
         PreCityShutdown_(pStandardMsg);
         break;
+    case kSC4MessagePostRegionInit:
+        UpdateCheck::ShowNotice();
+        break;
     case kSC4MessageTerrainRedisplayed:
         if (contourRenderer_.IsEnabled() || slopeRenderer_.IsEnabled()) {
             terrainRefreshPending_ = true;
@@ -149,8 +154,11 @@ bool TerrainExtensionsDllDirector::PostAppInit() {
         pMS2->AddNotification(this, kSC4MessagePostCityInit);
         pMS2->AddNotification(this, kSC4MessagePreCityShutdown);
         pMS2->AddNotification(this, kSC4MessageTerrainRedisplayed);
+        pMS2->AddNotification(this, kSC4MessagePostRegionInit);
         messageServer_ = pMS2;
     }
+
+    UpdateCheck::Start("caspervg/sc4-terrain-extensions", "SC4 Terrain Extensions", PLUGIN_VERSION_STR);
 
     if (mpFrameWork->GetSystemService(
             kImGuiServiceID, GZIID_cIGZImGuiService,
