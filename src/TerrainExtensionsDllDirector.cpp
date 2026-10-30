@@ -158,7 +158,7 @@ bool TerrainExtensionsDllDirector::PostAppInit() {
         messageServer_ = pMS2;
     }
 
-    UpdateCheck::Start("caspervg/sc4-terrain-extensions", "SC4 Terrain Extensions", PLUGIN_VERSION_STR);
+    UpdateCheck::Start("caspervg/sc4-terrain-extensions", "SC4TerrainExtensions", PLUGIN_VERSION_STR);
 
     if (mpFrameWork->GetSystemService(
             kImGuiServiceID, GZIID_cIGZImGuiService,
