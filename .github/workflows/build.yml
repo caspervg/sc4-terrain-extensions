@@ -117,6 +117,7 @@ jobs:
           cp "$dll_path" dist-package/SC4TerrainExtensions.dll
           cp "$sbom_path" dist-package/SC4TerrainExtensions.spdx.json
           cp dist/SC4TerrainExtensions.dat dist-package/SC4TerrainExtensions.dat
+          cp dist/SC4TerrainExtensions.ini dist-package/SC4TerrainExtensions.ini
           cp dist/README.txt dist-package/
           cp LICENSE.txt dist-package/
           cp dist/THIRD_PARTY_NOTICES.txt dist-package/

@@ -43,6 +43,7 @@
 
 #include <algorithm>
 #include <cfloat>
+#include <filesystem>
 #include <sstream>
 #include <windows.h>
 
@@ -65,6 +66,19 @@ static constexpr uint32_t kSC4MessageCheatIssued = 0x230E27AC;
 static constexpr uint32_t kSC4MessagePostCityInit = 0x26D31EC1;
 static constexpr uint32_t kSC4MessagePreCityShutdown = 0x26D31EC2;
 static constexpr uint32_t kSC4MessagePostRegionInit = 0xCBB5BB45;
+
+// CheckForUpdates in SC4TerrainExtensions.ini beside the DLL. On unless it says false.
+static bool UpdateCheckEnabled() {
+    HMODULE module = nullptr;
+    wchar_t path[MAX_PATH]{};
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                       reinterpret_cast<LPCWSTR>(&UpdateCheckEnabled), &module);
+    GetModuleFileNameW(module, path, MAX_PATH);
+    const auto ini = std::filesystem::path(path).replace_filename(L"SC4TerrainExtensions.ini");
+    wchar_t value[16]{};
+    GetPrivateProfileStringW(L"SC4TerrainExtensions", L"CheckForUpdates", L"true", value, 16, ini.c_str());
+    return _wcsicmp(value, L"false") != 0;
+}
 static constexpr uint32_t kSC4MessageTerrainRedisplayed = 0x870BC918;
 static constexpr uint32_t kTerrainAutoSnapshotQuietPeriodMs = 3000;
 static constexpr uint32_t kTerrainAutoSnapshotMinIntervalMs = 30000;
@@ -158,7 +172,9 @@ bool TerrainExtensionsDllDirector::PostAppInit() {
         messageServer_ = pMS2;
     }
 
-    UpdateCheck::Start("caspervg/sc4-terrain-extensions", "SC4TerrainExtensions", PLUGIN_VERSION_STR);
+    if (UpdateCheckEnabled()) {
+        UpdateCheck::Start("caspervg/sc4-terrain-extensions", "SC4TerrainExtensions", PLUGIN_VERSION_STR);
+    }
 
     if (mpFrameWork->GetSystemService(
             kImGuiServiceID, GZIID_cIGZImGuiService,
