@@ -266,3 +266,20 @@ jobs:
             dist-package/SC4TerrainExtensions.spdx.json
             dist-package/SHA256SUMS.txt
           generate_release_notes: true
+
+  # Points the sc4pac package at the new release on a branch of caspervg/simtropolis-channel, and
+  # links to a prefilled pull request in the job summary.
+  sc4pac:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    environment: sc4pac
+    concurrency: sc4pac-caspervg-sc4-terrain-extension
+    steps:
+      - uses: caspervg/sc4pac-release-action@v1
+        with:
+          channel: sebamarynissen/simtropolis-channel
+          asset-id: caspervg-sc4-terrain-extension
+          asset-name: SC4TerrainExtensions-${{ github.ref_name }}.zip
+          token: ${{ secrets.SC4PAC_FORK_TOKEN }}
