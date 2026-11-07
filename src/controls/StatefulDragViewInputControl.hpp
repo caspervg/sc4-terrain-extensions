@@ -50,6 +50,12 @@ public:
     void FinalizeClose();
     void Activate() override;
     void Deactivate() override;
+    bool Shutdown() override;
+
+    // Vanilla tool commands push their control on top of the current one instead of replacing
+    // it, so this control can still be on the stack below the top. Pops whatever is above it;
+    // returns whether it is now on top.
+    bool RaiseToTop();
 
     bool OnMouseMove(int32_t x, int32_t z, uint32_t mod) override;
     bool OnMouseDownL(int32_t x, int32_t z, uint32_t mod) override;
@@ -80,4 +86,6 @@ private:
     BeforeExecuteCallback onBeforeExecute_;
     CloseCallback onClose_;
     bool closeInProgress_ = false;
+    // Pushed onto the view and not shut down since.
+    bool inStack_ = false;
 };

@@ -59,7 +59,11 @@ bool DragToolManager::TryActivate(
 	if (candidateIdx < 0) return false;
 
 	if (activeToolIdx_ == candidateIdx) {
-		DeactivateCurrent_(view3d);
+		// Below a vanilla tool: bring it back instead of turning it off.
+		StatefulDragViewInputControl* control = tools_[candidateIdx]->GetInputControl();
+		if (!(control && view3d && view3d->GetCurrentViewInputControl() != control && control->RaiseToTop())) {
+			DeactivateCurrent_(view3d);
+		}
 		return true;
 	}
 
@@ -99,8 +103,7 @@ void DragToolManager::DeactivateCurrent_(cISC4View3DWin* view3d) {
 
 	StatefulDragViewInputControl* control = active->GetInputControl();
 	if (control && view3d) {
-		cISC4ViewInputControl* currentControl = view3d->GetCurrentViewInputControl();
-		if (currentControl == control) {
+		if (control->RaiseToTop()) {
 			view3d->SetCurrentViewInputControl(
 				nullptr,
 				cISC4View3DWin::ViewInputControlStackOperation_RemoveCurrentControl
