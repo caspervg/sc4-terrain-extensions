@@ -207,6 +207,7 @@ bool StatefulDragViewInputControl::OnKeyUp(const int32_t vkCode, const uint32_t 
 
 void StatefulDragViewInputControl::Activate() {
 	cSC4BaseViewInputControl::Activate();
+	inStack_ = true;
 	LOG_DEBUG("StatefulDragViewInputControl::Activate: state='{}'",
 		currentState_ ? currentState_->GetName() : "(null)");
 }
@@ -244,16 +245,28 @@ void StatefulDragViewInputControl::FinalizeClose() {
 	}
 }
 
+// The game also deactivates a control it covers, e.g. with its right-drag camera pan, and does
+// not activate it again when that ends. So this only pauses: a drag in progress is dropped and
+// the control waits in Hovering. Shutdown, which the game calls when it removes the control,
+// ends it.
 void StatefulDragViewInputControl::Deactivate() {
 	cSC4BaseViewInputControl::Deactivate();
 	LOG_DEBUG("StatefulDragViewInputControl::Deactivate: state='{}'",
 		currentState_ ? currentState_->GetName() : "(null)");
 
+	EndCapture();
+
+	if (currentState_ && currentState_->GetStateId() != ControlStateId::Dormant) {
+		TransitionTo(ControlStateId::Hovering);
+	}
+}
+
+bool StatefulDragViewInputControl::Shutdown() {
+	inStack_ = false;
+
 	if (currentState_ && currentState_->GetStateId() != ControlStateId::Dormant) {
 		TransitionTo(ControlStateId::Dormant);
 	}
-
-	EndCapture();
 
 	if (onOwnerDeactivate_) {
 		onOwnerDeactivate_();
@@ -262,4 +275,20 @@ void StatefulDragViewInputControl::Deactivate() {
 	if (onDeactivate_) {
 		onDeactivate_();
 	}
+
+	return cSC4BaseViewInputControl::Shutdown();
+}
+
+bool StatefulDragViewInputControl::RaiseToTop() {
+	if (!view3D_) {
+		return false;
+	}
+	if (inStack_) {
+		while (cISC4ViewInputControl* const top = view3D_->GetCurrentViewInputControl()) {
+			if (top == this || !view3D_->RemoveCurrentViewInputControl(false)) {
+				break;
+			}
+		}
+	}
+	return view3D_->GetCurrentViewInputControl() == this;
 }

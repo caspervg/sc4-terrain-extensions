@@ -143,11 +143,8 @@ void BridgeApproachDragTool::Deactivate() {
 		control_->SetOwnerDeactivateCallback(nullptr);
 	}
 
-	if (control_ && view3d_) {
-		cISC4ViewInputControl* currentControl = view3d_->GetCurrentViewInputControl();
-		if (currentControl == control_.get()) {
-			view3d_->RemoveCurrentViewInputControl(false);
-		}
+	if (control_ && view3d_ && control_->RaiseToTop()) {
+		view3d_->RemoveCurrentViewInputControl(false);
 	}
 
 	if (renderer_) {
